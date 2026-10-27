@@ -17,6 +17,7 @@ import org.springframework.boot.health.contributor.Health;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
@@ -37,6 +38,11 @@ import java.util.Map;
  * </ol>
  * Runs every minute; any mismatch is logged at ERROR and turns the
  * {@code accounting} health indicator DOWN.
+ *
+ * <p>Each check reads accounts, holdings, reservations and the ledger in separate
+ * queries, so it runs in one REPEATABLE READ (snapshot) transaction: a trade that
+ * settles mid-check is either fully visible or not at all, which prevents false
+ * mismatch alarms.
  */
 @Slf4j
 @Service
@@ -59,7 +65,7 @@ public class ReconciliationService {
         this.clock = clock;
     }
 
-    @Transactional(readOnly = true)
+    @Transactional(readOnly = true, isolation = Isolation.REPEATABLE_READ)
     public ReconciliationReport check(long userId) {
         List<ReconciliationIssue> issues = new ArrayList<>();
         var account = accountRepository.findById(userId);
@@ -67,7 +73,7 @@ public class ReconciliationService {
         return new ReconciliationReport(clock.instant(), account.isPresent() ? 1 : 0, issues.isEmpty(), issues);
     }
 
-    @Transactional(readOnly = true)
+    @Transactional(readOnly = true, isolation = Isolation.REPEATABLE_READ)
     public ReconciliationReport checkAll() {
         List<Account> accounts = accountRepository.findAll();
         List<ReconciliationIssue> issues = new ArrayList<>();
@@ -80,7 +86,10 @@ public class ReconciliationService {
         return report;
     }
 
+    // Annotated here as well: the call to checkAll() below is a self-invocation that
+    // bypasses the transactional proxy, so the scheduled run needs its own snapshot.
     @Scheduled(fixedDelayString = "${tradeflow.portfolio.reconciliation-interval-ms:60000}", initialDelay = 30000)
+    @Transactional(readOnly = true, isolation = Isolation.REPEATABLE_READ)
     public void scheduledCheck() {
         ReconciliationReport report = checkAll();
         report.issues().forEach(i -> log.error("RECONCILIATION MISMATCH user={} check={} expected={} actual={}",
