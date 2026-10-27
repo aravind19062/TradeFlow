@@ -26,8 +26,8 @@ ps: ## Show container status and health
 logs: ## Follow logs of all containers (make logs S=order-service for one)
 	$(COMPOSE) --profile apps logs -f --tail=100 $(S)
 
-reset: ## Stop everything and DELETE the PostgreSQL volume (asks for confirmation)
-	@read -p "This deletes all TradeFlow PostgreSQL data. Type 'reset' to continue: " ans; \
+reset: ## Stop everything and DELETE the PostgreSQL and Kafka volumes (asks for confirmation)
+	@read -p "This deletes all TradeFlow PostgreSQL and Kafka data. Type 'reset' to continue: " ans; \
 	if [ "$$ans" = "reset" ]; then $(COMPOSE) --profile apps down -v; echo "Volumes removed."; else echo "Aborted."; fi
 
 psql: ## Open psql in the PostgreSQL container (make psql DB=tradeflow_order)
