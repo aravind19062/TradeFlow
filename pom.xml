@@ -1,0 +1,134 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+		 xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+	<modelVersion>4.0.0</modelVersion>
+
+	<!--
+		Aggregator + parent for every TradeFlow module. Spring Boot's dependency
+		management pins all framework/library versions; only libraries Boot does
+		not manage get an explicit version below.
+	-->
+	<parent>
+		<groupId>org.springframework.boot</groupId>
+		<artifactId>spring-boot-starter-parent</artifactId>
+		<version>4.1.1</version>
+		<relativePath/>
+	</parent>
+
+	<groupId>com.luffy</groupId>
+	<artifactId>tradeflow-parent</artifactId>
+	<version>0.0.1-SNAPSHOT</version>
+	<packaging>pom</packaging>
+	<name>TradeFlow</name>
+	<description>Event-driven simulated trading platform</description>
+
+	<modules>
+		<module>tradeflow-common</module>
+		<module>tradeflow-user-service</module>
+		<module>tradeflow-market-data-service</module>
+		<module>tradeflow-order-service</module>
+		<module>tradeflow-portfolio-service</module>
+		<module>tradeflow-e2e-tests</module>
+	</modules>
+
+	<properties>
+		<java.version>17</java.version>
+		<springdoc.version>3.1.1</springdoc.version>
+		<embedded-postgres.version>2.2.2</embedded-postgres.version>
+		<anthropic-java.version>2.71.0</anthropic-java.version>
+		<embedded-postgres-binaries.version>16.15.0</embedded-postgres-binaries.version>
+	</properties>
+
+	<dependencyManagement>
+		<dependencies>
+			<dependency>
+				<groupId>com.luffy</groupId>
+				<artifactId>tradeflow-common</artifactId>
+				<version>${project.version}</version>
+			</dependency>
+			<dependency>
+				<groupId>org.springdoc</groupId>
+				<artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
+				<version>${springdoc.version}</version>
+			</dependency>
+			<dependency>
+				<groupId>com.anthropic</groupId>
+				<artifactId>anthropic-java</artifactId>
+				<version>${anthropic-java.version}</version>
+			</dependency>
+			<dependency>
+				<groupId>io.zonky.test</groupId>
+				<artifactId>embedded-postgres</artifactId>
+				<version>${embedded-postgres.version}</version>
+			</dependency>
+			<dependency>
+				<groupId>io.zonky.test.postgres</groupId>
+				<artifactId>embedded-postgres-binaries-bom</artifactId>
+				<version>${embedded-postgres-binaries.version}</version>
+				<type>pom</type>
+				<scope>import</scope>
+			</dependency>
+		</dependencies>
+	</dependencyManagement>
+
+	<build>
+		<pluginManagement>
+			<plugins>
+				<plugin>
+					<groupId>org.apache.maven.plugins</groupId>
+					<artifactId>maven-compiler-plugin</artifactId>
+					<configuration>
+						<annotationProcessorPaths>
+							<path>
+								<groupId>org.projectlombok</groupId>
+								<artifactId>lombok</artifactId>
+								<version>${lombok.version}</version>
+							</path>
+						</annotationProcessorPaths>
+					</configuration>
+				</plugin>
+				<plugin>
+					<groupId>org.springframework.boot</groupId>
+					<artifactId>spring-boot-maven-plugin</artifactId>
+					<configuration>
+						<!-- Keep the plain jar as the main artifact so the e2e module can depend on it. -->
+						<classifier>exec</classifier>
+						<excludes>
+							<exclude>
+								<groupId>org.projectlombok</groupId>
+								<artifactId>lombok</artifactId>
+							</exclude>
+						</excludes>
+					</configuration>
+				</plugin>
+				<plugin>
+					<groupId>org.apache.maven.plugins</groupId>
+					<artifactId>maven-surefire-plugin</artifactId>
+					<configuration>
+						<!-- PostgreSQL tests are opt-in: mvn verify -Ppostgres-tests -->
+						<excludedGroups>postgres</excludedGroups>
+					</configuration>
+				</plugin>
+			</plugins>
+		</pluginManagement>
+	</build>
+
+	<profiles>
+		<profile>
+			<id>postgres-tests</id>
+			<build>
+				<pluginManagement>
+					<plugins>
+						<plugin>
+							<groupId>org.apache.maven.plugins</groupId>
+							<artifactId>maven-surefire-plugin</artifactId>
+							<configuration>
+								<excludedGroups combine.self="override"/>
+							</configuration>
+						</plugin>
+					</plugins>
+				</pluginManagement>
+			</build>
+		</profile>
+	</profiles>
+</project>
