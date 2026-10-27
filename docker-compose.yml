@@ -3,7 +3,7 @@
 #   make infra-up     PostgreSQL + Kafka + Kafka UI (run the services from your IDE / mvn)
 #   make up           infrastructure + all four services in containers
 #   make down         stop everything, KEEP data volumes
-#   make reset        stop everything and DELETE the PostgreSQL volume (asks first)
+#   make reset        stop everything and DELETE the PostgreSQL and Kafka volumes (asks first)
 #
 # Networking: containers reach each other by service name (postgres:5432,
 # kafka:29092). Your Mac reaches them on localhost:5432 and localhost:9094.
@@ -75,12 +75,17 @@ services:
       KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
       KAFKA_NUM_PARTITIONS: 3
       KAFKA_HEAP_OPTS: -Xms256m -Xmx512m
-    # Kafka data is deliberately not on a volume: PostgreSQL (with the outbox) is the
-    # system of record, and a fresh broker after `down` keeps local runs predictable.
-    # The image declares VOLUMEs for these paths; empty tmpfs mounts stop Docker from
-    # leaving three orphaned anonymous volumes behind on every down/up cycle.
+      KAFKA_LOG_DIRS: /var/lib/kafka/data
+    # Kafka data lives on a named volume. Wiping it while services keep running would
+    # let a fresh broker hand out producer ids still used by those services, and the
+    # broker then acknowledges some writes as "duplicates" without storing them. With
+    # the volume, recreating the kafka container keeps its log and producer state;
+    # `make reset` removes it only together with every client.
+    volumes:
+      - kafka_data:/var/lib/kafka/data
+    # The image also declares these VOLUMEs; empty tmpfs mounts stop Docker from
+    # leaving orphaned anonymous volumes behind on every down/up cycle.
     tmpfs:
-      - /var/lib/kafka/data
       - /etc/kafka/secrets
       - /mnt/shared/config
     healthcheck:
@@ -180,3 +185,4 @@ services:
 
 volumes:
   postgres_data:
+  kafka_data:

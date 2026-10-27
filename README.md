@@ -287,6 +287,10 @@ run against a non-empty schema it did not create. Nothing is silently erased.
 * **Producer:** `acks=all`, idempotence on, sends time out after 5–10 s instead of hanging.
 * **Compose listeners:** containers use `kafka:29092`, your Mac uses `localhost:9094`, and the KRaft
   controller uses 9093. Port 9094 avoids clashing with a Homebrew Kafka on 9092.
+* **Kafka data is on a named volume** (`kafka_data`), like PostgreSQL. Never wipe Kafka storage while
+  the services keep running: a fresh broker re-issues idempotent producer ids that running services still
+  use, and some of their writes are then acknowledged as duplicates without being stored. `make reset`
+  is safe because it stops every client at the same time.
 * **When Kafka is unavailable:**
   * Order placement still succeeds (`202 PENDING`) because the event waits in the outbox.
   * The log explains what is wrong, and `/actuator/health` shows `kafka: DOWN` and then `outbox: DOWN`.
@@ -359,7 +363,7 @@ make up | make infra-up      # start
 make ps                      # status and health
 make logs S=order-service    # follow logs (omit S for all)
 make down                    # stop, keep data
-make reset                   # stop and delete the PostgreSQL volume (asks for confirmation)
+make reset                   # stop and delete the PostgreSQL and Kafka volumes (asks for confirmation)
 make psql DB=tradeflow_portfolio
 make topics                  # list Kafka topics
 make dlt T=trades.executed   # inspect dead-lettered messages
