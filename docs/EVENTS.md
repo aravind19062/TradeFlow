@@ -38,27 +38,42 @@ Decimals are JSON numbers and are read as `BigDecimal` (never `double`).
 | `orders.cancelled` | order → portfolio | userId | `orderId, userId, reason` | Release the order's reservation. |
 | `trades.executed` | order → portfolio | userId | `tradeId, orderId, userId, symbol, side, quantity, price, grossAmount, executedAt` | Settle the fill against the reservation. |
 | `prices.updated` | market-data → order | symbol | `symbol, price, tick, asOf, source` | New simulated tick; resting LIMIT orders may fill. |
+| `trades.settled` | portfolio → order | orderId | `tradeId, orderId, userId` | The trade is booked. Re-sent for an already-booked trade, so a re-driven saga can complete. |
+| `orders.released` | portfolio → order | orderId | `orderId, userId, outcome` | Reply to `orders.cancelled`: `RELEASED`, `NOTHING_TO_RELEASE` (tombstone recorded) or `ALREADY_SETTLED` (nothing undone). |
 
 Events consumed by portfolio-service are keyed by user id so one user's events stay ordered
 within a topic. Ordering across topics is not guaranteed; the state machines below make that safe.
 
 ## Order saga
 
-```
-order-service                         portfolio-service
-POST /api/orders ── orders.placed ──▶ reserve cash/shares
-     PENDING                          ├─ ok   ── orders.reserved ──▶ MARKET: fill at accepted quote → FILLED
-                                      │                              LIMIT: fill if marketable, else OPEN
-                                      └─ fail ── orders.rejected ──▶ REJECTED
-OPEN ── prices.updated (marketable) ──▶ FILLED ── trades.executed ──▶ settle: cash/holdings/ledger
-OPEN ── POST /cancel ──▶ CANCELLED ── orders.cancelled ──▶ release reservation
-```
+Choreography with an explicit progress record (`order_sagas`) owned by order-service; a recovery job
+acts on overdue steps.
 
-* A PENDING order cannot be cancelled (its reservation is in flight), so a cancel can never
-  race a reservation.
-* FILLED and CANCELLED are mutually exclusive: the order row has an optimistic-lock version.
-* A BUY never fills above its reservation price, so settlement never needs more cash than
-  was reserved; if it ever did, portfolio-service raises `InconsistentStateException`.
+| Saga state | Waiting for | On timeout |
+|---|---|---|
+| `AWAITING_RESERVATION` | `orders.reserved` / `orders.rejected` (2 min) | Order REJECTED (`RESERVATION_TIMEOUT`) and release requested |
+| `RESTING` | marketable `prices.updated` or user cancel (time-to-live 1 day) | Order EXPIRED and release requested |
+| `AWAITING_SETTLEMENT` | `trades.settled` (2 min) | Same trade re-sent (≤ 3 times), then `SETTLEMENT_FAILED`. Funds are **never** released. |
+| `RELEASE_REQUESTED` | `orders.released` (2 min) | Release re-sent (≤ 3 times), then `RELEASE_FAILED` |
+
+Final states: `COMPLETED`, `REJECTED`, `RELEASED`. Failed states (`SETTLEMENT_FAILED`, `RELEASE_FAILED`)
+turn `orderPipeline` health DOWN; an admin retries them with `POST /api/admin/orders/sagas/{id}/retry`.
+
+Rules that keep compensation safe:
+
+* **Cancel timing:** a PENDING order cannot be cancelled by the user; its reservation is in flight.
+  Timeouts handle that case instead.
+* **Late reservations:** a reservation for an order that already ended triggers another release request.
+  A release that arrives before its reservation leaves a tombstone, so the late reservation is refused
+  (`ORDER_CANCELLED`). Reserve and release for the same user both lock the account row first
+  (`SELECT … FOR UPDATE`), so they can never interleave and leave both a reservation and a tombstone.
+* **Settled reservations:** portfolio never releases them, and answers `ALREADY_SETTLED`.
+* **Fill vs cancel:** FILLED and CANCELLED/EXPIRED are mutually exclusive (optimistic lock on the order
+  row).
+* **Concurrent settlements:** settlements of the same order are serialized by a row lock on the
+  reservation, and `ledger_entries.trade_id` is UNIQUE.
+* **Cross-service check:** portfolio-service compares stale ACTIVE reservations with order-service. It
+  releases leaked ones automatically and reports unsettled fills and orphans.
 
 ## Delivery guarantees
 
