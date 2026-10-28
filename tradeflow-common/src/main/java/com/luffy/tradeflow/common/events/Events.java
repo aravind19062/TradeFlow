@@ -80,6 +80,34 @@ public final class Events {
             @NotNull Instant executedAt) {
     }
 
+    /**
+     * trades.settled (portfolio-service → order-service): the trade is booked (cash,
+     * holdings, ledger). Re-sent when an already-booked trade is redelivered, so the
+     * order saga can complete even if the first confirmation was lost.
+     */
+    public record TradeSettled(
+            @NotNull UUID tradeId,
+            @NotNull UUID orderId,
+            @NotNull Long userId) {
+    }
+
+    /** Outcome of a release request. */
+    public enum ReleaseOutcome {
+        /** An ACTIVE reservation was released. */
+        RELEASED,
+        /** No reservation existed; a tombstone now blocks a late one. Also the reply to repeated requests. */
+        NOTHING_TO_RELEASE,
+        /** The reservation was already consumed by a trade, so nothing was released. */
+        ALREADY_SETTLED
+    }
+
+    /** orders.released (portfolio-service → order-service): reply to orders.cancelled. */
+    public record OrderReleased(
+            @NotNull UUID orderId,
+            @NotNull Long userId,
+            @NotNull ReleaseOutcome outcome) {
+    }
+
     /** prices.updated (market-data-service → order-service): a new simulated tick. */
     public record PriceUpdated(
             @NotBlank String symbol,

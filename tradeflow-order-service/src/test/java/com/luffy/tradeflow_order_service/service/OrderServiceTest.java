@@ -44,9 +44,9 @@ class OrderServiceTest {
 
     @BeforeEach
     void setUp() {
-        OrderProperties props = new OrderProperties(null, 1_000L, new BigDecimal("100000"), null);
+        OrderProperties props = new OrderProperties(1_000L, new BigDecimal("100000"), null);
         service = new OrderService(orders, mock(TradeRepository.class), marketData, outbox, props, tx,
-                Clock.fixed(Instant.parse("2026-01-01T00:00:00Z"), ZoneOffset.UTC));
+                mock(com.luffy.tradeflow_order_service.saga.OrderSagaService.class), Clock.fixed(Instant.parse("2026-01-01T00:00:00Z"), ZoneOffset.UTC));
         when(tx.execute(any())).thenAnswer(inv -> inv.<TransactionCallback<?>>getArgument(0).doInTransaction(null));
         when(marketData.quote(anyString())).thenReturn(
                 new MarketDataClient.Quote("TCS", new BigDecimal("100.00"), 5, Instant.now(), "SIMULATED"));

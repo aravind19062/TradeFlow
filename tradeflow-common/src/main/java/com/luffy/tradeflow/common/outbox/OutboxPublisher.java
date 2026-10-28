@@ -22,8 +22,9 @@ import java.util.concurrent.TimeUnit;
  * stops (preserving order) and polling backs off, so a Kafka outage produces a
  * growing backlog that is visible in {@code /actuator/health}, never silent loss.
  *
- * <p>Assumes one publisher instance per service. Running several replicas would
- * need row locking (e.g. {@code FOR UPDATE SKIP LOCKED}) or leader election.
+ * <p>Safe with several replicas: each batch is claimed with {@code FOR UPDATE SKIP LOCKED},
+ * so instances publish disjoint rows. Ordering is then per instance, not global; consumers
+ * already tolerate that (idempotency, stale-tick checks, state machines).
  */
 @Slf4j
 @Component
@@ -35,12 +36,15 @@ public class OutboxPublisher {
     private final Clock clock;
     private final Duration sendTimeout;
     private final Duration failureBackoff;
+    private final org.springframework.transaction.support.TransactionTemplate transactionTemplate;
     private volatile Instant pausedUntil = Instant.MIN;
     private volatile boolean failing;
 
     public OutboxPublisher(OutboxEventRepository repository, KafkaTemplate<String, String> kafkaTemplate, Clock clock,
+                           org.springframework.transaction.support.TransactionTemplate transactionTemplate,
                            @Value("${tradeflow.outbox.send-timeout:PT10S}") Duration sendTimeout,
                            @Value("${tradeflow.outbox.failure-backoff:PT5S}") Duration failureBackoff) {
+        this.transactionTemplate = transactionTemplate;
         this.repository = repository;
         this.kafkaTemplate = kafkaTemplate;
         this.clock = clock;
@@ -53,13 +57,18 @@ public class OutboxPublisher {
         if (clock.instant().isBefore(pausedUntil)) {
             return;
         }
-        List<OutboxEvent> batch = repository.findTop100ByPublishedAtIsNullOrderByIdAsc();
+        // Rows are claimed (FOR UPDATE SKIP LOCKED) and marked inside one transaction, so a
+        // second instance skips them instead of publishing duplicates.
+        transactionTemplate.executeWithoutResult(tx -> publishBatch());
+    }
+
+    private void publishBatch() {
+        List<OutboxEvent> batch = repository.claimNextBatch(org.springframework.data.domain.Limit.of(100));
         for (OutboxEvent event : batch) {
             try {
                 kafkaTemplate.send(event.getTopic(), event.getMessageKey(), event.getPayload())
                         .get(sendTimeout.toMillis(), TimeUnit.MILLISECONDS);
                 event.markPublished(clock.instant());
-                repository.save(event);
                 if (failing) {
                     log.info("Kafka publishing recovered; outbox draining again");
                     failing = false;
@@ -69,7 +78,6 @@ public class OutboxPublisher {
                 return;
             } catch (Exception e) {
                 event.markFailed(rootMessage(e));
-                repository.save(event);
                 pausedUntil = clock.instant().plus(failureBackoff);
                 if (!failing) {
                     log.error("Cannot publish outbox event {} to topic '{}': {}. Events are kept in the outbox and "

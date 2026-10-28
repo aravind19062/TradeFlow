@@ -23,4 +23,10 @@ public record AuthenticatedUser(long id, String email, Set<String> roles, String
     public boolean isAdmin() {
         return roles.contains(ROLE_ADMIN);
     }
+
+    /** The raw bearer token must never reach logs. */
+    @Override
+    public String toString() {
+        return "AuthenticatedUser[id=" + id + ", roles=" + roles + ", token=<redacted>]";
+    }
 }

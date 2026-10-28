@@ -16,6 +16,8 @@ public class SecurityConfig {
         jwtSecurity.applyDefaults(http)
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(JwtSecurityConfig.PUBLIC_PATHS).permitAll()
+                        .requestMatchers("/internal/**").hasRole("SERVICE")
+                        .requestMatchers("/api/admin/**").hasRole("ADMIN")
                         .requestMatchers("/h2-console/**").permitAll()
                         .anyRequest().authenticated())
                 .headers(headers -> headers.frameOptions(frame -> frame.sameOrigin()));

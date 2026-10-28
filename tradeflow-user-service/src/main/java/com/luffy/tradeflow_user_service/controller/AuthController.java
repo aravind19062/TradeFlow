@@ -39,8 +39,9 @@ public class AuthController {
 
     @PostMapping("/api/auth/login")
     @Operation(summary = "Exchange email and password for a JWT access token")
-    public TokenResponse login(@Valid @RequestBody LoginRequest request) {
-        return authService.login(request);
+    public TokenResponse login(@Valid @RequestBody LoginRequest request,
+                               jakarta.servlet.http.HttpServletRequest httpRequest) {
+        return authService.login(request, httpRequest.getRemoteAddr());
     }
 
     @GetMapping("/api/users/me")

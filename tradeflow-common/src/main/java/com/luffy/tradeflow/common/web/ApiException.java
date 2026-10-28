@@ -10,11 +10,26 @@ public class ApiException extends RuntimeException {
 
     private final HttpStatus status;
     private final String code;
+    /** Seconds the client should wait before retrying (sent as Retry-After), or null. */
+    private final Long retryAfterSeconds;
 
     public ApiException(HttpStatus status, String code, String message) {
+        this(status, code, message, null);
+    }
+
+    public ApiException(HttpStatus status, String code, String message, Long retryAfterSeconds) {
         super(message);
         this.status = status;
         this.code = code;
+        this.retryAfterSeconds = retryAfterSeconds;
+    }
+
+    public Long getRetryAfterSeconds() {
+        return retryAfterSeconds;
+    }
+
+    public static ApiException tooManyRequests(String code, String message, long retryAfterSeconds) {
+        return new ApiException(HttpStatus.TOO_MANY_REQUESTS, code, message, retryAfterSeconds);
     }
 
     public HttpStatus getStatus() {

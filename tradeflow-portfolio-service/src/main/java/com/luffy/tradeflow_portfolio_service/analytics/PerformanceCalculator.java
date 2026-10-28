@@ -56,7 +56,9 @@ public final class PerformanceCalculator {
                     prices.put(ev.symbol(), ev.price());
                 } else {
                     LedgerEntry e = ev.entry();
-                    cash = e.getCashBalanceAfter();
+                    // Sum the deltas: trades can settle in a different order than they executed,
+                    // so a stored "balance after" is not ordered by occurred_at.
+                    cash = cash.add(e.getCashDelta());
                     if (e.getSymbol() != null) {
                         quantities.merge(e.getSymbol(), e.quantityDelta(), Long::sum);
                         prices.putIfAbsent(e.getSymbol(), e.getPrice());

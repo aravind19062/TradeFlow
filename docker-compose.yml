@@ -1,27 +1,33 @@
 # TradeFlow local environment.
 #
-#   make infra-up     PostgreSQL + Kafka + Kafka UI (run the services from your IDE / mvn)
-#   make up           infrastructure + all four services in containers
+#   make infra-up     PostgreSQL + Kafka only (run the services from your IDE / mvn)
+#   make up           infrastructure + Eureka + API gateway + all services in containers
+#   make tools        Kafka UI on http://localhost:8085 (optional, ~230 MB)
 #   make down         stop everything, KEEP data volumes
 #   make reset        stop everything and DELETE the PostgreSQL and Kafka volumes (asks first)
 #
 # Networking: containers reach each other by service name (postgres:5432,
-# kafka:29092). Your Mac reaches them on localhost:5432 and localhost:9094.
-# 9094 rather than 9092 so it never collides with a Homebrew Kafka on 9092.
+# kafka:29092, discovery-server:8761). Services find each other through Eureka.
+# From your Mac: API gateway http://localhost:8000 (the ONLY API entry point; the
+# services publish no host ports, so the gateway cannot be bypassed), Eureka
+# dashboard http://localhost:8761, PostgreSQL localhost:5432, Kafka localhost:9094
+# (9094 so it never collides with a Homebrew Kafka on 9092).
 #
 # Memory: every container has a limit so the whole stack fits in a ~4 GiB Docker VM
-# (services 576m each, Kafka 900m, Kafka UI 384m, PostgreSQL 256m). Limits are
-# ceilings, not reservations; typical use is well below them.
+# (services 576m each incl. 2 market-data replicas, gateway 448m, Eureka 384m,
+# Kafka 900m, PostgreSQL 256m). Limits are ceilings; typical use is well below them.
 
 name: tradeflow
 
 x-service-env: &service-env
+  # Local stack: explicit 'local' profile (public demo credentials and placeholder JWT
+  # secret are only accepted under this profile). Override TRADEFLOW_JWT_SECRET in .env.
+  SPRING_PROFILES_ACTIVE: local
+  EUREKA_URL: http://discovery-server:8761/eureka
   KAFKA_BOOTSTRAP_SERVERS: kafka:29092
   TRADEFLOW_DB_USERNAME: ${POSTGRES_USER:-tradeflow}
   TRADEFLOW_DB_PASSWORD: ${POSTGRES_PASSWORD:-tradeflow}
   TRADEFLOW_JWT_SECRET: ${TRADEFLOW_JWT_SECRET:-local-dev-only-insecure-jwt-secret-do-not-use-in-prod}
-  MARKET_DATA_SERVICE_URL: http://market-data-service:8083
-  ORDER_SERVICE_URL: http://order-service:8080
   # Heap = 65% of the container limit below; Serial GC has the smallest footprint.
   JAVA_OPTS: -XX:MaxRAMPercentage=65 -XX:+UseSerialGC -XX:MaxMetaspaceSize=192m
 
@@ -29,6 +35,8 @@ x-service-depends: &service-depends
   postgres:
     condition: service_healthy
   kafka:
+    condition: service_healthy
+  discovery-server:
     condition: service_healthy
 
 services:
@@ -98,6 +106,7 @@ services:
 
   kafka-ui:
     image: kafbat/kafka-ui:v1.5.0
+    profiles: ["tools"]
     restart: unless-stopped
     mem_limit: 384m
     depends_on:
@@ -113,19 +122,15 @@ services:
   # ---------------------------------------------------------------- services
   # Started only with the "apps" profile: `make up` or `docker compose --profile apps up`.
 
-  user-service:
+  discovery-server:
     profiles: ["apps"]
-    build: { context: ., dockerfile: docker/service.Dockerfile, args: { SERVICE: user-service } }
-    image: tradeflow/user-service:local
-    mem_limit: 576m
-    depends_on: *service-depends
-    ports: ["8081:8081"]
+    build: { context: ., dockerfile: docker/service.Dockerfile, args: { SERVICE: discovery-server } }
+    image: tradeflow/discovery-server:local
+    mem_limit: 384m
+    ports: ["8761:8761"]
     environment:
-      <<: *service-env
-      SERVER_PORT: "8081"
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/tradeflow_user
-      TRADEFLOW_DEMO_ENABLED: ${TRADEFLOW_DEMO_ENABLED:-true}
-      TRADEFLOW_DEMO_PASSWORD: ${TRADEFLOW_DEMO_PASSWORD:-Demo@12345}
+      SERVER_PORT: "8761"
+      JAVA_OPTS: -XX:MaxRAMPercentage=65 -XX:+UseSerialGC -XX:MaxMetaspaceSize=160m
     healthcheck: &app-health
       test: ["CMD-SHELL", "curl -fs http://localhost:$${SERVER_PORT}/actuator/health/readiness || exit 1"]
       interval: 10s
@@ -133,13 +138,48 @@ services:
       retries: 12
       start_period: 30s
 
+  api-gateway:
+    profiles: ["apps"]
+    build: { context: ., dockerfile: docker/service.Dockerfile, args: { SERVICE: api-gateway } }
+    image: tradeflow/api-gateway:local
+    mem_limit: 448m
+    depends_on:
+      discovery-server:
+        condition: service_healthy
+    ports: ["8000:8000"]
+    environment:
+      SERVER_PORT: "8000"
+      SPRING_PROFILES_ACTIVE: local
+      EUREKA_URL: http://discovery-server:8761/eureka
+      TRADEFLOW_JWT_SECRET: ${TRADEFLOW_JWT_SECRET:-local-dev-only-insecure-jwt-secret-do-not-use-in-prod}
+      JAVA_OPTS: -XX:MaxRAMPercentage=65 -XX:+UseSerialGC -XX:MaxMetaspaceSize=192m
+    healthcheck: *app-health
+
+  user-service:
+    profiles: ["apps"]
+    build: { context: ., dockerfile: docker/service.Dockerfile, args: { SERVICE: user-service } }
+    image: tradeflow/user-service:local
+    mem_limit: 576m
+    depends_on: *service-depends
+    environment:
+      <<: *service-env
+      SERVER_PORT: "8081"
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/tradeflow_user
+      TRADEFLOW_DEMO_ENABLED: ${TRADEFLOW_DEMO_ENABLED:-true}
+      TRADEFLOW_DEMO_PASSWORD: ${TRADEFLOW_DEMO_PASSWORD:-Demo@12345}
+    healthcheck: *app-health
+
   market-data-service:
     profiles: ["apps"]
     build: { context: ., dockerfile: docker/service.Dockerfile, args: { SERVICE: market-data-service } }
     image: tradeflow/market-data-service:local
     mem_limit: 576m
+    # Two replicas to demonstrate load balancing (gateway and Feign calls alternate between
+    # them; see X-Served-By). Safe: outbox rows are claimed with SKIP LOCKED and only one
+    # simulated tick is generated per interval across replicas.
+    deploy:
+      replicas: 2
     depends_on: *service-depends
-    ports: ["8083:8083"]
     environment:
       <<: *service-env
       SERVER_PORT: "8083"
@@ -156,7 +196,6 @@ services:
       <<: *service-depends
       market-data-service:
         condition: service_healthy
-    ports: ["8080:8080"]
     environment:
       <<: *service-env
       SERVER_PORT: "8080"
@@ -174,7 +213,6 @@ services:
         condition: service_healthy
       order-service:
         condition: service_healthy
-    ports: ["8082:8082"]
     environment:
       <<: *service-env
       SERVER_PORT: "8082"

@@ -26,7 +26,8 @@ import java.util.regex.Pattern;
 @Component
 public class DeterministicAssistant {
 
-    public enum Intent { ACTION_REQUEST, ORDER, WATCHLIST, RISK, PERFORMANCE, PNL, EXPLAIN, SUMMARY, HELP }
+    public enum Intent { ACTION_REQUEST, ORDER, OPEN_ORDERS, ALERTS, WATCHLIST, RISK, PERFORMANCE, PNL, HOLDINGS,
+        EXPLAIN, SUMMARY, HELP }
 
     private static final Pattern UUID_PATTERN =
             Pattern.compile("[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}");
@@ -43,7 +44,9 @@ public class DeterministicAssistant {
             • What are my realized and unrealized gains?
             • How has my portfolio changed over the available history?
             • Summarize the latest market data for my watchlist.
-            • Explain how max drawdown (or concentration, HHI, unrealized P&L) is calculated.
+            • Explain how max drawdown (or concentration, HHI, average cost, unrealized P&L) is calculated.
+            • What are my holdings and their average cost?
+            • Which of my price alerts have triggered? What are my open orders?
             • What is the status of order <order id>?""";
 
     public static final String ACTION_REFUSAL = "I can't place, change or cancel orders or move money: the "
@@ -58,8 +61,14 @@ public class DeterministicAssistant {
                 && !q.matches(".*\\b(what|how|which|explain|why)\\b.*")) {
             return Intent.ACTION_REQUEST;
         }
+        if (q.matches(".*\\b(open|resting|pending|working)\\b.*\\borders?\\b.*") && !UUID_PATTERN.matcher(question).find()) {
+            return Intent.OPEN_ORDERS;
+        }
         if (mentionsOrder) {
             return Intent.ORDER;
+        }
+        if (q.matches(".*\\balerts?\\b.*")) {
+            return Intent.ALERTS;
         }
         if (q.contains("watchlist") || q.contains("watch list")) {
             return Intent.WATCHLIST;
@@ -75,6 +84,9 @@ public class DeterministicAssistant {
         }
         if (q.matches(".*\\b(realized|unrealized|realised|unrealised|gain\\w*|loss\\w*|p&l|pnl|profit\\w*)\\b.*")) {
             return Intent.PNL;
+        }
+        if (q.matches(".*\\b(average cost|avg cost|cost basis|holdings?|positions?|what do i (own|hold))\\b.*")) {
+            return Intent.HOLDINGS;
         }
         if (q.matches(".*\\b(worth|value|balance|cash|summary|portfolio|holding\\w*|position\\w*)\\b.*")) {
             return Intent.SUMMARY;
@@ -97,13 +109,30 @@ public class DeterministicAssistant {
             case HELP -> HELP_TEXT;
             case SUMMARY -> summary(run.apply("get_portfolio_summary"));
             case PNL -> pnl(run.apply("get_portfolio_summary"));
+            case HOLDINGS -> holdings(run.apply("get_portfolio_summary"));
+            case ALERTS -> {
+                Fact f = toolbox.execute(user, "get_price_alerts", Map.of());
+                facts.add(f);
+                yield alerts(f);
+            }
+            case OPEN_ORDERS -> {
+                Fact f = toolbox.execute(user, "list_recent_orders", Map.of("status", "OPEN", "limit", 20));
+                facts.add(f);
+                yield recentOrders(f).replace("Your most recent orders", "Your open (resting) orders");
+            }
             case RISK -> risk(run.apply("get_risk_report"));
             case PERFORMANCE -> performance(run.apply("get_performance"));
             case WATCHLIST -> watchlist(run.apply("get_watchlist_quotes"));
             case EXPLAIN -> {
-                Fact f = AssistantToolbox.methodology(question);
+                String metric = metricFor(question);
+                if (metric == null) {
+                    Fact f = AssistantToolbox.methodology(question);
+                    facts.add(f);
+                    yield "TradeFlow's risk metrics: " + String.join(" ", PortfolioAnalytics.RISK_METHODOLOGY);
+                }
+                Fact f = toolbox.execute(user, "explain_metric", Map.of("metric", metric));
                 facts.add(f);
-                yield explain(question);
+                yield MetricDefinitions.DEFINITIONS.get(metric);
             }
             case ORDER -> {
                 Matcher m = UUID_PATTERN.matcher(question);
@@ -238,27 +267,60 @@ public class DeterministicAssistant {
         return b.toString();
     }
 
-    private static String explain(String question) {
+    /** Maps a question to one of the fixed metric definitions, or null. */
+    static String metricFor(String question) {
         String q = question.toLowerCase(Locale.ROOT);
-        if (q.contains("drawdown")) {
-            return "Max drawdown is the largest fall from a peak to a later trough in your total portfolio value, "
-                    + "as a fraction of that peak. TradeFlow rebuilds your value at every simulated price tick from "
-                    + "the ledger, so it only covers the period since your account opened and depends on simulated "
-                    + "prices; it says nothing about real markets.";
+        if (q.contains("drawdown")) return "max_drawdown";
+        if (q.contains("hhi") || q.contains("herfindahl") || q.contains("concentration")) return "concentration";
+        if (q.contains("unrealized") || q.contains("unrealised")) return "unrealized_pnl";
+        if (q.contains("realized") || q.contains("realised")) return "realized_pnl";
+        if (q.contains("average cost") || q.contains("avg cost") || q.contains("cost basis")) return "average_cost";
+        if (q.contains("allocation") || q.contains("weight")) return "allocation";
+        if (q.contains("return")) return "total_return";
+        if (q.contains("reserved")) return "reserved_cash";
+        return null;
+    }
+
+    private static String holdings(Fact f) {
+        if (isError(f)) {
+            return unavailable(f);
         }
-        if (q.contains("hhi") || q.contains("herfindahl") || q.contains("concentration")) {
-            return "Concentration uses the Herfindahl index (HHI): the sum of squared weights of your holdings "
-                    + "(cash excluded). 1.0 means everything is in one position; N equal positions give 1/N. "
-                    + "'Effective number of holdings' is 1/HHI. A position above 25% of total value or a sector "
-                    + "above 40% triggers a warning. These thresholds are TradeFlow conventions, not regulations.";
+        PortfolioSummary s = (PortfolioSummary) f.data();
+        if (s.holdings().isEmpty()) {
+            return "You hold no positions; your cash balance is " + inr(s.cashBalance()) + ".";
         }
-        if (q.contains("unrealized") || q.contains("unrealised") || q.contains("realized") || q.contains("cost")) {
-            return "Average cost is weighted: each buy blends into the average; sells don't change it. Realized P&L "
-                    + "= (sell price − average cost) × quantity, booked when a sell fills. Unrealized P&L = (latest "
-                    + "simulated price − average cost) × quantity for shares you still hold. No fees or taxes are "
-                    + "modelled.";
+        StringBuilder b = new StringBuilder("Your holdings (average cost uses the weighted-average method):");
+        for (HoldingView h : s.holdings()) {
+            b.append("\n• ").append(h.symbol()).append(": ").append(h.quantity()).append(" shares");
+            if (h.reservedQuantity() > 0) {
+                b.append(" (").append(h.reservedQuantity()).append(" reserved for open sell orders)");
+            }
+            b.append(", average cost ").append(inr(h.averageCost())).append(", latest simulated price ")
+                    .append(inr(h.marketPrice())).append(", value ").append(inr(h.marketValue()))
+                    .append(" (").append(PortfolioAnalytics.percent(h.weight())).append(" of the portfolio)");
         }
-        return "TradeFlow's risk metrics: " + String.join(" ", PortfolioAnalytics.RISK_METHODOLOGY);
+        return b.toString();
+    }
+
+    @SuppressWarnings("unchecked")
+    private static String alerts(Fact f) {
+        if (isError(f)) {
+            return unavailable(f);
+        }
+        List<com.luffy.tradeflow_portfolio_service.client.MarketDataClient.Alert> alerts =
+                (List<com.luffy.tradeflow_portfolio_service.client.MarketDataClient.Alert>) f.data();
+        if (alerts.isEmpty()) {
+            return "You have no price alerts. Create one with POST /api/alerts.";
+        }
+        StringBuilder b = new StringBuilder("Your price alerts (evaluated on every simulated price tick):");
+        for (var a : alerts) {
+            b.append("\n• ").append(a.symbol()).append(' ').append(a.direction()).append(' ')
+                    .append(inr(a.threshold())).append(" — ").append(a.status());
+            if (a.triggeredPrice() != null) {
+                b.append(" at ").append(inr(a.triggeredPrice())).append(" (").append(a.triggeredAt()).append(')');
+            }
+        }
+        return b.toString();
     }
 
     private static String order(Fact f) {

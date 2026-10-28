@@ -9,19 +9,22 @@ help: ## Show this help
 	@grep -E '^[a-zA-Z0-9_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-16s\033[0m %s\n", $$1, $$2}'
 
 # ---------------------------------------------------------------- Docker
-infra-up: ## Start PostgreSQL, Kafka and Kafka UI (services run from IDE/mvn)
-	$(COMPOSE) up -d postgres kafka kafka-ui
-	@echo "PostgreSQL localhost:5432 | Kafka localhost:9094 | Kafka UI http://localhost:8085"
+infra-up: ## Start PostgreSQL and Kafka only (services run from IDE/mvn)
+	$(COMPOSE) up -d postgres kafka
+	@echo "PostgreSQL localhost:5432 | Kafka localhost:9094"
 
-up: ## Build and start infrastructure + all four services in containers
+up: ## Build and start everything: infra, Eureka, API gateway, services (2 market-data replicas)
 	$(COMPOSE) --profile apps up -d --build
-	@echo "Services: user 8081, market-data 8083, order 8080, portfolio 8082. Logs: make logs"
+	@echo "API gateway http://localhost:8000 (Swagger: /swagger-ui.html) | Eureka http://localhost:8761 | Logs: make logs"
+
+tools: ## Start Kafka UI on http://localhost:8085 (optional)
+	$(COMPOSE) --profile tools up -d kafka-ui
 
 down: ## Stop all containers (data volumes are KEPT)
-	$(COMPOSE) --profile apps down
+	$(COMPOSE) --profile apps --profile tools down
 
 ps: ## Show container status and health
-	$(COMPOSE) --profile apps ps
+	$(COMPOSE) --profile apps --profile tools ps
 
 logs: ## Follow logs of all containers (make logs S=order-service for one)
 	$(COMPOSE) --profile apps logs -f --tail=100 $(S)
@@ -65,4 +68,4 @@ stop-h2: ## Stop services started with run-h2
 demo: ## Run the scripted API walkthrough against running services
 	./scripts/demo.sh
 
-.PHONY: help infra-up up down ps logs reset psql topics dlt build test test-postgres run-h2 stop-h2 demo
+.PHONY: help infra-up up tools down ps logs reset psql topics dlt build test test-postgres run-h2 stop-h2 demo

@@ -31,22 +31,31 @@ public class AuthService {
     private final BCryptPasswordEncoder passwordEncoder;
     private final JwtEncoder jwtEncoder;
     private final JwtProperties jwtProperties;
+    private final LoginAttemptService loginAttempts;
     private final Clock clock;
 
     public AuthService(UserRepository userRepository, BCryptPasswordEncoder passwordEncoder, JwtEncoder jwtEncoder,
-                       JwtProperties jwtProperties, Clock clock) {
+                       JwtProperties jwtProperties, LoginAttemptService loginAttempts, Clock clock) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtEncoder = jwtEncoder;
         this.jwtProperties = jwtProperties;
+        this.loginAttempts = loginAttempts;
         this.clock = clock;
     }
 
     @Transactional(readOnly = true)
-    public TokenResponse login(LoginRequest request) {
-        User user = userRepository.findByMailId(UserService.normalizeEmail(request.email()))
+    public TokenResponse login(LoginRequest request, String clientAddress) {
+        String email = UserService.normalizeEmail(request.email());
+        loginAttempts.checkAllowed(email, clientAddress);
+        User user = userRepository.findByMailId(email)
                 .filter(u -> passwordEncoder.matches(request.password(), u.getPassword()))
-                .orElseThrow(() -> new ApiException(HttpStatus.UNAUTHORIZED, "BAD_CREDENTIALS", BAD_CREDENTIALS));
+                .orElse(null);
+        if (user == null) {
+            loginAttempts.recordFailure(email, clientAddress);
+            throw new ApiException(HttpStatus.UNAUTHORIZED, "BAD_CREDENTIALS", BAD_CREDENTIALS);
+        }
+        loginAttempts.recordSuccess(email);
         if (!user.isActive()) {
             throw new ApiException(HttpStatus.FORBIDDEN, "ACCOUNT_DISABLED", "This account is disabled");
         }

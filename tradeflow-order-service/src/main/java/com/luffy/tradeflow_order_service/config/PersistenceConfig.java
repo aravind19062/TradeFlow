@@ -7,7 +7,7 @@ import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 
 /** Adds the shared outbox/inbox entities from tradeflow-common to this service's JPA setup. */
 @Configuration
-@EnableConfigurationProperties(OrderProperties.class)
+@EnableConfigurationProperties({OrderProperties.class, com.luffy.tradeflow_order_service.saga.SagaProperties.class})
 @EntityScan(basePackages = {"com.luffy.tradeflow_order_service", "com.luffy.tradeflow.common"})
 @EnableJpaRepositories(basePackages = {"com.luffy.tradeflow_order_service", "com.luffy.tradeflow.common"})
 public class PersistenceConfig {

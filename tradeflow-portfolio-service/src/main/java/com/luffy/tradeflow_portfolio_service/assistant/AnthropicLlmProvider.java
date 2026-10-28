@@ -47,9 +47,15 @@ public class AnthropicLlmProvider implements LlmProvider {
             - TradeFlow prices come from a seeded random walk. Say so when you mention prices or returns, and \
             never present them as real market data.
             - When you calculate something yourself from tool data, say it is your calculation and show the inputs.
+            - To define or explain a metric, call explain_metric and use its definition.
             - You are read-only: you cannot place, change or cancel orders or move money. If asked, say so.
             - Do not give personalised buy or sell recommendations; you may explain metrics, risks and assumptions.
             - Amounts are in INR. Keep answers short: a few sentences or a compact list.""";
+
+    /** Distinct tool executions allowed per question (repeats are served from cache). */
+    static final int MAX_TOOL_CALLS = 8;
+    /** Tool results longer than this are truncated before being sent to the model. */
+    static final int MAX_TOOL_RESULT_CHARS = 12_000;
 
     private final AnthropicClient client;
     private final AssistantProperties properties;
@@ -98,6 +104,8 @@ public class AnthropicLlmProvider implements LlmProvider {
         tools.forEach(request::addTool);
 
         List<Fact> facts = new ArrayList<>();
+        Map<String, String> resultCache = new java.util.HashMap<>();
+        int[] toolCalls = {0};
         long inputTokens = 0;
         long outputTokens = 0;
         for (int round = 0; round <= properties.maxToolRounds(); round++) {
@@ -115,7 +123,8 @@ public class AnthropicLlmProvider implements LlmProvider {
                 }
                 List<ContentBlockParam> results = new ArrayList<>();
                 for (ContentBlock block : response.content()) {
-                    block.toolUse().ifPresent(use -> results.add(runTool(use, executor, facts)));
+                    block.toolUse().ifPresent(use -> results.add(runTool(use, executor, facts, resultCache,
+                            toolCalls)));
                 }
                 // Append the assistant turn unchanged (including thinking blocks), then the tool results
                 // in a single user message.
@@ -156,20 +165,43 @@ public class AnthropicLlmProvider implements LlmProvider {
     }
 
     private ContentBlockParam runTool(ToolUseBlock use, BiFunction<String, Map<String, Object>, Fact> executor,
-                                      List<Fact> facts) {
+                                      List<Fact> facts, Map<String, String> cache, int[] toolCalls) {
         Map<String, Object> input;
         try {
             input = use._input().convert(new TypeReference<Map<String, Object>>() { });
         } catch (RuntimeException e) {
+            return toolError(use, "Malformed tool input: expected a JSON object");
+        }
+        if (input == null) {
             input = Map.of();
         }
-        Fact fact = executor.apply(use.name(), input == null ? Map.of() : input);
+        String cacheKey = use.name() + jsonMapper.writeValueAsString(new java.util.TreeMap<>(input));
+        String cached = cache.get(cacheKey);
+        if (cached != null) {
+            // Identical repeated call: answer from this question's cache instead of hitting services again.
+            return ContentBlockParam.ofToolResult(ToolResultBlockParam.builder().toolUseId(use.id())
+                    .content(cached).build());
+        }
+        if (++toolCalls[0] > MAX_TOOL_CALLS) {
+            return toolError(use, "Tool-call budget for this question is exhausted; answer with the data you have");
+        }
+        Fact fact = executor.apply(use.name(), input);
         facts.add(fact);
+        String content = jsonMapper.writeValueAsString(Map.of("kind", fact.kind(), "data", fact.data()));
+        if (content.length() > MAX_TOOL_RESULT_CHARS) {
+            content = content.substring(0, MAX_TOOL_RESULT_CHARS) + " …[truncated to keep the request small]";
+        }
+        cache.put(cacheKey, content);
         return ContentBlockParam.ofToolResult(ToolResultBlockParam.builder()
                 .toolUseId(use.id())
-                .content(jsonMapper.writeValueAsString(Map.of("kind", fact.kind(), "data", fact.data())))
+                .content(content)
                 .isError("ERROR".equals(fact.kind()))
                 .build());
+    }
+
+    private static ContentBlockParam toolError(ToolUseBlock use, String message) {
+        return ContentBlockParam.ofToolResult(ToolResultBlockParam.builder().toolUseId(use.id())
+                .content("{\"kind\":\"ERROR\",\"data\":{\"error\":\"" + message + "\"}}").isError(true).build());
     }
 
     private static Tool toTool(AssistantToolbox.ToolSpec spec) {

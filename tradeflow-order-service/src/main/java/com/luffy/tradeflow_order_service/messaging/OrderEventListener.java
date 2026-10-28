@@ -5,6 +5,7 @@ import com.luffy.tradeflow.common.events.EventMdc;
 import com.luffy.tradeflow.common.events.Events;
 import com.luffy.tradeflow.common.events.Topics;
 import com.luffy.tradeflow.common.inbox.IdempotentConsumer;
+import com.luffy.tradeflow_order_service.saga.OrderSagaService;
 import com.luffy.tradeflow_order_service.service.ExecutionService;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Component;
@@ -22,12 +23,14 @@ public class OrderEventListener {
     private final EventCodec codec;
     private final IdempotentConsumer idempotentConsumer;
     private final ExecutionService executionService;
+    private final OrderSagaService sagaService;
 
     public OrderEventListener(EventCodec codec, IdempotentConsumer idempotentConsumer,
-                              ExecutionService executionService) {
+                              ExecutionService executionService, OrderSagaService sagaService) {
         this.codec = codec;
         this.idempotentConsumer = idempotentConsumer;
         this.executionService = executionService;
+        this.sagaService = sagaService;
     }
 
     @KafkaListener(topics = Topics.ORDERS_RESERVED)
@@ -48,6 +51,28 @@ public class OrderEventListener {
         EventMdc.run(event.envelope(), () -> {
             if (idempotentConsumer.firstDelivery(event.envelope(), CONSUMER)) {
                 executionService.onRejected(event.payload());
+            }
+        });
+    }
+
+    @KafkaListener(topics = Topics.TRADES_SETTLED)
+    @Transactional
+    public void onTradeSettled(String message) {
+        var event = codec.decode(message, Topics.TRADES_SETTLED, Events.TradeSettled.class);
+        EventMdc.run(event.envelope(), () -> {
+            if (idempotentConsumer.firstDelivery(event.envelope(), CONSUMER)) {
+                sagaService.settled(event.payload());
+            }
+        });
+    }
+
+    @KafkaListener(topics = Topics.ORDERS_RELEASED)
+    @Transactional
+    public void onOrderReleased(String message) {
+        var event = codec.decode(message, Topics.ORDERS_RELEASED, Events.OrderReleased.class);
+        EventMdc.run(event.envelope(), () -> {
+            if (idempotentConsumer.firstDelivery(event.envelope(), CONSUMER)) {
+                sagaService.released(event.payload());
             }
         });
     }

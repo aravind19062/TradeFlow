@@ -15,13 +15,15 @@ public final class Topics {
     public static final String ORDERS_CANCELLED = "orders.cancelled";
     public static final String TRADES_EXECUTED = "trades.executed";
     public static final String PRICES_UPDATED = "prices.updated";
+    public static final String TRADES_SETTLED = "trades.settled";
+    public static final String ORDERS_RELEASED = "orders.released";
 
     /** Suffix used by Spring Kafka's DeadLetterPublishingRecoverer. */
     public static final String DLT_SUFFIX = ".DLT";
 
     public static final List<String> ALL = List.of(
             USERS_REGISTERED, ORDERS_PLACED, ORDERS_RESERVED, ORDERS_REJECTED,
-            ORDERS_CANCELLED, TRADES_EXECUTED, PRICES_UPDATED);
+            ORDERS_CANCELLED, TRADES_EXECUTED, PRICES_UPDATED, TRADES_SETTLED, ORDERS_RELEASED);
 
     private Topics() {
     }

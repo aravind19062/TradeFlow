@@ -1,53 +1,59 @@
 package com.luffy.tradeflow_portfolio_service.client;
 
 import com.luffy.tradeflow.common.web.ApiException;
-import com.luffy.tradeflow_portfolio_service.config.PortfolioProperties;
-import org.springframework.http.HttpStatus;
+import com.luffy.tradeflow.common.web.RemoteCallErrors;
 import org.springframework.stereotype.Component;
-import org.springframework.web.client.RestClient;
-import org.springframework.web.client.RestClientException;
 import tools.jackson.databind.JsonNode;
 
+import java.util.Collection;
+import java.util.List;
 import java.util.UUID;
 
 /**
- * Reads orders from order-service with the caller's own JWT (token relay), so
- * order-service enforces ownership: another user's order comes back as 404.
+ * Reads orders from order-service (OpenFeign). User-facing calls relay the caller's
+ * JWT, so order-service enforces ownership: another user's order comes back as 404.
  */
 @Component
 public class OrderServiceClient {
 
-    private final RestClient restClient;
+    private final OrderServiceFeignClient feign;
 
-    public OrderServiceClient(RestClient.Builder builder, PortfolioProperties properties) {
-        this.restClient = builder.baseUrl(properties.orderServiceUrl()).build();
+    public OrderServiceClient(OrderServiceFeignClient feign) {
+        this.feign = feign;
     }
 
     public JsonNode order(UUID orderId) {
         try {
-            return restClient.get().uri("/api/orders/{id}", orderId).retrieve()
-                    .onStatus(s -> s.value() == HttpStatus.NOT_FOUND.value(), (req, res) -> {
-                        throw ApiException.notFound("Order " + orderId);
-                    })
-                    .body(JsonNode.class);
-        } catch (RestClientException e) {
-            throw ApiException.dependencyUnavailable("order-service", e.getMessage());
+            return feign.order(orderId);
+        } catch (RuntimeException e) {
+            if (RemoteCallErrors.remoteStatus(e) == 404) {
+                throw ApiException.notFound("Order " + orderId);
+            }
+            throw RemoteCallErrors.unavailable("order-service", e);
         }
     }
 
     public JsonNode recentOrders(String status, int size) {
         try {
-            return restClient.get()
-                    .uri(b -> {
-                        b.path("/api/orders").queryParam("size", size);
-                        if (status != null && !status.isBlank()) {
-                            b.queryParam("status", status);
-                        }
-                        return b.build();
-                    })
-                    .retrieve().body(JsonNode.class);
-        } catch (RestClientException e) {
-            throw ApiException.dependencyUnavailable("order-service", e.getMessage());
+            return feign.recentOrders(size, status);
+        } catch (RuntimeException e) {
+            throw RemoteCallErrors.unavailable("order-service", e);
+        }
+    }
+
+    public record OrderStatusView(UUID orderId, String status, String sagaState) {
+    }
+
+    /** Internal, service-authenticated status lookup (no end-user token involved). */
+    public List<OrderStatusView> statuses(Collection<UUID> ids, String serviceToken) {
+        if (ids.isEmpty()) {
+            return List.of();
+        }
+        try {
+            List<OrderStatusView> result = feign.statuses(List.copyOf(ids), "Bearer " + serviceToken);
+            return result == null ? List.of() : result;
+        } catch (RuntimeException e) {
+            throw RemoteCallErrors.unavailable("order-service", e);
         }
     }
 }

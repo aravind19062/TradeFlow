@@ -15,6 +15,7 @@ import com.luffy.tradeflow_order_service.domain.OrderStatus;
 import com.luffy.tradeflow_order_service.domain.Trade;
 import com.luffy.tradeflow_order_service.repository.OrderRepository;
 import com.luffy.tradeflow_order_service.repository.TradeRepository;
+import com.luffy.tradeflow_order_service.saga.OrderSagaService;
 import com.luffy.tradeflow_order_service.web.OrderDtos.OrderDetailResponse;
 import com.luffy.tradeflow_order_service.web.OrderDtos.OrderResponse;
 import com.luffy.tradeflow_order_service.web.OrderDtos.PlaceOrderRequest;
@@ -54,17 +55,19 @@ public class OrderService {
     private final OutboxWriter outboxWriter;
     private final OrderProperties properties;
     private final TransactionTemplate transactionTemplate;
+    private final OrderSagaService sagaService;
     private final Clock clock;
 
     public OrderService(OrderRepository orderRepository, TradeRepository tradeRepository,
                         MarketDataClient marketDataClient, OutboxWriter outboxWriter, OrderProperties properties,
-                        TransactionTemplate transactionTemplate, Clock clock) {
+                        TransactionTemplate transactionTemplate, OrderSagaService sagaService, Clock clock) {
         this.orderRepository = orderRepository;
         this.tradeRepository = tradeRepository;
         this.marketDataClient = marketDataClient;
         this.outboxWriter = outboxWriter;
         this.properties = properties;
         this.transactionTemplate = transactionTemplate;
+        this.sagaService = sagaService;
         this.clock = clock;
     }
 
@@ -96,6 +99,7 @@ public class OrderService {
                         request.quantity(), request.limitPrice() == null ? null : Money.price(request.limitPrice()),
                         reservationPrice, clock.instant());
                 orderRepository.save(order);
+                sagaService.start(order);
                 outboxWriter.append(Topics.ORDERS_PLACED, String.valueOf(user.id()),
                         new Events.OrderPlaced(order.getId(), user.id(), symbol, order.getSide(), order.getType(),
                                 order.getQuantity(), reservationPrice));
@@ -159,8 +163,7 @@ public class OrderService {
     public OrderResponse cancel(AuthenticatedUser user, UUID orderId) {
         Order order = findOwned(user, orderId);
         order.cancel("Cancelled by user", clock.instant());
-        outboxWriter.append(Topics.ORDERS_CANCELLED, String.valueOf(user.id()),
-                new Events.OrderCancelled(order.getId(), user.id(), "Cancelled by user"));
+        sagaService.requestRelease(order, "Cancelled by user");
         log.info("Order {} cancelled by user {}", orderId, user.id());
         return OrderResponse.from(order);
     }

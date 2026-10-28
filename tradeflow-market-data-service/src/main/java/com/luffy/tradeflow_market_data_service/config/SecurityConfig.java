@@ -17,6 +17,7 @@ public class SecurityConfig {
         jwtSecurity.applyDefaults(http)
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(JwtSecurityConfig.PUBLIC_PATHS).permitAll()
+                        .requestMatchers("/api/admin/**").hasRole("ADMIN")
                         .requestMatchers("/api/market/simulation/advance").hasRole("ADMIN")
                         // Quotes and history are public, like a public quote API.
                         .requestMatchers(HttpMethod.GET, "/api/market/**").permitAll()

@@ -26,10 +26,20 @@ public class DemoDataSeeder implements ApplicationRunner {
 
     private final UserService userService;
     private final UserRepository userRepository;
+    /** The public password documented in the README; acceptable only in the local profile. */
+    static final String PUBLIC_DEMO_PASSWORD = "Demo@12345";
+
     private final String demoPassword;
 
     public DemoDataSeeder(UserService userService, UserRepository userRepository,
-                          @Value("${tradeflow.demo.password}") String demoPassword) {
+                          @Value("${tradeflow.demo.password:}") String demoPassword,
+                          org.springframework.core.env.Environment environment) {
+        boolean local = environment.acceptsProfiles(org.springframework.core.env.Profiles.of("local", "test"));
+        if (!local && (demoPassword == null || demoPassword.length() < 12 || PUBLIC_DEMO_PASSWORD.equals(demoPassword))) {
+            throw new IllegalStateException("Refusing to seed demo users (including an ADMIN) outside the 'local' "
+                    + "profile without a private TRADEFLOW_DEMO_PASSWORD of at least 12 characters. "
+                    + "Set TRADEFLOW_DEMO_ENABLED=false or provide a strong password.");
+        }
         this.userService = userService;
         this.userRepository = userRepository;
         this.demoPassword = demoPassword;

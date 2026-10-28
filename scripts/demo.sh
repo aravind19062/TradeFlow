@@ -4,10 +4,13 @@
 # Uses the seeded DEMO users; all prices are simulated.
 set -euo pipefail
 
-USER_URL=${USER_URL:-http://localhost:8081}
-ORDER_URL=${ORDER_URL:-http://localhost:8080}
-PORTFOLIO_URL=${PORTFOLIO_URL:-http://localhost:8082}
-MARKET_URL=${MARKET_URL:-http://localhost:8083}
+# Everything goes through the API gateway by default. For services run outside Docker
+# without the gateway, set the per-service URLs (8081 user, 8080 order, 8082 portfolio, 8083 market).
+GATEWAY_URL=${GATEWAY_URL:-http://localhost:8000}
+USER_URL=${USER_URL:-$GATEWAY_URL}
+ORDER_URL=${ORDER_URL:-$GATEWAY_URL}
+PORTFOLIO_URL=${PORTFOLIO_URL:-$GATEWAY_URL}
+MARKET_URL=${MARKET_URL:-$GATEWAY_URL}
 DEMO_PASSWORD=${TRADEFLOW_DEMO_PASSWORD:-Demo@12345}
 RUN_ID=$(date +%s)
 
@@ -25,9 +28,7 @@ wait_for_order() {   # $1 order id, $2 expected status
 }
 
 step "Health"
-for u in "$USER_URL" "$MARKET_URL" "$ORDER_URL" "$PORTFOLIO_URL"; do
-  printf '%-24s %s\n' "$u" "$(curl -s "$u/actuator/health" | jq -r .status)"
-done
+printf '%-24s %s\n' "$GATEWAY_URL" "$(curl -s "$GATEWAY_URL/actuator/health" | jq -r .status)"
 
 step "Log in as the demo trader and the demo admin"
 TOKEN=$(json "$USER_URL/api/auth/login" -d "{\"email\":\"demo@tradeflow.dev\",\"password\":\"$DEMO_PASSWORD\"}" | jq -r .accessToken)
@@ -97,4 +98,4 @@ done
 step "Reconciliation (admin, all accounts)"
 json "$PORTFOLIO_URL/api/admin/reconciliation" -H "Authorization: Bearer $ADMIN" | jq -c '{accountsChecked, consistent, issues}'
 
-printf '\nDone. Swagger UIs: %s/swagger-ui.html (and :8081, :8082, :8083)\n' "$ORDER_URL"
+printf '\nDone. Swagger UI (all services): %s/swagger-ui.html\n' "$GATEWAY_URL"

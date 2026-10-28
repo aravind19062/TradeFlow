@@ -34,7 +34,9 @@ class OrderTest {
     void transitionTableMatchesLifecycle() {
         assertThat(OrderStatus.PENDING.allowedNext()).containsExactlyInAnyOrder(
                 OrderStatus.OPEN, OrderStatus.FILLED, OrderStatus.REJECTED);
-        assertThat(OrderStatus.OPEN.allowedNext()).containsExactlyInAnyOrder(OrderStatus.FILLED, OrderStatus.CANCELLED);
+        assertThat(OrderStatus.OPEN.allowedNext()).containsExactlyInAnyOrder(OrderStatus.FILLED, OrderStatus.CANCELLED,
+                OrderStatus.EXPIRED);
+        assertThat(OrderStatus.EXPIRED.isTerminal()).isTrue();
         assertThat(OrderStatus.FILLED.isTerminal()).isTrue();
         assertThat(OrderStatus.REJECTED.isTerminal()).isTrue();
         assertThat(OrderStatus.CANCELLED.isTerminal()).isTrue();

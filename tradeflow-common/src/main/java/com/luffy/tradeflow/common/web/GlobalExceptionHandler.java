@@ -29,11 +29,15 @@ import java.util.Map;
 public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 
     @ExceptionHandler(ApiException.class)
-    public ProblemDetail handleApiException(ApiException ex) {
+    public ResponseEntity<ProblemDetail> handleApiException(ApiException ex) {
         if (ex.getStatus().is5xxServerError()) {
             log.warn("{}: {}", ex.getCode(), ex.getMessage());
         }
-        return problem(ex.getStatus(), ex.getCode(), ex.getMessage());
+        ResponseEntity.BodyBuilder response = ResponseEntity.status(ex.getStatus());
+        if (ex.getRetryAfterSeconds() != null) {
+            response.header(HttpHeaders.RETRY_AFTER, String.valueOf(ex.getRetryAfterSeconds()));
+        }
+        return response.body(problem(ex.getStatus(), ex.getCode(), ex.getMessage()));
     }
 
     @ExceptionHandler(ObjectOptimisticLockingFailureException.class)

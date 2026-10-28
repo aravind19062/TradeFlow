@@ -12,6 +12,7 @@ import com.luffy.tradeflow.common.events.Events.OrderType;
 import com.luffy.tradeflow_order_service.repository.LatestPriceRepository;
 import com.luffy.tradeflow_order_service.repository.OrderRepository;
 import com.luffy.tradeflow_order_service.repository.TradeRepository;
+import com.luffy.tradeflow_order_service.saga.OrderSagaService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
@@ -41,19 +42,29 @@ public class ExecutionService {
     private final TradeRepository tradeRepository;
     private final LatestPriceRepository latestPriceRepository;
     private final OutboxWriter outboxWriter;
+    private final OrderSagaService sagaService;
     private final Clock clock;
 
     public ExecutionService(OrderRepository orderRepository, TradeRepository tradeRepository,
-                            LatestPriceRepository latestPriceRepository, OutboxWriter outboxWriter, Clock clock) {
+                            LatestPriceRepository latestPriceRepository, OutboxWriter outboxWriter,
+                            OrderSagaService sagaService, Clock clock) {
         this.orderRepository = orderRepository;
         this.tradeRepository = tradeRepository;
         this.latestPriceRepository = latestPriceRepository;
         this.outboxWriter = outboxWriter;
+        this.sagaService = sagaService;
         this.clock = clock;
     }
 
     public void onReserved(Events.OrderReserved event) {
         Order order = load(event.orderId(), event.userId());
+        if (order.getStatus() == OrderStatus.REJECTED || order.getStatus() == OrderStatus.CANCELLED
+                || order.getStatus() == OrderStatus.EXPIRED) {
+            // A reservation arrived after the order already ended (e.g. it timed out): compensate.
+            log.warn("Late reservation for {} order {}; requesting release", order.getStatus(), order.getId());
+            sagaService.requestRelease(order, "late reservation for " + order.getStatus() + " order");
+            return;
+        }
         if (order.getStatus() != OrderStatus.PENDING) {
             log.warn("Ignoring reservation for order {} in status {}", order.getId(), order.getStatus());
             return;
@@ -61,13 +72,16 @@ public class ExecutionService {
         Instant now = clock.instant();
         if (order.getType() == OrderType.MARKET) {
             fill(order, order.getReservationPrice(), now);
+            sagaService.reservedAndFilled(order.getId());
             return;
         }
         Optional<BigDecimal> latest = latestPriceRepository.findById(order.getSymbol()).map(LatestPrice::getPrice);
         if (latest.isPresent() && order.isMarketableAt(latest.get())) {
             fill(order, latest.get(), now);
+            sagaService.reservedAndFilled(order.getId());
         } else {
             order.open("Funds reserved; resting until the simulated price reaches " + order.getLimitPrice(), now);
+            sagaService.reservedAndResting(order.getId());
         }
     }
 
@@ -78,6 +92,7 @@ public class ExecutionService {
             return;
         }
         order.reject(event.reasonCode(), event.reason(), clock.instant());
+        sagaService.rejected(order.getId());
         log.info("Order {} rejected: {} ({})", order.getId(), event.reasonCode(), event.reason());
     }
 
@@ -94,6 +109,7 @@ public class ExecutionService {
                 OrderType.LIMIT)) {
             if (order.isMarketableAt(event.price())) {
                 fill(order, event.price(), now);
+                sagaService.filledFromResting(order.getId());
             }
         }
     }

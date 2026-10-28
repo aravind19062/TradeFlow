@@ -32,4 +32,11 @@ public record AssistantProperties(String provider, String apiKey, String model, 
     public boolean anthropicEnabled() {
         return "anthropic".equals(provider);
     }
+
+    /** Never print the API key. */
+    @Override
+    public String toString() {
+        return "AssistantProperties[provider=" + provider + ", apiKey=" + (apiKey == null || apiKey.isBlank()
+                ? "<unset>" : "<redacted>") + ", model=" + model + ", maxTokens=" + maxTokens + "]";
+    }
 }

@@ -144,6 +144,11 @@ public class Order {
         transitionTo(OrderStatus.CANCELLED, reason, now);
     }
 
+    /** A resting LIMIT order outlived its time-to-live (its reservation is then released). */
+    public void expire(String reason, Instant now) {
+        transitionTo(OrderStatus.EXPIRED, reason, now);
+    }
+
     private void transitionTo(OrderStatus next, String reason, Instant now) {
         if (!status.canTransitionTo(next)) {
             throw ApiException.conflict("INVALID_STATE_TRANSITION",
