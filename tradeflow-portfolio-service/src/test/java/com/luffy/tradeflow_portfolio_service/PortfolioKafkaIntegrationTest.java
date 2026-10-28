@@ -50,6 +50,7 @@ class PortfolioKafkaIntegrationTest {
     @Autowired AccountRepository accounts;
     @Autowired ReservationRepository reservations;
     @Autowired EmbeddedKafkaBroker broker;
+    @Autowired com.luffy.tradeflow.common.kafka.DeadLetterService deadLetters;
 
     private KafkaConsumer<String, String> consumer;
 
@@ -104,6 +105,17 @@ class PortfolioKafkaIntegrationTest {
                 .anySatisfy(m -> assertThat(m).contains("has no reservation"));
         // Neither bad message changed the account.
         assertThat(accounts.findById(USER).orElseThrow().getCashBalance()).isEqualByComparingTo("1000000.00");
+
+        // Operator tooling: the DLT records are inspectable with their failure reason, and replayable.
+        List<com.luffy.tradeflow.common.kafka.DeadLetterService.DeadLetter> listed =
+                deadLetters.peek(Topics.TRADES_EXECUTED, 10);
+        assertThat(listed).hasSize(2).allSatisfy(d -> assertThat(d.exceptionMessage()).isNotBlank());
+        var malformed = listed.stream().filter(d -> d.exceptionMessage().contains("Malformed")).findFirst().orElseThrow();
+        var replay = deadLetters.replay(Topics.TRADES_EXECUTED, malformed.partition(), malformed.offset(), "test");
+        assertThat(replay.replayedTo()).isEqualTo(Topics.TRADES_EXECUTED);
+        // still malformed, so it dead-letters again: proof the replay reached the consumer
+        assertThat(collect(Topics.TRADES_EXECUTED + Topics.DLT_SUFFIX, r -> r.value().contains("this is not json"),
+                1, Duration.ofSeconds(20))).isNotEmpty();
     }
 
     private void send(String topic, Object payload) throws Exception {

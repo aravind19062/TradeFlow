@@ -78,6 +78,33 @@ class AuthIntegrationTest {
     }
 
     @Test
+    void repeatedFailedLoginsAreThrottledWithRetryAfter() throws Exception {
+        register("throttle@test.dev", "Secret#123");
+        String wrong = "{\"email\":\"throttle@test.dev\",\"password\":\"wrong-pass\"}";
+        for (int i = 0; i < 5; i++) {
+            mvc.perform(post("/api/auth/login").contentType(MediaType.APPLICATION_JSON).content(wrong))
+                    .andExpect(status().isUnauthorized());
+        }
+        mvc.perform(post("/api/auth/login").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"email\":\"throttle@test.dev\",\"password\":\"Secret#123\"}"))
+                .andExpect(status().isTooManyRequests())
+                .andExpect(jsonPath("$.code").value("TOO_MANY_LOGIN_ATTEMPTS"))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.header()
+                        .exists("Retry-After"));
+    }
+
+    @Test
+    void healthDetailsAreHiddenFromAnonymousCallers() throws Exception {
+        // No Kafka in the test profile, so overall status may be DOWN (503); only the body shape matters here.
+        mvc.perform(get("/actuator/health"))
+                .andExpect(jsonPath("$.status").exists())
+                .andExpect(jsonPath("$.components").doesNotExist());
+        mvc.perform(get("/actuator/health").header("Authorization",
+                        "Bearer " + com.luffy.tradeflow.common.testsupport.TestJwts.admin(1)))
+                .andExpect(jsonPath("$.components").exists());
+    }
+
+    @Test
     void loginSucceedsAndFailuresDoNotRevealWhichPartWasWrong() throws Exception {
         register("login@test.dev", "Secret#123");
         String token = json.readTree(mvc.perform(post("/api/auth/login").contentType(MediaType.APPLICATION_JSON)

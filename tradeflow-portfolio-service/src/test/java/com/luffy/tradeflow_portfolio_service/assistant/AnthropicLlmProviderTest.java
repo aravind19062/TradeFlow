@@ -16,6 +16,7 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -122,6 +123,57 @@ class AnthropicLlmProviderTest {
         assertThatThrownBy(() -> provider().answer("q", (t, i) -> new Fact(t, i, "CALCULATED", Map.of())))
                 .isInstanceOf(LlmProvider.LlmUnavailableException.class).hasMessageContaining("tool rounds");
         assertThat(requests).hasSize(3); // maxToolRounds = 2 → initial call + 2 tool rounds
+    }
+
+    @Test
+    void repeatedIdenticalToolCallsAreServedFromCache() {
+        String sameCallTwice = "[{\"type\":\"tool_use\",\"id\":\"t1\",\"name\":\"get_risk_report\",\"input\":{}},"
+                + "{\"type\":\"tool_use\",\"id\":\"t2\",\"name\":\"get_risk_report\",\"input\":{}}]";
+        responses.add(message("tool_use", sameCallTwice));
+        responses.add(message("end_turn", "[{\"type\":\"text\",\"text\":\"Done.\"}]"));
+        List<String> executed = new ArrayList<>();
+        provider().answer("q", (tool, input) -> {
+            executed.add(tool);
+            return new Fact(tool, input, "CALCULATED", Map.of("x", 1));
+        });
+        assertThat(executed).containsExactly("get_risk_report");
+        JsonNode results = requests.get(1).get("messages").get(2).get("content");
+        assertThat(results).hasSize(2); // every tool_use still gets a tool_result
+    }
+
+    @Test
+    void malformedToolInputIsRejectedWithoutTouchingData() {
+        responses.add(message("tool_use",
+                "[{\"type\":\"tool_use\",\"id\":\"t1\",\"name\":\"get_order\",\"input\":\"not-an-object\"}]"));
+        responses.add(message("end_turn", "[{\"type\":\"text\",\"text\":\"Sorry.\"}]"));
+        List<String> executed = new ArrayList<>();
+        provider().answer("q", (tool, input) -> {
+            executed.add(tool);
+            return null;
+        });
+        assertThat(executed).isEmpty();
+        JsonNode result = requests.get(1).get("messages").get(2).at("/content/0");
+        assertThat(result.get("is_error").asBoolean()).isTrue();
+        assertThat(result.get("content").asString()).contains("Malformed tool input");
+    }
+
+    @Test
+    void toolCallBudgetIsEnforcedPerQuestion() {
+        StringBuilder many = new StringBuilder("[");
+        for (int i = 0; i < AnthropicLlmProvider.MAX_TOOL_CALLS + 2; i++) {
+            many.append(i == 0 ? "" : ",").append("{\"type\":\"tool_use\",\"id\":\"t").append(i)
+                    .append("\",\"name\":\"get_order\",\"input\":{\"order_id\":\"").append(UUID.randomUUID())
+                    .append("\"}}");
+        }
+        responses.add(message("tool_use", many.append("]").toString()));
+        responses.add(message("end_turn", "[{\"type\":\"text\",\"text\":\"Partial answer.\"}]"));
+        List<String> executed = new ArrayList<>();
+        provider().answer("q", (tool, input) -> {
+            executed.add(tool);
+            return new Fact(tool, input, "RETRIEVED", Map.of());
+        });
+        assertThat(executed).hasSize(AnthropicLlmProvider.MAX_TOOL_CALLS);
+        assertThat(requests.get(1).toString()).contains("Tool-call budget");
     }
 
     @Test

@@ -10,6 +10,7 @@ import com.luffy.tradeflow_portfolio_service.config.PortfolioProperties;
 import com.luffy.tradeflow_portfolio_service.domain.Account;
 import com.luffy.tradeflow_portfolio_service.domain.Holding;
 import com.luffy.tradeflow_portfolio_service.domain.LedgerEntry;
+import com.luffy.tradeflow_portfolio_service.domain.OrderTombstone;
 import com.luffy.tradeflow_portfolio_service.domain.Reservation;
 import com.luffy.tradeflow_portfolio_service.repository.AccountRepository;
 import com.luffy.tradeflow_portfolio_service.repository.HoldingRepository;
@@ -44,17 +45,20 @@ public class AccountingService {
     private final HoldingRepository holdingRepository;
     private final ReservationRepository reservationRepository;
     private final LedgerEntryRepository ledgerRepository;
+    private final com.luffy.tradeflow_portfolio_service.repository.OrderTombstoneRepository tombstoneRepository;
     private final OutboxWriter outboxWriter;
     private final PortfolioProperties properties;
     private final Clock clock;
 
     public AccountingService(AccountRepository accountRepository, HoldingRepository holdingRepository,
                              ReservationRepository reservationRepository, LedgerEntryRepository ledgerRepository,
+                             com.luffy.tradeflow_portfolio_service.repository.OrderTombstoneRepository tombstoneRepository,
                              OutboxWriter outboxWriter, PortfolioProperties properties, Clock clock) {
         this.accountRepository = accountRepository;
         this.holdingRepository = holdingRepository;
         this.reservationRepository = reservationRepository;
         this.ledgerRepository = ledgerRepository;
+        this.tombstoneRepository = tombstoneRepository;
         this.outboxWriter = outboxWriter;
         this.properties = properties;
         this.clock = clock;
@@ -73,11 +77,17 @@ public class AccountingService {
     }
 
     public void reserve(Events.OrderPlaced event) {
+        // Lock the account first: a concurrent release for the same order (other topic, other
+        // thread) then runs strictly before or after this, never interleaved.
+        Account account = accountRepository.findForUpdate(event.userId()).orElse(null);
         if (reservationRepository.existsById(event.orderId())) {
             log.info("Order {} already has a reservation", event.orderId());
             return;
         }
-        Account account = accountRepository.findById(event.userId()).orElse(null);
+        if (tombstoneRepository.existsById(event.orderId())) {
+            reject(event, "ORDER_CANCELLED", "The order was cancelled or timed out before funds were reserved");
+            return;
+        }
         if (account == null) {
             reject(event, "ACCOUNT_NOT_FOUND", "No cash account exists for this user yet");
             return;
@@ -115,13 +125,19 @@ public class AccountingService {
     }
 
     public void settle(Events.TradeExecuted event) {
+        // Lock first, then check the ledger: two concurrent deliveries of the same trade
+        // are serialized here, and the second one sees the first as booked.
+        Reservation reservation = reservationRepository.findForUpdate(event.orderId()).orElse(null);
         if (ledgerRepository.existsByTradeId(event.tradeId())) {
-            log.info("Trade {} is already booked", event.tradeId());
+            // Redelivery or re-drive: confirm again so the order saga can complete.
+            log.info("Trade {} is already booked; re-confirming settlement", event.tradeId());
+            confirmSettled(event);
             return;
         }
-        Reservation reservation = reservationRepository.findById(event.orderId())
-                .orElseThrow(() -> new InconsistentStateException("Trade " + event.tradeId()
-                        + " refers to order " + event.orderId() + " which has no reservation"));
+        if (reservation == null) {
+            throw new InconsistentStateException("Trade " + event.tradeId() + " refers to order " + event.orderId()
+                    + " which has no reservation");
+        }
         verifyMatches(reservation, event);
         Account account = accountRepository.findById(event.userId())
                 .orElseThrow(() -> new InconsistentStateException("No account for user " + event.userId()));
@@ -147,14 +163,31 @@ public class AccountingService {
                     event.tradeId(), event.orderId(), event.executedAt()));
         }
         reservation.settle(now);
+        confirmSettled(event);
         log.info("Settled trade {} ({} {} x{} @ {})", event.tradeId(), event.side(), event.symbol(),
                 event.quantity(), event.price());
     }
 
     public void release(Events.OrderCancelled event) {
+        accountRepository.findForUpdate(event.userId()); // same lock as reserve(): no interleaving
         Reservation reservation = reservationRepository.findById(event.orderId()).orElse(null);
-        if (reservation == null || !reservation.isActive()) {
-            log.info("Nothing to release for order {}", event.orderId());
+        if (reservation == null) {
+            if (!tombstoneRepository.existsById(event.orderId())) {
+                tombstoneRepository.save(new OrderTombstone(event.orderId(), event.reason(), clock.instant()));
+            }
+            log.info("Nothing to release for order {}; tombstone recorded", event.orderId());
+            replyReleased(event, Events.ReleaseOutcome.NOTHING_TO_RELEASE);
+            return;
+        }
+        if (reservation.getStatus() == Reservation.Status.SETTLED) {
+            // Never undo an executed trade: report it instead of releasing.
+            log.error("Release requested for order {} whose reservation is already SETTLED", event.orderId());
+            replyReleased(event, Events.ReleaseOutcome.ALREADY_SETTLED);
+            return;
+        }
+        if (!reservation.isActive()) {
+            log.info("Reservation for order {} already released", event.orderId());
+            replyReleased(event, Events.ReleaseOutcome.NOTHING_TO_RELEASE);
             return;
         }
         if (reservation.getUserId() != event.userId()) {
@@ -172,7 +205,18 @@ public class AccountingService {
                     .release(reservation.getQuantity(), now);
         }
         reservation.release(now);
-        log.info("Released reservation for cancelled order {}", event.orderId());
+        replyReleased(event, Events.ReleaseOutcome.RELEASED);
+        log.info("Released reservation for order {} ({})", event.orderId(), event.reason());
+    }
+
+    private void confirmSettled(Events.TradeExecuted event) {
+        outboxWriter.append(Topics.TRADES_SETTLED, event.orderId().toString(),
+                new Events.TradeSettled(event.tradeId(), event.orderId(), event.userId()));
+    }
+
+    private void replyReleased(Events.OrderCancelled event, Events.ReleaseOutcome outcome) {
+        outboxWriter.append(Topics.ORDERS_RELEASED, event.orderId().toString(),
+                new Events.OrderReleased(event.orderId(), event.userId(), outcome));
     }
 
     private void reject(Events.OrderPlaced event, String code, String reason) {

@@ -1,40 +1,39 @@
 package com.luffy.tradeflow_order_service.client;
 
 import com.luffy.tradeflow.common.web.ApiException;
-import com.luffy.tradeflow_order_service.config.OrderProperties;
-import org.springframework.http.HttpStatus;
+import com.luffy.tradeflow.common.web.RemoteCallErrors;
 import org.springframework.stereotype.Component;
-import org.springframework.web.client.RestClient;
-import org.springframework.web.client.RestClientException;
 
 import java.math.BigDecimal;
 import java.time.Instant;
 
-/** Synchronous quote lookup used when an order is accepted. */
+/**
+ * Synchronous quote lookup used when an order is accepted (OpenFeign + Eureka +
+ * LoadBalancer, circuit breaker, one retry on another instance for this GET).
+ */
 @Component
 public class MarketDataClient {
 
-    private final RestClient restClient;
+    private final MarketDataFeignClient feign;
 
-    public MarketDataClient(RestClient.Builder builder, OrderProperties properties) {
-        this.restClient = builder.baseUrl(properties.marketDataUrl()).build();
+    public MarketDataClient(MarketDataFeignClient feign) {
+        this.feign = feign;
     }
 
     public Quote quote(String symbol) {
+        Quote quote;
         try {
-            Quote quote = restClient.get().uri("/api/market/quotes/{symbol}", symbol)
-                    .retrieve()
-                    .onStatus(status -> status.value() == HttpStatus.NOT_FOUND.value(), (request, response) -> {
-                        throw ApiException.unprocessable("UNKNOWN_SYMBOL", "Unknown symbol " + symbol);
-                    })
-                    .body(Quote.class);
-            if (quote == null || quote.price() == null) {
-                throw ApiException.dependencyUnavailable("market-data-service", "empty quote for " + symbol);
+            quote = feign.quote(symbol);
+        } catch (RuntimeException e) {
+            if (RemoteCallErrors.remoteStatus(e) == 404) {
+                throw ApiException.unprocessable("UNKNOWN_SYMBOL", "Unknown symbol " + symbol);
             }
-            return quote;
-        } catch (RestClientException e) {
-            throw ApiException.dependencyUnavailable("market-data-service", e.getMessage());
+            throw RemoteCallErrors.unavailable("market-data-service", e);
         }
+        if (quote == null || quote.price() == null) {
+            throw ApiException.dependencyUnavailable("market-data-service", "empty quote for " + symbol);
+        }
+        return quote;
     }
 
     public record Quote(String symbol, BigDecimal price, long tick, Instant asOf, String source) {

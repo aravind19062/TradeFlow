@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 # One Dockerfile for every service:  docker build -f docker/service.Dockerfile --build-arg SERVICE=order-service .
 
-# ---- build: compile all four services once. The stage does not depend on SERVICE, so
+# ---- build: compile all services once. The stage does not depend on SERVICE, so
 # BuildKit builds it a single time and every service image reuses the cached result.
 FROM maven:3.9.11-eclipse-temurin-17 AS build
 WORKDIR /workspace
@@ -10,7 +10,7 @@ ENV MAVEN_OPTS="-Xmx768m"
 # The cache mount keeps ~/.m2 between builds, so dependencies download once.
 RUN --mount=type=cache,target=/root/.m2 \
     mvn -B -q -DskipTests package \
-      -pl tradeflow-user-service,tradeflow-market-data-service,tradeflow-order-service,tradeflow-portfolio-service -am
+      -pl tradeflow-discovery-server,tradeflow-api-gateway,tradeflow-user-service,tradeflow-market-data-service,tradeflow-order-service,tradeflow-portfolio-service -am
 
 # ---- runtime: JRE only, non-root user, curl for the compose health check
 FROM eclipse-temurin:17.0.18_8-jre-noble

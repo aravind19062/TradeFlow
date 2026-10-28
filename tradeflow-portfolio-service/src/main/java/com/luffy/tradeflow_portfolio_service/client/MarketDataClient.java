@@ -1,69 +1,49 @@
 package com.luffy.tradeflow_portfolio_service.client;
 
-import com.luffy.tradeflow.common.web.ApiException;
-import com.luffy.tradeflow_portfolio_service.config.PortfolioProperties;
-import org.springframework.core.ParameterizedTypeReference;
+import com.luffy.tradeflow.common.web.RemoteCallErrors;
 import org.springframework.stereotype.Component;
-import org.springframework.web.client.RestClient;
-import org.springframework.web.client.RestClientException;
 
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Supplier;
 
-/** Reads simulated quotes and history from market-data-service (public endpoints). */
+/** Simulated quotes, history, watchlist and alerts from market-data-service (OpenFeign). */
 @Component
 public class MarketDataClient {
 
-    private final RestClient restClient;
+    private final MarketDataFeignClient feign;
 
-    public MarketDataClient(RestClient.Builder builder, PortfolioProperties properties) {
-        this.restClient = builder.baseUrl(properties.marketDataUrl()).build();
+    public MarketDataClient(MarketDataFeignClient feign) {
+        this.feign = feign;
     }
 
     public List<Quote> quotes(Collection<String> symbols) {
-        if (symbols.isEmpty()) {
-            return List.of();
-        }
-        try {
-            List<Quote> quotes = restClient.get()
-                    .uri(b -> b.path("/api/market/quotes").queryParam("symbols", String.join(",", symbols)).build())
-                    .retrieve()
-                    .body(new ParameterizedTypeReference<List<Quote>>() { });
-            return quotes == null ? List.of() : quotes;
-        } catch (RestClientException e) {
-            throw ApiException.dependencyUnavailable("market-data-service", e.getMessage());
-        }
+        return symbols.isEmpty() ? List.of() : call(() -> feign.quotes(String.join(",", symbols)));
     }
 
     public Map<String, History> histories(Collection<String> symbols, Instant since, int limit) {
-        if (symbols.isEmpty()) {
-            return Map.of();
-        }
-        try {
-            Map<String, History> result = restClient.get()
-                    .uri(b -> b.path("/api/market/history")
-                            .queryParam("symbols", String.join(",", symbols))
-                            .queryParam("since", since.toString())
-                            .queryParam("limit", limit)
-                            .build())
-                    .retrieve()
-                    .body(new ParameterizedTypeReference<Map<String, History>>() { });
-            return result == null ? Map.of() : result;
-        } catch (RestClientException e) {
-            throw ApiException.dependencyUnavailable("market-data-service", e.getMessage());
-        }
+        return symbols.isEmpty() ? Map.of() : call(() -> feign.histories(String.join(",", symbols), since.toString(), limit));
     }
 
+    /** The caller's own watchlist (their JWT is relayed). */
     public List<Quote> watchlist() {
+        return call(feign::watchlist);
+    }
+
+    /** The caller's own price alerts (their JWT is relayed). */
+    public List<Alert> alerts(String status) {
+        return call(() -> feign.alerts(status));
+    }
+
+    private static <T> T call(Supplier<T> action) {
         try {
-            List<Quote> quotes = restClient.get().uri("/api/watchlist").retrieve()
-                    .body(new ParameterizedTypeReference<List<Quote>>() { });
-            return quotes == null ? List.of() : quotes;
-        } catch (RestClientException e) {
-            throw ApiException.dependencyUnavailable("market-data-service", e.getMessage());
+            T result = action.get();
+            return result;
+        } catch (RuntimeException e) {
+            throw RemoteCallErrors.unavailable("market-data-service", e);
         }
     }
 
@@ -76,5 +56,9 @@ public class MarketDataClient {
     }
 
     public record History(String symbol, String source, List<PricePoint> points) {
+    }
+
+    public record Alert(String id, String symbol, String direction, BigDecimal threshold, String status, String note,
+                        Instant createdAt, Instant triggeredAt, BigDecimal triggeredPrice) {
     }
 }

@@ -90,6 +90,23 @@ public class MarketSimulationService {
                 properties.seed());
     }
 
+    /**
+     * Scheduled tick, safe with several replicas: under the simulation-state row lock it
+     * advances only if no replica ticked within most of the interval, so N instances
+     * still produce one tick per interval. Returns true if a tick was generated.
+     */
+    @Transactional
+    public boolean advanceIfDue(java.time.Duration interval) {
+        SimulationState state = lockState();
+        Instant now = clock.instant();
+        if (!state.isSeeded() || (state.getUpdatedAt() != null
+                && state.getUpdatedAt().isAfter(now.minus(interval.multipliedBy(8).dividedBy(10))))) {
+            return false;
+        }
+        advance(1);
+        return true;
+    }
+
     /** Advances the simulation clock by {@code count} ticks and returns the new tick. */
     @Transactional
     public long advance(int count) {

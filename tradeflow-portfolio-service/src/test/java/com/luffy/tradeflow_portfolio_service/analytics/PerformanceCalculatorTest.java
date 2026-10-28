@@ -46,6 +46,21 @@ class PerformanceCalculatorTest {
     }
 
     @Test
+    void cashIsSummedFromDeltasWhenTradesSettleOutOfExecutionOrder() {
+        // Trade B executed later (t3) but settled first, so its "balance after" (900) is older than A's (800).
+        List<LedgerEntry> ledger = List.of(
+                LedgerEntry.deposit(1, new BigDecimal("1000.00"), new BigDecimal("1000.00"), t(0)),
+                LedgerEntry.trade(1, LedgerEntry.Type.BUY, "TCS", 1, new BigDecimal("100.00"),
+                        new BigDecimal("-100.00"), new BigDecimal("800.00"), null, UUID.randomUUID(), UUID.randomUUID(),
+                        t(2)),
+                LedgerEntry.trade(1, LedgerEntry.Type.BUY, "TCS", 1, new BigDecimal("100.00"),
+                        new BigDecimal("-100.00"), new BigDecimal("900.00"), null, UUID.randomUUID(), UUID.randomUUID(),
+                        t(3)));
+        PerformanceReport r = PerformanceCalculator.replay(t(0), ledger, Map.of(), 100);
+        assertThat(r.points()).extracting(p -> p.cash().toPlainString()).containsExactly("1000.00", "900.00", "800.00");
+    }
+
+    @Test
     void downsamplingKeepsEndpoints() {
         List<LedgerEntry> ledger = List.of(
                 LedgerEntry.deposit(1, new BigDecimal("1000.00"), new BigDecimal("1000.00"), t(0)),

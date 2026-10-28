@@ -124,8 +124,11 @@ public class ReconciliationService {
         }
         compare(issues, userId, "cash_balance_vs_ledger_sum", ledgerCash, account.getCashBalance());
         if (!ledger.isEmpty()) {
-            compare(issues, userId, "cash_balance_vs_last_ledger_entry",
-                    ledger.get(ledger.size() - 1).getCashBalanceAfter(), account.getCashBalance());
+            // "Last" means last committed, i.e. the highest id: settlements of one account are
+            // serialized by its optimistic lock, while occurred_at (trade time) can be out of order.
+            LedgerEntry last = ledger.stream().max(java.util.Comparator.comparing(LedgerEntry::getId)).orElseThrow();
+            compare(issues, userId, "cash_balance_vs_last_ledger_entry", last.getCashBalanceAfter(),
+                    account.getCashBalance());
         }
         BigDecimal holdingRealized = BigDecimal.ZERO;
         for (Holding h : holdings) {
@@ -156,22 +159,32 @@ public class ReconciliationService {
     static class AccountingHealthIndicator extends AbstractHealthIndicator {
 
         private final ReconciliationService service;
+        private final CrossServiceReconciliationService crossService;
 
-        AccountingHealthIndicator(ReconciliationService service) {
+        AccountingHealthIndicator(ReconciliationService service, CrossServiceReconciliationService crossService) {
             this.service = service;
+            this.crossService = crossService;
         }
 
         @Override
         protected void doHealthCheck(Health.Builder builder) {
             ReconciliationReport report = service.lastReport();
+            CrossServiceReconciliationService.CrossServiceReport cross = crossService.lastReport();
+            if (cross != null) {
+                builder.withDetail("crossServiceLastCheck", cross.checkedAt().toString())
+                        .withDetail("crossServiceIssues", cross.issues().size())
+                        .withDetail("orderServiceReachable", cross.orderServiceReachable());
+            }
+            boolean crossOk = cross == null || !cross.needsAttention();
             if (report == null) {
-                builder.up().withDetail("lastCheck", "not run yet");
+                builder.status(crossOk ? org.springframework.boot.health.contributor.Status.UP
+                        : org.springframework.boot.health.contributor.Status.DOWN).withDetail("lastCheck", "not run yet");
                 return;
             }
             builder.withDetail("lastCheck", report.checkedAt().toString())
                     .withDetail("accountsChecked", report.accountsChecked())
                     .withDetail("issues", report.issues().size());
-            if (report.consistent()) {
+            if (report.consistent() && crossOk) {
                 builder.up();
             } else {
                 builder.down();

@@ -58,11 +58,12 @@ class TradeFlowEndToEndTest {
                 Map.of("tradeflow.demo.enabled", "true", "tradeflow.demo.password", DEMO_PASSWORD));
         userUrl = url(users);
         orders = start(TradeflowOrderServiceApplication.class, "tradeflow-order-service", "order", kafka,
-                Map.of("tradeflow.orders.market-data-url", marketUrl));
+                Map.of("spring.cloud.discovery.client.simple.instances.tradeflow-market-data-service[0].uri", marketUrl));
         orderUrl = url(orders);
         portfolio = start(TradeflowPortfolioServiceApplication.class, "tradeflow-portfolio-service", "portfolio",
-                kafka, Map.of("tradeflow.portfolio.market-data-url", marketUrl,
-                        "tradeflow.portfolio.order-service-url", orderUrl));
+                kafka, Map.of(
+                        "spring.cloud.discovery.client.simple.instances.tradeflow-market-data-service[0].uri", marketUrl,
+                        "spring.cloud.discovery.client.simple.instances.tradeflow-order-service[0].uri", orderUrl));
         portfolioUrl = url(portfolio);
     }
 
@@ -146,7 +147,15 @@ class TradeFlowEndToEndTest {
         assertThat(reconciliation.get("consistent").asBoolean()).isTrue();
         assertThat(reconciliation.get("accountsChecked").asInt()).isGreaterThanOrEqualTo(3);
 
-        // 7. Another user cannot read this user's order.
+        // 7. The AI assistant (deterministic mode) looks the order up in order-service via Feign,
+        //    relaying the caller's JWT through the circuit breaker.
+        JsonNode answer = call(HttpMethod.POST, portfolioUrl + "/api/assistant/ask", token,
+                "{\"question\":\"What is the status of order " + buy.get("id").asString() + "?\"}", 200);
+        assertThat(answer.at("/facts/0/tool").asString()).isEqualTo("get_order");
+        assertThat(answer.at("/facts/0/kind").asString()).as(answer.toString()).isEqualTo("RETRIEVED");
+        assertThat(answer.get("answer").asString()).contains("FILLED");
+
+        // 8. Another user cannot read this user's order.
         String demo = call(HttpMethod.POST, userUrl + "/api/auth/login", null,
                 "{\"email\":\"demo@tradeflow.dev\",\"password\":\"" + DEMO_PASSWORD + "\"}", 200)
                 .get("accessToken").asString();
@@ -161,6 +170,13 @@ class TradeFlowEndToEndTest {
         // Do not load any application.properties: all four jars share one classpath here.
         props.put("spring.config.name", "tradeflow-e2e-none");
         props.put("spring.application.name", name);
+        props.put("spring.profiles.active", "local"); // demo users are seeded only in the local profile
+        // No Eureka here: Feign clients resolve service names from fixed instance lists.
+        props.put("eureka.client.enabled", "false");
+        props.put("tradeflow.loadbalancer.readiness-checks", "false");
+        props.put("spring.cloud.openfeign.circuitbreaker.enabled", "true");
+        props.put("spring.cloud.circuitbreaker.resilience4j.disable-time-limiter", "true");
+        props.put("spring.cloud.circuitbreaker.resilience4j.disable-thread-pool", "true");
         props.put("spring.main.banner-mode", "off");
         props.put("server.port", "0");
         props.put("spring.datasource.url", "jdbc:h2:mem:e2e-" + module

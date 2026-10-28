@@ -54,12 +54,22 @@ public class JwtSecurityConfig implements WebMvcConfigurer {
         this.jwtAuthenticationConverter.setJwtGrantedAuthoritiesConverter(authorities);
     }
 
+    /** Prefix of the public placeholder secret that only the local profile may use. */
+    public static final String LOCAL_PLACEHOLDER_PREFIX = "local-dev-only";
+
     @Bean
-    public SecretKey jwtSigningKey(JwtProperties properties) {
-        if (properties.secret().startsWith("local-dev-only")) {
+    public SecretKey jwtSigningKey(JwtProperties properties, org.springframework.core.env.Environment environment) {
+        if (properties.secret().startsWith(LOCAL_PLACEHOLDER_PREFIX)) {
+            boolean localOrTest = environment.acceptsProfiles(
+                    org.springframework.core.env.Profiles.of("local", "test"));
+            if (!localOrTest) {
+                throw new IllegalStateException("Refusing to start: the public local-development JWT secret is "
+                        + "configured outside the 'local' profile. Set TRADEFLOW_JWT_SECRET to a private value "
+                        + "(e.g. `openssl rand -base64 48`).");
+            }
             org.slf4j.LoggerFactory.getLogger(JwtSecurityConfig.class).warn(
-                    "Using the public local-development JWT secret. Set TRADEFLOW_JWT_SECRET to a private value "
-                            + "(e.g. `openssl rand -base64 48`) anywhere other than your own machine.");
+                    "Using the public local-development JWT secret ('local' profile). Never use this profile on a "
+                            + "shared or internet-facing environment.");
         }
         return new SecretKeySpec(properties.secret().getBytes(StandardCharsets.UTF_8), "HmacSHA256");
     }
@@ -71,6 +81,13 @@ public class JwtSecurityConfig implements WebMvcConfigurer {
                 .build();
         decoder.setJwtValidator(JwtValidators.createDefaultWithIssuer(properties.issuer()));
         return decoder;
+    }
+
+    /** Signs user tokens (user-service) and short-lived service tokens (all services). */
+    @Bean
+    public org.springframework.security.oauth2.jwt.JwtEncoder jwtEncoder(SecretKey jwtSigningKey) {
+        return new org.springframework.security.oauth2.jwt.NimbusJwtEncoder(
+                new com.nimbusds.jose.jwk.source.ImmutableSecret<>(jwtSigningKey));
     }
 
     /** Stateless sessions, no CSRF (no cookies are used), JWT auth and JSON error bodies. */

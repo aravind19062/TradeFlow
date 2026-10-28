@@ -29,16 +29,20 @@ public class SimulationScheduler {
     static class Ticker {
 
         private final MarketSimulationService simulationService;
+        private final java.time.Duration interval;
 
-        Ticker(MarketSimulationService simulationService) {
+        Ticker(MarketSimulationService simulationService,
+               @org.springframework.beans.factory.annotation.Value("${tradeflow.market.simulation.tick-interval-ms:30000}")
+               long intervalMs) {
             this.simulationService = simulationService;
+            this.interval = java.time.Duration.ofMillis(intervalMs);
         }
 
         @Scheduled(fixedDelayString = "${tradeflow.market.simulation.tick-interval-ms:30000}",
                 initialDelayString = "${tradeflow.market.simulation.tick-interval-ms:30000}")
         void tick() {
             try {
-                simulationService.advance(1);
+                simulationService.advanceIfDue(interval);
             } catch (RuntimeException e) {
                 log.warn("Simulated tick failed: {}", e.getMessage());
             }

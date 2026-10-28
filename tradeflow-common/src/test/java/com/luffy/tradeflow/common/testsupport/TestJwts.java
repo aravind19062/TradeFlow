@@ -32,6 +32,11 @@ public final class TestJwts {
         return token(userId, "ADMIN");
     }
 
+    /** A service-to-service token (role SERVICE), as minted by ServiceTokenProvider. */
+    public static String service() {
+        return token(0, "SERVICE");
+    }
+
     public static String token(long userId, String role) {
         Instant now = Instant.now();
         JwtClaimsSet claims = JwtClaimsSet.builder()

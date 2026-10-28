@@ -41,6 +41,11 @@ class DeterministicAssistantTest {
             "Buy 10 TCS for me|ACTION_REQUEST",
             "Sell everything now|ACTION_REQUEST",
             "Cancel order 3fbd06b5-3a5e-4d11-9c60-91a785a2b6a7|ACTION_REQUEST",
+            "Which of my price alerts have triggered?|ALERTS",
+            "What are my open orders?|OPEN_ORDERS",
+            "What is my average cost for TCS?|HOLDINGS",
+            "What do I hold?|HOLDINGS",
+            "Explain average cost|EXPLAIN",
             "Tell me a joke|HELP"})
     void classifiesQuestions(String question, Intent expected) {
         assertThat(assistant.classify(question)).isEqualTo(expected);
