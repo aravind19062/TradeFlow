@@ -19,7 +19,7 @@ export class StepUpCancelled extends Error {
  * user-service, kept in memory only). `run` reuses a still-valid token, otherwise asks; if the
  * live service says the token is no longer good enough it asks once more.
  */
-export function StepUpProvider({ children }: { children: ReactNode }) {
+export function StepUpProvider({ children, purpose }: { children: ReactNode; purpose?: string }) {
   const [open, setOpen] = useState(false);
   const [password, setPassword] = useState('');
   const [code, setCode] = useState('');
@@ -76,8 +76,8 @@ export function StepUpProvider({ children }: { children: ReactNode }) {
       <Modal open={open} onClose={busy ? () => {} : cancel} title="Confirm it's you">
         <form onSubmit={submit} className="space-y-3" data-testid="step-up-form">
           <p className="flex gap-2"><ShieldCheck className="size-5 shrink-0 text-rose-600" />
-            Live trading uses real money. Enter your password and the current code from your authenticator app.
-            The confirmation lasts 10 minutes.</p>
+            {purpose ?? 'Live trading uses real money.'} Enter your password and the current code from your
+            authenticator app. The confirmation lasts 10 minutes.</p>
           <TextInput label="Password" type="password" autoComplete="current-password" value={password}
             onChange={(e) => setPassword(e.target.value)} required />
           <TextInput label="Authenticator code" inputMode="numeric" autoComplete="one-time-code" value={code}

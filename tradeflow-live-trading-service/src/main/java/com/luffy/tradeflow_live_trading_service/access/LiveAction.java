@@ -12,8 +12,13 @@ public enum LiveAction {
     PREVIEW_ORDER(       true,    true,      true),
     PLACE_ORDER(         true,    true,      true),
     CANCEL_ORDER(        true,    false,     false),
+    // Marking an order of uncertain outcome as dealt with unblocks new orders, so it needs step-up.
+    RESOLVE_ORDER(       true,    false,     false),
     LOOSEN_LIMITS(       true,    false,     false),
-    VIEW_BROKER_DATA(    false,   false,     false);
+    VIEW_BROKER_DATA(    false,   false,     false),
+    // Administrators: their OWN step-up (password + authenticator, within the max age), live
+    // session and MFA. Readiness and halts are about traders, not about the administrator.
+    CHANGE_KILL_SWITCH(  true,    false,     false);
 
     public final boolean stepUp;
     public final boolean readiness;

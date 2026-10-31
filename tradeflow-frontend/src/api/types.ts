@@ -625,7 +625,12 @@ export interface LiveOrderView {
   averagePrice: number | null;
   createdAt: string;
   updatedAt: string;
+  /** Set while status is NEEDS_REVIEW: NOT_FOUND_AT_BROKER, DUPLICATE_AT_BROKER or BROKER_ID_MISMATCH. */
+  reviewReason: string | null;
+  lastReconciledAt: string | null;
 }
+
+export interface ReconcileResult { orderId: string; decision: string; status: string | null }
 
 export interface LiveNotification {
   id: number;

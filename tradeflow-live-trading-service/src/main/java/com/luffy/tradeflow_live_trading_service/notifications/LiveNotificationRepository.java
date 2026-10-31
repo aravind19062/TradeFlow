@@ -8,7 +8,7 @@ import java.util.Optional;
 
 public interface LiveNotificationRepository extends JpaRepository<LiveNotification, Long> {
 
-    List<LiveNotification> findByUserIdOrderByCreatedAtDesc(long userId, Pageable page);
+    List<LiveNotification> findByUserIdOrderByCreatedAtDescIdDesc(long userId, Pageable page);
 
     Optional<LiveNotification> findByIdAndUserId(long id, long userId);
 }

@@ -13,13 +13,17 @@ import java.util.concurrent.atomic.AtomicInteger;
 /** TEST ONLY. Never on the production classpath: production has only DisabledBrokerAdapter. */
 public class FakeBrokerAdapter implements BrokerAdapter {
 
-    public enum Mode { ACCEPT, REJECT, TIMEOUT }
+    /** TIMEOUT: nothing reached the broker. TIMEOUT_AFTER_PLACING: the broker took the order but the answer was lost. */
+    public enum Mode { ACCEPT, REJECT, TIMEOUT, TIMEOUT_AFTER_PLACING }
 
     public static final String ACCESS_TOKEN_PREFIX = "fake-broker-access-token-";
     public final List<OrderRequest> placed = new CopyOnWriteArrayList<>();
     public final List<String> cancelled = new CopyOnWriteArrayList<>();
     public final List<String> tokensSeen = new CopyOnWriteArrayList<>();
     public volatile Mode mode = Mode.ACCEPT;
+    /** The broker's order book, as {@link #orders} returns it. Tests may edit it to simulate the broker. */
+    public final List<BrokerOrder> book = new CopyOnWriteArrayList<>();
+    public volatile boolean bookUnavailable;
     private final AtomicInteger ids = new AtomicInteger();
 
     @Override public String code() { return "fake"; }
@@ -43,7 +47,19 @@ public class FakeBrokerAdapter implements BrokerAdapter {
     @Override public Funds funds(String t) { tokensSeen.add(t); return new Funds(new BigDecimal("50000"), BigDecimal.ZERO, "INR", Instant.now()); }
     @Override public List<Holding> holdings(String t) { tokensSeen.add(t); return List.of(); }
     @Override public List<Position> positions(String t) { tokensSeen.add(t); return List.of(); }
-    @Override public List<BrokerOrder> orders(String t) { tokensSeen.add(t); return List.of(); }
+    @Override
+    public List<BrokerOrder> orders(String t) {
+        tokensSeen.add(t);
+        if (bookUnavailable) {
+            throw new ApiException(HttpStatus.SERVICE_UNAVAILABLE, "BROKER_UNAVAILABLE", "order book down");
+        }
+        return List.copyOf(book);
+    }
+
+    public BrokerOrder bookEntry(String brokerId, OrderRequest r, String status, long filled, Instant at) {
+        return new BrokerOrder(brokerId, r.clientOrderId(), r.exchange(), r.symbol(), r.side(), r.type(), r.quantity(),
+                filled, r.limitPrice(), filled > 0 ? r.limitPrice() : null, status, status.toLowerCase(), at);
+    }
 
     @Override
     public BrokerOrderAck placeOrder(String accessToken, OrderRequest request) {
@@ -51,10 +67,17 @@ public class FakeBrokerAdapter implements BrokerAdapter {
         return switch (mode) {
             case ACCEPT -> {
                 placed.add(request);
-                yield new BrokerOrderAck("B-" + ids.incrementAndGet(), "OPEN", "accepted");
+                String id = "B-" + ids.incrementAndGet();
+                book.add(bookEntry(id, request, "OPEN", 0, Instant.now()));
+                yield new BrokerOrderAck(id, "OPEN", "accepted");
             }
             case REJECT -> throw ApiException.unprocessable("BROKER_REJECTED", "Insufficient funds at broker");
             case TIMEOUT -> throw new ApiException(HttpStatus.GATEWAY_TIMEOUT, "BROKER_TIMEOUT", "timed out");
+            case TIMEOUT_AFTER_PLACING -> {
+                placed.add(request);
+                book.add(bookEntry("B-" + ids.incrementAndGet(), request, "OPEN", 0, Instant.now()));
+                throw new ApiException(HttpStatus.GATEWAY_TIMEOUT, "BROKER_TIMEOUT", "timed out");
+            }
         };
     }
 

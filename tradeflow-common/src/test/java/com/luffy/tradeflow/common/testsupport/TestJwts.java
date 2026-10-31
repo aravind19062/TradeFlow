@@ -76,7 +76,11 @@ public final class TestJwts {
     }
 
     public static String withAudience(long userId, String audience, Map<String, Object> extra) {
-        return sign(ENCODER, claims(String.valueOf(userId), List.of("USER"), audience, 600, extra));
+        return withAudience(userId, "USER", audience, extra);
+    }
+
+    public static String withAudience(long userId, String role, String audience, Map<String, Object> extra) {
+        return sign(ENCODER, claims(String.valueOf(userId), List.of(role), audience, 600, extra));
     }
 
     public static String bearer(String token) {

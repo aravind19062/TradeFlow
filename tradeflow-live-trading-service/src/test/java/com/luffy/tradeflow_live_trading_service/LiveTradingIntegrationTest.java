@@ -105,6 +105,16 @@ class LiveTradingIntegrationTest {
                 Map.of("amr", amr, "auth_time", authTime.getEpochSecond(), "tv", tv)));
     }
 
+    /** An administrator's own step-up token (password + TOTP). */
+    static String adminStepUp(long id, Instant authTime, int tv, List<String> amr) {
+        return TestJwts.bearer(TestJwts.withAudience(id, "ADMIN", "tradeflow-live",
+                Map.of("amr", amr, "auth_time", authTime.getEpochSecond(), "tv", tv, "sid", "sid-" + id)));
+    }
+
+    static String adminStepUp(long id) {
+        return adminStepUp(id, Instant.now(), 0, List.of("pwd", "otp"));
+    }
+
     static String access(long id) {
         return TestJwts.bearer(TestJwts.withAudience(id, "tradeflow",
                 Map.of("amr", List.of("pwd", "otp"), "auth_time", Instant.now().getEpochSecond(), "tv", 0)));
@@ -288,12 +298,206 @@ class LiveTradingIntegrationTest {
         long id = connectedUser();
         broker.mode = FakeBrokerAdapter.Mode.TIMEOUT;
         assertThat(placeLimit(id).get("status").asString()).isEqualTo("UNKNOWN");
+        long other = connectedUser();
         broker.mode = FakeBrokerAdapter.Mode.REJECT;
-        JsonNode rejected = placeLimit(id);
+        JsonNode rejected = placeLimit(other);
         assertThat(rejected.get("status").asString()).isEqualTo("REJECTED");
         assertThat(rejected.get("statusMessage").asString()).contains("Insufficient funds");
-        assertThat(auditActions(id)).anyMatch(a -> a.startsWith("SUBMIT_ORDER:UNKNOWN"))
-                .anyMatch(a -> a.startsWith("SUBMIT_ORDER:REJECTED"));
+        assertThat(auditActions(id)).anyMatch(a -> a.startsWith("SUBMIT_ORDER:UNKNOWN"));
+        assertThat(auditActions(other)).anyMatch(a -> a.startsWith("SUBMIT_ORDER:REJECTED"));
+        // A definite rejection does not block the next order.
+        broker.mode = FakeBrokerAdapter.Mode.ACCEPT;
+        assertThat(placeLimit(other).get("status").asString()).isEqualTo("OPEN");
+    }
+
+    // ------------------------------------------------------------------ reconciliation
+
+    private String placeBody(JsonNode preview, String clientId) {
+        return "{\"confirmationId\":\"" + preview.get("confirmationId").asString() + "\",\"clientOrderId\":\""
+                + clientId + "\",\"order\":" + LIMIT_ORDER + "}";
+    }
+
+    private List<String> reconcileDecisions(long id) throws Exception {
+        JsonNode r = call(post("/api/live/reconciliation"), access(id), 200);
+        List<String> out = new java.util.ArrayList<>();
+        r.forEach(x -> out.add(x.get("decision").asString()));
+        return out;
+    }
+
+    private void ageOrder(String orderId, long minutes) {
+        jdbc.update("update live_orders set created_at = ? where id = ?",
+                java.sql.Timestamp.from(Instant.now().minusSeconds(minutes * 60)), orderId);
+    }
+
+    @Test
+    void anOrderLostInATimeoutIsFoundAtTheBrokerNeverResubmittedAndBlocksNewOrdersUntilThen() throws Exception {
+        long id = connectedUser();
+        broker.mode = FakeBrokerAdapter.Mode.TIMEOUT_AFTER_PLACING;
+        String clientId = UUID.randomUUID().toString();
+        JsonNode preview = send(post("/api/live/orders/preview"), stepUp(id), LIMIT_ORDER, 200);
+        JsonNode unknown = send(post("/api/live/orders"), stepUp(id), placeBody(preview, clientId), 200);
+        assertThat(unknown.get("status").asString()).isEqualTo("UNKNOWN");
+        int sent = broker.placed.size();
+        broker.mode = FakeBrokerAdapter.Mode.ACCEPT;
+
+        // The client retrying the same request gets the same UNKNOWN order: nothing is resent.
+        assertThat(send(post("/api/live/orders"), stepUp(id), placeBody(preview, clientId), 200).get("id").asString())
+                .isEqualTo(unknown.get("id").asString());
+        // A NEW order (new preview, new client id) is refused while the first one's outcome is open,
+        // so the user cannot accidentally buy twice.
+        assertThat(code(send(post("/api/live/orders/preview"), stepUp(id), LIMIT_ORDER, 409))).isEqualTo("UNRESOLVED_ORDER");
+        assertThat(broker.placed).hasSize(sent);
+
+        // Reconciliation finds it in the broker's order book by the client order id it was sent with.
+        assertThat(reconcileDecisions(id)).containsExactly("LINKED");
+        JsonNode linked = call(get("/api/live/orders/" + unknown.get("id").asString()), access(id), 200);
+        assertThat(linked.get("status").asString()).isEqualTo("OPEN");
+        assertThat(linked.get("brokerOrderId").asString()).startsWith("B-");
+        assertThat(broker.placed).hasSize(sent); // still exactly one real order
+        // Running it again changes nothing (idempotent) and writes no second decision.
+        assertThat(reconcileDecisions(id)).containsExactly("UNCHANGED");
+        assertThat(auditActions(id).stream().filter(a -> a.startsWith("RECONCILE_ORDER:INFO:" + unknown.get("id").asString()
+                + " LINKED"))).hasSize(1);
+        assertThat(call(get("/api/live/notifications"), access(id), 200).get(0).get("kind").asString())
+                .isEqualTo("ORDER_CONFIRMED");
+        // Now the user may trade again.
+        assertThat(placeLimit(id).get("status").asString()).isEqualTo("OPEN");
+    }
+
+    @Test
+    void anOrderMissingFromTheBrokerStaysUnknownThroughTheAbsenceWindowThenNeedsTheUsersReview() throws Exception {
+        long id = connectedUser();
+        broker.mode = FakeBrokerAdapter.Mode.TIMEOUT; // never reached the broker
+        String orderId = placeLimit(id).get("id").asString();
+        broker.mode = FakeBrokerAdapter.Mode.ACCEPT;
+        int sent = broker.placed.size();
+
+        // Inside the window: the broker may still list it late. Keep looking; do not conclude anything.
+        assertThat(reconcileDecisions(id)).containsExactly("NOT_FOUND_YET");
+        // Broker unreachable: nothing changes.
+        broker.bookUnavailable = true;
+        try {
+            assertThat(reconcileDecisions(id)).containsExactly("BROKER_UNAVAILABLE");
+        } finally {
+            broker.bookUnavailable = false;
+        }
+        assertThat(call(get("/api/live/orders/" + orderId), access(id), 200).get("status").asString()).isEqualTo("UNKNOWN");
+
+        // Past the window: the user is asked to check their broker account. Still never resubmitted.
+        ageOrder(orderId, 20);
+        assertThat(reconcileDecisions(id)).containsExactly("NEEDS_REVIEW");
+        JsonNode review = call(get("/api/live/orders/" + orderId), access(id), 200);
+        assertThat(review.get("status").asString()).isEqualTo("NEEDS_REVIEW");
+        assertThat(review.get("reviewReason").asString()).isEqualTo("NOT_FOUND_AT_BROKER");
+        assertThat(call(get("/api/live/notifications"), access(id), 200).get(0).get("message").asString())
+                .contains("NOT resubmitted");
+        assertThat(code(send(post("/api/live/orders/preview"), stepUp(id), LIMIT_ORDER, 409))).isEqualTo("UNRESOLVED_ORDER");
+
+        // Resolving needs step-up (an access token is refused) and only applies to orders under review.
+        call(post("/api/live/orders/" + orderId + "/resolve"), access(id), 403);
+        JsonNode resolved = call(post("/api/live/orders/" + orderId + "/resolve"), stepUp(id), 200);
+        assertThat(resolved.get("status").asString()).isEqualTo("RESOLVED_BY_USER");
+        assertThat(code(call(post("/api/live/orders/" + orderId + "/resolve"), stepUp(id), 409))).isEqualTo("NOT_UNDER_REVIEW");
+        assertThat(broker.placed).hasSize(sent);
+        assertThat(auditActions(id)).anyMatch(a -> a.startsWith("RECONCILE_ORDER:INFO:" + orderId + " NEEDS_REVIEW"))
+                .anyMatch(a -> a.startsWith("RESOLVE_ORDER:ALLOWED:" + orderId + " NOT_FOUND_AT_BROKER [step-up pwd+otp"))
+                .anyMatch(a -> a.startsWith("RECONCILE_ORDER:INFO:" + orderId + " BROKER_UNAVAILABLE"));
+        // The user can trade again.
+        assertThat(placeLimit(id).get("status").asString()).isEqualTo("OPEN");
+    }
+
+    @Test
+    void twoBrokerOrdersForOneRequestAreFlaggedAndNeitherIsCancelled() throws Exception {
+        long id = connectedUser();
+        broker.mode = FakeBrokerAdapter.Mode.TIMEOUT_AFTER_PLACING;
+        JsonNode order = placeLimit(id);
+        broker.mode = FakeBrokerAdapter.Mode.ACCEPT;
+        // The broker somehow holds two orders with this client order id.
+        BrokerAdapter.BrokerOrder first = broker.book.stream()
+                .filter(b -> b.clientOrderId() != null && broker.placed.stream().anyMatch(p -> p.clientOrderId().equals(b.clientOrderId())))
+                .reduce((a, b) -> b).orElseThrow();
+        broker.book.add(new BrokerAdapter.BrokerOrder("B-dup-" + id, first.clientOrderId(), first.exchange(), first.symbol(),
+                first.side(), first.type(), first.quantity(), 0, first.price(), null, "OPEN", "open", Instant.now()));
+        int cancels = broker.cancelled.size();
+        assertThat(reconcileDecisions(id)).containsExactly("NEEDS_REVIEW");
+        JsonNode review = call(get("/api/live/orders/" + order.get("id").asString()), access(id), 200);
+        assertThat(review.get("reviewReason").asString()).isEqualTo("DUPLICATE_AT_BROKER");
+        assertThat(review.get("brokerOrderId").isNull()).isTrue(); // not silently linked to either
+        assertThat(broker.cancelled).hasSize(cancels);
+    }
+
+    @Test
+    void brokerStatusRefreshIsMonotonicAndIgnoresStaleOrDuplicateSnapshots() throws Exception {
+        long id = connectedUser();
+        JsonNode order = placeLimit(id);
+        String brokerId = order.get("brokerOrderId").asString();
+        BrokerAdapter.OrderRequest req = broker.placed.get(broker.placed.size() - 1);
+        Instant t0 = Instant.now();
+        broker.book.removeIf(b -> brokerId.equals(b.brokerOrderId()));
+        broker.book.add(broker.bookEntry(brokerId, req, "PARTIALLY_FILLED", 1, t0.plusSeconds(10)));
+        assertThat(reconcileDecisions(id)).containsExactly("UPDATED");
+        JsonNode partial = call(get("/api/live/orders/" + order.get("id").asString()), access(id), 200);
+        assertThat(partial.get("status").asString()).isEqualTo("PARTIALLY_FILLED");
+        assertThat(partial.get("filledQuantity").asLong()).isEqualTo(1);
+
+        // A delayed, older snapshot (still OPEN, nothing filled) must not move it backwards.
+        broker.book.removeIf(b -> brokerId.equals(b.brokerOrderId()));
+        broker.book.add(broker.bookEntry(brokerId, req, "OPEN", 0, t0.plusSeconds(5)));
+        assertThat(reconcileDecisions(id)).containsExactly("UNCHANGED");
+        // Filled.
+        broker.book.removeIf(b -> brokerId.equals(b.brokerOrderId()));
+        broker.book.add(broker.bookEntry(brokerId, req, "FILLED", 2, t0.plusSeconds(20)));
+        assertThat(reconcileDecisions(id)).containsExactly("UPDATED");
+        // Terminal: no longer reconciled at all, even if a later snapshot disagrees.
+        broker.book.removeIf(b -> brokerId.equals(b.brokerOrderId()));
+        broker.book.add(broker.bookEntry(brokerId, req, "OPEN", 0, t0.plusSeconds(30)));
+        assertThat(reconcileDecisions(id)).isEmpty();
+        JsonNode filled = call(get("/api/live/orders/" + order.get("id").asString()), access(id), 200);
+        assertThat(filled.get("status").asString()).isEqualTo("FILLED");
+        assertThat(filled.get("filledQuantity").asLong()).isEqualTo(2);
+    }
+
+    @Test
+    void anOrderStuckInSubmittingAfterACrashIsPickedUpButNotWhileItsOwnCallMayStillAnswer() throws Exception {
+        long id = connectedUser();
+        broker.mode = FakeBrokerAdapter.Mode.TIMEOUT_AFTER_PLACING;
+        String orderId = placeLimit(id).get("id").asString();
+        broker.mode = FakeBrokerAdapter.Mode.ACCEPT;
+        // Simulate a crash between saving the order and recording the broker's answer.
+        jdbc.update("update live_orders set status = 'SUBMITTING' where id = ?", orderId);
+        assertThat(reconcileDecisions(id)).containsExactly("IN_FLIGHT");
+        ageOrder(orderId, 3); // past the in-flight grace period
+        assertThat(reconcileDecisions(id)).containsExactly("LINKED");
+        assertThat(call(get("/api/live/orders/" + orderId), access(id), 200).get("status").asString()).isEqualTo("OPEN");
+    }
+
+    @Test
+    void reconciliationNeverUsesADifferentBrokerAccountAndNotificationsAreDeliveredOnce() throws Exception {
+        long id = connectedUser();
+        broker.mode = FakeBrokerAdapter.Mode.TIMEOUT;
+        String orderId = placeLimit(id).get("id").asString();
+        broker.mode = FakeBrokerAdapter.Mode.ACCEPT;
+        // The user disconnects: no usable connection to that account, so nothing is decided.
+        call(post("/api/live/broker/disconnect"), stepUp(id), 200);
+        assertThat(reconcileDecisions(id)).containsExactly("NO_CONNECTION");
+        assertThat(call(get("/api/live/orders/" + orderId), access(id), 200).get("status").asString()).isEqualTo("UNKNOWN");
+
+        // A readiness event delivered twice (Kafka at-least-once) produces one notification.
+        EventCodec platformCodec = new EventCodec(json, jakarta.validation.Validation.buildDefaultValidatorFactory()
+                .getValidator(), Clock.systemUTC(), "tradeflow-learning-service", TradingEnvironment.PLATFORM, null);
+        String message = platformCodec.encode(platformCodec.wrap(Topics.READINESS_CHANGED, String.valueOf(id),
+                new Events.ReadinessChanged(id, "QUALIFIED", "EXPIRED", "EXPIRED", false, 1, Instant.now())));
+        readinessListener.onReadinessChanged(message);
+        readinessListener.onReadinessChanged(message);
+        JsonNode notes = call(get("/api/live/notifications"), access(id), 200);
+        List<String> kinds = new java.util.ArrayList<>();
+        notes.forEach(n -> kinds.add(n.get("kind").asString()));
+        assertThat(kinds.stream().filter("READINESS_LOST"::equals)).hasSize(1);
+        // Read state is persisted and per user.
+        long noteId = notes.get(0).get("id").asLong();
+        call(post("/api/live/notifications/" + noteId + "/read"), access(USERS.incrementAndGet()), 404);
+        call(post("/api/live/notifications/" + noteId + "/read"), access(id), 200);
+        assertThat(call(get("/api/live/notifications"), access(id), 200).get(0).get("readAt").isNull()).isFalse();
     }
 
     @Test
@@ -353,7 +557,7 @@ class LiveTradingIntegrationTest {
     void killSwitchesHaltNewOrdersButNotCancellationAndAreAudited() throws Exception {
         long id = connectedUser();
         JsonNode open = placeLimit(id);
-        String admin = TestJwts.bearer(TestJwts.admin(7));
+        String admin = adminStepUp(7);
         // Users cannot operate kill switches; a reason is required.
         send(put("/api/admin/live/users/" + id + "/kill-switch"), stepUp(id), "{\"enabled\":true,\"reason\":\"self halt please\"}", 403);
         send(put("/api/admin/live/users/" + id + "/kill-switch"), admin, "{\"enabled\":true,\"reason\":\"short\"}", 400);
@@ -377,6 +581,62 @@ class LiveTradingIntegrationTest {
         assertThat(auditActions(id)).anyMatch(a -> a.startsWith("KILL_SWITCH_ON:ALLOWED"))
                 .anyMatch(a -> a.startsWith("PREVIEW_ORDER:REFUSED:LIVE_TRADING_HALTED"))
                 .anyMatch(a -> a.startsWith("CANCEL_ORDER:ALLOWED"));
+    }
+
+    @Test
+    void killSwitchChangesNeedTheAdministratorsOwnFreshStepUpAndEveryAttemptIsAudited() throws Exception {
+        long target = USERS.incrementAndGet();
+        long adminId = USERS.incrementAndGet();
+        String path = "/api/admin/live/users/" + target + "/kill-switch";
+        String halt = "{\"enabled\":true,\"reason\":\"Unusual order pattern reported\"}";
+
+        // The ordinary admin access token (password only, no fresh re-authentication) is not enough.
+        assertThat(code(send(put(path), TestJwts.bearer(TestJwts.admin(adminId)), halt, 403))).isEqualTo("STEP_UP_REQUIRED");
+        // Step-up without the authenticator factor, or older than the maximum age.
+        assertThat(code(send(put(path), adminStepUp(adminId, Instant.now(), 0, List.of("pwd")), halt, 403)))
+                .isEqualTo("STEP_UP_REQUIRED");
+        assertThat(code(send(put(path), adminStepUp(adminId, Instant.now().minusSeconds(11 * 60), 0,
+                List.of("pwd", "otp")), halt, 403))).isEqualTo("STEP_UP_REQUIRED");
+        // The administrator's own session was revoked, or their MFA switched off.
+        tokenVersion.put(adminId, 3);
+        assertThat(code(send(put(path), adminStepUp(adminId), halt, 401))).isEqualTo("SESSION_REVOKED");
+        tokenVersion.put(adminId, 0);
+        mfa.put(adminId, false);
+        assertThat(code(send(put(path), adminStepUp(adminId), halt, 403))).isEqualTo("MFA_REQUIRED");
+        mfa.put(adminId, true);
+        // A trader's step-up token is not an administrator's.
+        send(put(path), stepUp(adminId), halt, 403);
+        // Nothing changed so far.
+        assertThat(call(get("/api/admin/live/users/" + target), TestJwts.bearer(TestJwts.admin(adminId)), 200)
+                .get("killSwitch").get("enabled").asBoolean()).isFalse();
+
+        JsonNode on = send(put(path), adminStepUp(adminId), halt, 200);
+        assertThat(on.get("enabled").asBoolean()).isTrue();
+        assertThat(on.get("actorId").asLong()).isEqualTo(adminId);
+
+        // Every attempt is on the target's chain with the administrator as actor; the change records
+        // the reason, the previous state and how the administrator authenticated.
+        List<String> actions = auditActions(target);
+        assertThat(actions).containsExactly(
+                "CHANGE_KILL_SWITCH:REFUSED:STEP_UP_REQUIRED (admin " + adminId + ")",
+                "CHANGE_KILL_SWITCH:REFUSED:STEP_UP_REQUIRED (admin " + adminId + ")",
+                "CHANGE_KILL_SWITCH:REFUSED:STEP_UP_REQUIRED (admin " + adminId + ")",
+                "CHANGE_KILL_SWITCH:REFUSED:SESSION_REVOKED (admin " + adminId + ")",
+                "CHANGE_KILL_SWITCH:REFUSED:MFA_REQUIRED (admin " + adminId + ")",
+                actions.get(5));
+        assertThat(actions.get(5)).startsWith("KILL_SWITCH_ON:ALLOWED:USER: Unusual order pattern reported [was off; admin "
+                + adminId + "; step-up pwd+otp at ").endsWith(", session sid-" + adminId + "]");
+        assertThat(jdbc.queryForList("select distinct actor_id from live_audit_log where user_id = ?", Long.class, target))
+                .containsExactly(adminId);
+        assertThat(call(get("/api/admin/live/users/" + target), TestJwts.bearer(TestJwts.admin(adminId)), 200)
+                .get("chain").get("intact").asBoolean()).isTrue();
+
+        // Platform-wide switch: refusals land on the platform chain (user 0).
+        assertThat(code(send(put("/api/admin/live/kill-switch"), TestJwts.bearer(TestJwts.admin(adminId)), halt, 403)))
+                .isEqualTo("STEP_UP_REQUIRED");
+        assertThat(auditActions(0)).contains("CHANGE_KILL_SWITCH:REFUSED:STEP_UP_REQUIRED (admin " + adminId + ")");
+        assertThat(call(get("/api/admin/live/kill-switch"), TestJwts.bearer(TestJwts.admin(adminId)), 200)
+                .get("enabled").asBoolean()).isFalse();
     }
 
     // ------------------------------------------------------------------ audit and environment

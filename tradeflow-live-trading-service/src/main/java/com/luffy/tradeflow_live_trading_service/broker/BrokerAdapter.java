@@ -30,6 +30,11 @@ public interface BrokerAdapter {
 
     List<Position> positions(String accessToken);
 
+    /**
+     * The broker's order book (at least today's orders). Each order must carry the
+     * {@code clientOrderId} TradeFlow sent with it (the broker's order tag), and a status mapped onto
+     * {@code LiveOrderStatus.FROM_BROKER}. Reconciliation relies on both.
+     */
     List<BrokerOrder> orders(String accessToken);
 
     BrokerOrderAck placeOrder(String accessToken, OrderRequest request);
@@ -54,8 +59,10 @@ public interface BrokerAdapter {
     record Position(String exchange, String symbol, long quantity, BigDecimal averagePrice, BigDecimal pnl) {
     }
 
-    record BrokerOrder(String brokerOrderId, String exchange, String symbol, String side, String type, long quantity,
-                       long filledQuantity, BigDecimal price, String status, String message, Instant updatedAt) {
+    /** {@code updatedAt} is the broker's own timestamp for this state (used to discard stale snapshots). */
+    record BrokerOrder(String brokerOrderId, String clientOrderId, String exchange, String symbol, String side, String type,
+                       long quantity, long filledQuantity, BigDecimal price, BigDecimal averagePrice, String status,
+                       String message, Instant updatedAt) {
     }
 
     record OrderRequest(String clientOrderId, String exchange, String symbol, String side, String type, long quantity,

@@ -6,7 +6,9 @@
 FROM maven:3.9.11-eclipse-temurin-17 AS build
 WORKDIR /workspace
 COPY . .
-ENV MAVEN_OPTS="-Xmx768m"
+# Sequential build (no -T) with a small Serial-GC heap: this runs inside the Docker VM, next to
+# whatever containers are running. `make rebuild` builds on the host instead.
+ENV MAVEN_OPTS="-Xmx512m -XX:+UseSerialGC -XX:TieredStopAtLevel=1"
 # The cache mount keeps ~/.m2 between builds, so dependencies download once.
 RUN --mount=type=cache,target=/root/.m2 \
     mvn -B -q -DskipTests package \

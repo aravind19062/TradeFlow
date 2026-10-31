@@ -13,15 +13,35 @@ infra-up: ## Start PostgreSQL and Kafka only (services run from IDE/mvn)
 	$(COMPOSE) up -d postgres kafka
 	@echo "PostgreSQL localhost:5432 | Kafka localhost:9094"
 
-up: ## Build and start everything: infra, Eureka, API gateway, services (2 market-data replicas), web frontend
+up: ## Build and start everything: infra, Eureka, gateway, all services incl. learning + live, web frontend
 	$(COMPOSE) --profile apps up -d --build
 	@echo "Web app http://localhost:3000 | API gateway http://localhost:8000 | Eureka http://localhost:8761 | Logs: make logs"
+
+up-demo: ## Start only demo trading (no learning-service, no live-trading-service): ~1 GB less
+	$(COMPOSE) --profile demo up -d
+	@echo "Web app http://localhost:3000 (Academy and Live pages report the service as unavailable)"
+
+up-academy: ## Start demo trading + Trading Academy/readiness (no live-trading-service)
+	$(COMPOSE) --profile academy up -d
+
+stop-app: ## Stop one service, keeping its container (make stop-app S=live-trading-service)
+	$(COMPOSE) --profile apps stop $(S)
+
+rebuild: ## Rebuild ONE service on the host and restart only it (make rebuild S=order-service)
+	@test -n "$(S)" || { echo "usage: make rebuild S=<service>, e.g. S=order-service"; exit 1; }
+	mvn -B -q -DskipTests package -pl tradeflow-$(S) -am
+	docker build -q -f docker/service-prebuilt.Dockerfile --build-arg SERVICE=$(S) -t tradeflow/$(S):local .
+	$(COMPOSE) --profile apps up -d --no-deps --no-build $(S)
+
+mem: ## Show memory per container and for the Docker VM
+	@docker stats --no-stream --format 'table {{.Name}}\t{{.MemUsage}}\t{{.CPUPerc}}'
+	@docker run --rm alpine:3 free -m
 
 tools: ## Start Kafka UI on http://localhost:8085 (optional)
 	$(COMPOSE) --profile tools up -d kafka-ui
 
 down: ## Stop all containers (data volumes are KEPT)
-	$(COMPOSE) --profile apps --profile tools down
+	$(COMPOSE) --profile apps --profile demo --profile academy --profile tools down
 
 ps: ## Show container status and health
 	$(COMPOSE) --profile apps --profile tools ps
@@ -53,8 +73,8 @@ build: ## Compile and package every module (skip tests)
 test: ## Run all fast tests (H2 + embedded Kafka + in-JVM end-to-end)
 	mvn -B verify
 
-test-postgres: ## Also run the PostgreSQL compatibility tests (Testcontainers or embedded PostgreSQL)
-	mvn -B verify -Ppostgres-tests
+test-postgres: ## Also run the PostgreSQL compatibility tests (embedded PostgreSQL on the host, not in the Docker VM)
+	mvn -B verify -Ppostgres-tests -Dtradeflow.test.postgres=embedded
 
 # ---------------------------------------------------------------- Web frontend (Node 22: see tradeflow-frontend/.nvmrc)
 web-dev: ## Run the React app with hot reload on http://localhost:5173 (proxies /api to the gateway on :8000)

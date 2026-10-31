@@ -34,7 +34,7 @@ public class NotificationService {
 
     @Transactional(readOnly = true)
     public List<View> recent(long userId) {
-        return repository.findByUserIdOrderByCreatedAtDesc(userId, PageRequest.of(0, 50)).stream().map(View::of).toList();
+        return repository.findByUserIdOrderByCreatedAtDescIdDesc(userId, PageRequest.of(0, 50)).stream().map(View::of).toList();
     }
 
     @Transactional

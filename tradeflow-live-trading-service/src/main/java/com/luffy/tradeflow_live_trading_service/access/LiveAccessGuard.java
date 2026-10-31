@@ -59,6 +59,36 @@ public class LiveAccessGuard {
         }
     }
 
+    /**
+     * An administrator changing a live safety control. Same identity checks as a trader's step-up
+     * (fresh password + TOTP, session not revoked, MFA still on) applied to the administrator's own
+     * account, plus the ADMIN role in the step-up token itself. Refusals are audited on
+     * {@code auditChain} (the user or platform chain the change targets) with the administrator as
+     * actor, so the attempt sits next to the changes it tried to make.
+     */
+    public long authorizeAdmin(Jwt jwt, LiveAction action, long auditChain) {
+        long adminId = userId(jwt);
+        try {
+            List<String> roles = jwt.getClaimAsStringList("roles");
+            if (roles == null || !roles.contains("ADMIN")) {
+                throw new ApiException(HttpStatus.FORBIDDEN, "ADMIN_REQUIRED", "Only administrators can do this");
+            }
+            check(jwt, adminId, action);
+            return adminId;
+        } catch (ApiException refused) {
+            audit.record(auditChain, action.name(), LiveAuditService.Outcome.REFUSED,
+                    refused.getCode() + " (admin " + adminId + ")", adminId);
+            throw refused;
+        }
+    }
+
+    /** How the caller authenticated, for audit details (no token material). */
+    public static String authSummary(Jwt jwt) {
+        Instant at = authTime(jwt);
+        return "step-up " + String.join("+", jwt.getClaimAsStringList("amr") == null ? List.of()
+                : jwt.getClaimAsStringList("amr")) + " at " + at + ", session " + jwt.getClaimAsString("sid");
+    }
+
     public static long userId(Jwt jwt) {
         try {
             return Long.parseLong(jwt.getSubject());

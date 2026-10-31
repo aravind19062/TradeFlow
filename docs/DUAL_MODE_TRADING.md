@@ -494,3 +494,55 @@ The full stack no longer runs reliably in the 4 GiB VM.
 the stack runs without swapping), keeping 4+ CPUs. If you must stay at 4 GiB: run one market-data replica
 (`docker compose --profile apps up -d --scale market-data-service=1`) and stop the stack before rebuilding images.
 I have not changed your Docker settings.
+
+**Superseded (2026-11-01):** you chose to stay at 4 GiB (8 GB Mac). After JVM, Kafka and PostgreSQL tuning
+the full stack uses ≈2.8 GiB with ≈30 MiB swap, and the full browser suite passes against it. See
+[DEVELOPMENT_RESOURCES.md](DEVELOPMENT_RESOURCES.md).
+
+### Order reconciliation (broker-independent part, 2026-11-01)
+
+Implemented and tested against the test-only fake broker; dormant in production because
+`DisabledBrokerAdapter.enabled()` is false.
+
+* **No duplicates while an outcome is uncertain.** While a user has an order in SUBMITTING, UNKNOWN or
+  NEEDS_REVIEW, preview and placement answer `409 UNRESOLVED_ORDER` (checked under the per-user lock).
+  Retrying the *same* request (same clientOrderId) still returns the existing order and sends nothing.
+* **Never resubmitted.** `OrderReconciler` only reads the broker's order book. It never places, retries or
+  cancels.
+* **Matching by the clientOrderId tag only**, never by a fuzzy symbol/quantity/price match.
+  * Found once: LINKED, takes the broker's id and state.
+  * Found twice: NEEDS_REVIEW (DUPLICATE_AT_BROKER), and neither order is cancelled.
+  * Not found: stays UNKNOWN for `tradeflow.live.reconcile-absence-window` (15 min; brokers can list orders
+    late), then NEEDS_REVIEW (NOT_FOUND_AT_BROKER).
+  * Broker unreachable, or no connection to the same broker account: no change.
+* **Timeouts, delayed and duplicate answers.**
+  * A SUBMITTING order is left alone for `reconcile-in-flight-grace` (2 min). After that it is treated as
+    interrupted (crash recovery).
+  * A late acknowledgement can only add a missing broker id; a contradicting one moves the order to
+    NEEDS_REVIEW (BROKER_ID_MISMATCH).
+  * Broker snapshots are applied monotonically: older `updatedAt` is ignored, terminal states stay terminal,
+    and fills never decrease. Applying the same snapshot twice is a no-op.
+  * Each order is updated in its own transaction with optimistic locking.
+* **Status refresh** for OPEN, PARTIALLY_FILLED and CANCEL_REQUESTED orders, by broker order id. It runs every
+  60 s in the background, or on demand via `POST /api/live/reconciliation`.
+* **The user closes a review** with `POST /api/live/orders/{id}/resolve` (step-up) after checking their broker
+  account. Nothing is sent to the broker; the order keeps counting toward daily limits.
+* **Audit and notifications.** Every decision that changes an order is written to the live audit chain
+  (`RECONCILE_ORDER`, `RESOLVE_ORDER` with the step-up summary). On-demand checks also record the passes that
+  changed nothing. The user is notified when an order needs review (ORDER_NEEDS_REVIEW) and when an uncertain
+  order is found (ORDER_CONFIRMED).
+
+**Broker-dependent, for phase 6 (needs your broker choice):**
+1. **Order tag.** The adapter must send TradeFlow's clientOrderId as the broker's order tag and return it in
+   `BrokerOrder.clientOrderId`. Brokers limit tag length and characters (some to 20 characters), so the
+   adapter may need a shorter deterministic tag derived from the clientOrderId. Without a tag, uncertain
+   orders can only ever go to NEEDS_REVIEW.
+2. **Status mapping** from the broker's vocabulary onto OPEN / PARTIALLY_FILLED / FILLED / CANCELLED /
+   REJECTED / EXPIRED, and which of its timestamps is `updatedAt`.
+3. **Order-book coverage.** Does the broker list only today's orders? What are its rate limits? Together these
+   set the absence window and the polling interval.
+4. **Postbacks / webhooks** (optional, faster than polling). They need the broker's signature verification and
+   would feed the same `applyBroker` path.
+5. **Which errors are definite.** The adapter decides which broker errors are definite rejections (4xx →
+   REJECTED) and which are uncertain (UNKNOWN).
+6. **Real-money end-to-end test** with your account and minimal limits (phase 7).

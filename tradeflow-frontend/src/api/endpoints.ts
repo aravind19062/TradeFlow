@@ -1,7 +1,7 @@
 import { del, get, post, put } from './client';
 import type {
   AdminUserLive, KillSwitchView, LiveLimits, LiveLimitsView, LiveNotification, LiveOrderParams, LiveOrderPreview,
-  LiveOrderView, LiveStatus, BrokerConnectionView,
+  LiveOrderView, LiveStatus, BrokerConnectionView, ReconcileResult,
   AcknowledgementView, AdminUserReadiness, ReadinessHistoryItem, ReadinessStatusView, ReviewCase, SizingScenario,
   AcademyOverview, LessonView, ModuleSummary, QuizAttemptView, QuizResultView,
   AlertRequest, AlertResponse, AlertStatus, AskResponse, AssistantCapabilities, HistoryResponse,
@@ -172,6 +172,10 @@ export const liveApi = {
   place: (t: string, confirmationId: string, clientOrderId: string, order: LiveOrderParams) =>
     post<LiveOrderView>('/live/orders', { confirmationId, clientOrderId, order }, withStepUp(t)),
   cancel: (t: string, orderId: string) => post<LiveOrderView>(`/live/orders/${enc(orderId)}/cancel`, undefined, withStepUp(t)),
+  // Marking an order that needs review as dealt with unblocks new orders: step-up. Nothing goes to the broker.
+  resolve: (t: string, orderId: string) => post<LiveOrderView>(`/live/orders/${enc(orderId)}/resolve`, undefined, withStepUp(t)),
+  // Read-only at the broker: looks the user's open and unresolved orders up in the broker's order book.
+  reconcile: () => post<ReconcileResult[]>('/live/reconciliation'),
   orders: () => get<LiveOrderView[]>('/live/orders'),
   limits: () => get<LiveLimitsView>('/live/limits'),
   /** Tightening needs only the access token; raising a limit needs step-up (pass it). */
@@ -183,8 +187,10 @@ export const liveApi = {
 // live-trading-service: LiveAdminController (ADMIN)
 export const adminLiveApi = {
   killSwitch: () => get<KillSwitchView>('/admin/live/kill-switch'),
-  setKillSwitch: (enabled: boolean, reason: string) => put<KillSwitchView>('/admin/live/kill-switch', { enabled, reason }),
-  setUserKillSwitch: (userId: number, enabled: boolean, reason: string) =>
-    put<KillSwitchView>(`/admin/live/users/${userId}/kill-switch`, { enabled, reason }),
+  // Changing a kill switch needs the administrator's own step-up token (password + authenticator code).
+  setKillSwitch: (t: string, enabled: boolean, reason: string) =>
+    put<KillSwitchView>('/admin/live/kill-switch', { enabled, reason }, withStepUp(t)),
+  setUserKillSwitch: (t: string, userId: number, enabled: boolean, reason: string) =>
+    put<KillSwitchView>(`/admin/live/users/${userId}/kill-switch`, { enabled, reason }, withStepUp(t)),
   user: (userId: number) => get<AdminUserLive>(`/admin/live/users/${userId}`),
 };
