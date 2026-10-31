@@ -1,7 +1,7 @@
 import { Suspense, useState } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router';
 import {
-  Bell, Bot, ChartCandlestick, GraduationCap, KeyRound, LayoutDashboard, ListOrdered, LogOut, Menu, Shield, Wallet, X,
+  Bell, Bot, ChartCandlestick, ClipboardCheck, GraduationCap, KeyRound, LayoutDashboard, ListOrdered, LogOut, Menu, Shield, Wallet, X,
 } from 'lucide-react';
 import { useAuth } from '../auth/AuthContext';
 import { marketApi } from '../api/endpoints';
@@ -15,6 +15,7 @@ interface NavSection { title: string; env?: 'DEMO' | 'LIVE'; items: NavItem[] }
 const LEARN_NAV: NavSection = {
   title: 'Learn', items: [
     { to: '/academy', label: 'Trading Academy', icon: GraduationCap },
+    { to: '/readiness', label: 'Readiness', icon: ClipboardCheck },
   ],
 };
 
@@ -45,7 +46,10 @@ function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
   const { user, isAdmin, logout } = useAuth();
   const sim = useApi(() => marketApi.simulation(), [], { intervalMs: 30_000, topics: ['market'] });
   const sections: NavSection[] = [DEMO_NAV, LEARN_NAV, { title: 'Account', items: [{ to: '/settings/security', label: 'Security', icon: KeyRound }] }];
-  if (isAdmin) sections.push({ title: 'Administration', items: [{ to: '/admin', label: 'Admin', icon: Shield }] });
+  const staff: NavItem[] = [];
+  if (isAdmin || user?.role === 'READINESS_REVIEWER') staff.push({ to: '/review', label: 'Readiness reviews', icon: ClipboardCheck });
+  if (isAdmin) staff.push({ to: '/admin', label: 'Admin', icon: Shield });
+  if (staff.length) sections.push({ title: 'Administration', items: staff });
   return (
     <div className="flex h-full flex-col bg-[#0b1220] text-slate-300">
       <div className="px-5 py-5"><Logo /></div>

@@ -75,9 +75,16 @@ public class SessionService {
         RefreshToken current = tokens.findByTokenHash(hash(presented)).orElseThrow(SessionService::unauthenticated);
         if (current.getUsedAt() != null && current.getRevokedAt() == null
                 && now.isBefore(current.getUsedAt().plus(RACE_GRACE))) {
-            // Two tabs (or a double-mounted page) refreshed with the same cookie at once. Not theft:
-            // issue nothing, revoke nothing; the client retries with the cookie it just received.
-            throw new ApiException(HttpStatus.UNAUTHORIZED, "REFRESH_RACE", "Session refreshed concurrently; retry");
+            List<RefreshToken> successors = tokens.findByFamilyIdAndIssuedAtGreaterThanEqual(current.getFamilyId(),
+                    current.getUsedAt()).stream().filter(t -> !t.getId().equals(current.getId())).toList();
+            if (successors.stream().anyMatch(t -> t.getUsedAt() != null)) {
+                // Another tab already continued the session with the new cookie: nothing to do here.
+                throw new ApiException(HttpStatus.UNAUTHORIZED, "REFRESH_RACE", "Session refreshed concurrently; retry");
+            }
+            // The previous response never reached the client (aborted page load, dropped connection):
+            // its unused successor is orphaned. Revoke it and rotate again from this token.
+            successors.forEach(t -> t.revoke(now, "SUPERSEDED_LOST_RESPONSE"));
+            return rotate(current, client, now);
         }
         if (current.getUsedAt() != null && current.getRevokedAt() == null) {
             // A rotated token came back later: someone else has (had) it. End the session for everyone.
@@ -89,9 +96,16 @@ public class SessionService {
         if (current.getRevokedAt() != null || !now.isBefore(current.getExpiresAt())) {
             throw unauthenticated();
         }
+        return rotate(current, client, now);
+    }
+
+    private Session rotate(RefreshToken current, ClientInfo client, Instant now) {
         User user = users.findById(current.getUserId()).orElseThrow(SessionService::unauthenticated);
         if (!user.isActive() || user.getTokenVersion() != current.getTokenVersion()) {
             tokens.revokeFamily(current.getFamilyId(), now, "TOKEN_VERSION_CHANGED");
+            throw unauthenticated();
+        }
+        if (!now.isBefore(current.getSessionExpiresAt())) {
             throw unauthenticated();
         }
         current.markUsed(now);

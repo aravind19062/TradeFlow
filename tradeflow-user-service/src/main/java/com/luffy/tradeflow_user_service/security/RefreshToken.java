@@ -66,8 +66,11 @@ public class RefreshToken {
         this.userAgent = userAgent;
     }
 
+    /** First use only: the reuse grace window is anchored to the first rotation and never extended. */
     void markUsed(Instant at) {
-        this.usedAt = at;
+        if (usedAt == null) {
+            this.usedAt = at;
+        }
     }
 
     void revoke(Instant at, String reason) {

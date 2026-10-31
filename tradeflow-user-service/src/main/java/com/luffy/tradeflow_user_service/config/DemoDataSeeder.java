@@ -23,6 +23,8 @@ public class DemoDataSeeder implements ApplicationRunner {
 
     public static final String DEMO_EMAIL = "demo@tradeflow.dev";
     public static final String ADMIN_EMAIL = "admin@tradeflow.dev";
+    /** Authorised readiness reviewer (not an admin): decides cases after repeated failed assessments. */
+    public static final String REVIEWER_EMAIL = "reviewer@tradeflow.dev";
 
     private final UserService userService;
     private final UserRepository userRepository;
@@ -49,6 +51,7 @@ public class DemoDataSeeder implements ApplicationRunner {
     public void run(ApplicationArguments args) {
         seed(DEMO_EMAIL, "Demo Trader", User.ROLE_USER);
         seed(ADMIN_EMAIL, "Demo Admin", User.ROLE_ADMIN);
+        seed(REVIEWER_EMAIL, "Demo Reviewer", User.ROLE_READINESS_REVIEWER);
     }
 
     private void seed(String email, String name, String role) {
