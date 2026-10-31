@@ -1,4 +1,5 @@
 import { createHmac } from 'node:crypto';
+import { signInAdmin } from './admin';
 import { expect, test, type APIRequestContext, type Page } from '@playwright/test';
 
 // Full user journey against the real backend. Every figure the UI shows is checked
@@ -312,7 +313,7 @@ test.describe('authentication and authorization', () => {
   });
 
   test('ADMIN role sees the admin tools', async ({ page, request }) => {
-    await signIn(page, 'admin@tradeflow.dev', DEMO_PASSWORD);
+    await signInAdmin(page);
     await page.getByRole('navigation', { name: 'Main' }).getByRole('link', { name: 'Admin' }).click();
     const sim = await api<{ currentTick: number }>(request, null, '/market/simulation');
     await expect(page.getByTestId('admin-tick')).toHaveText(/^\d+$/);

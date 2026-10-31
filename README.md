@@ -223,6 +223,9 @@ make web-test    # typecheck + unit tests (Vitest)
 make web-e2e     # Playwright journey against the RUNNING stack; E2E_BASE_URL=http://localhost:3000 for Docker
 ```
 
+The seeded admin has two-factor authentication. The admin browser tests take its seed from
+`E2E_ADMIN_TOTP_SECRET` or `.secrets/admin-totp.properties` (git-ignored); they fail, not skip, without it.
+
 The end-to-end journey registers a new user, checks dashboard figures against the API, places a market buy and
 verifies it through the backend, rests and cancels a limit order (checking reserved cash), uses the
 assistant, watchlist and alerts, and checks authentication and authorization (forged token, USER vs ADMIN).
