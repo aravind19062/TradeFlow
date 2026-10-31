@@ -6,3 +6,6 @@
 **/*.iml
 .env
 data
+# The web frontend has its own build context (tradeflow-frontend/Dockerfile);
+# keep it, and especially its node_modules, out of the Maven image builds.
+tradeflow-frontend

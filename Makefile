@@ -13,9 +13,9 @@ infra-up: ## Start PostgreSQL and Kafka only (services run from IDE/mvn)
 	$(COMPOSE) up -d postgres kafka
 	@echo "PostgreSQL localhost:5432 | Kafka localhost:9094"
 
-up: ## Build and start everything: infra, Eureka, API gateway, services (2 market-data replicas)
+up: ## Build and start everything: infra, Eureka, API gateway, services (2 market-data replicas), web frontend
 	$(COMPOSE) --profile apps up -d --build
-	@echo "API gateway http://localhost:8000 (Swagger: /swagger-ui.html) | Eureka http://localhost:8761 | Logs: make logs"
+	@echo "Web app http://localhost:3000 | API gateway http://localhost:8000 | Eureka http://localhost:8761 | Logs: make logs"
 
 tools: ## Start Kafka UI on http://localhost:8085 (optional)
 	$(COMPOSE) --profile tools up -d kafka-ui
@@ -53,6 +53,16 @@ test: ## Run all fast tests (H2 + embedded Kafka + in-JVM end-to-end)
 test-postgres: ## Also run the PostgreSQL compatibility tests (Testcontainers or embedded PostgreSQL)
 	mvn -B verify -Ppostgres-tests
 
+# ---------------------------------------------------------------- Web frontend (Node 22: see tradeflow-frontend/.nvmrc)
+web-dev: ## Run the React app with hot reload on http://localhost:5173 (proxies /api to the gateway on :8000)
+	cd tradeflow-frontend && npm install && npm run dev
+
+web-test: ## Frontend typecheck + unit tests
+	cd tradeflow-frontend && npm run typecheck && npm test
+
+web-e2e: ## Browser end-to-end journey against the running stack (E2E_BASE_URL=http://localhost:3000 for Docker)
+	cd tradeflow-frontend && npx playwright install chromium && npm run test:e2e
+
 # ---------------------------------------------------------------- Run without Docker
 run-h2: build ## Run all four services on file-based H2 (needs Kafka; KAFKA=localhost:9092 for Homebrew)
 	@mkdir -p data/logs
@@ -68,4 +78,4 @@ stop-h2: ## Stop services started with run-h2
 demo: ## Run the scripted API walkthrough against running services
 	./scripts/demo.sh
 
-.PHONY: help infra-up up tools down ps logs reset psql topics dlt build test test-postgres run-h2 stop-h2 demo
+.PHONY: help infra-up up tools down ps logs reset psql topics dlt build test test-postgres web-dev web-test web-e2e run-h2 stop-h2 demo

@@ -30,6 +30,23 @@ jobs:
           name: surefire-reports
           path: "**/target/surefire-reports/"
 
+  frontend:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: tradeflow-frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: tradeflow-frontend/.nvmrc
+          cache: npm
+          cache-dependency-path: tradeflow-frontend/package-lock.json
+      - run: npm ci
+      - name: Typecheck, unit tests and production build
+        run: npm run typecheck && npm test && npm run build
+
   docker:
     runs-on: ubuntu-latest
     needs: build
