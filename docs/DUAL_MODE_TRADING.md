@@ -382,7 +382,7 @@ Every phase leaves the application working, adds tests, and keeps demo behaviour
 | 2. Security prerequisites | `ed5b14f` | Done: RS256 + public key ring, service client credentials, 15-min tokens + rotating refresh cookie, TOTP + recovery codes, step-up, audited admin MFA reset, PAN no longer collected. See [SECURITY.md](SECURITY.md) |
 | 3. Academy (+ D2) | phase 3 commit | Done: learning-service, 10 modules / 20 lessons / 80 module questions + 25 final-assessment questions, server-graded quizzes, versioned readiness policy v1; simulated bid/ask and SELL stop / stop-limit in the demo engine |
 | 4. Readiness | phase 4 commit | Done: state machine (incl. REVIEW_REQUIRED), hash-chained audit (append-only trigger on PostgreSQL), exercises verified from DEMO events, final assessment with cooldown/attempt limit, authorised reviewer, versioned risk acknowledgement, self-exclusion, admin revoke/reinstate, policy publishing, fail-closed internal eligibility API |
-| 5. Live skeleton (no broker) | – | Planned |
+| 5. Live skeleton (no broker) | phase 5 commit | Done: live-trading-service with only `DisabledBrokerAdapter`, fail-closed `LiveAccessGuard`, encrypted credential vault, parameter-bound one-time confirmations, limits, kill switches, hash-chained live audit, readiness notifications, gateway LIVE route, LIVE UI. See below |
 | 6–7. Broker, live orders | – | **Blocked on your broker approval** |
 
 ### Decisions as approved (2026-10-31)
@@ -424,6 +424,48 @@ Every phase leaves the application working, adds tests, and keeps demo behaviour
 * **Eligibility:** `GET /internal/readiness/{userId}/eligibility` (SERVICE token only) re-evaluates on every call:
   QUALIFIED, not expired, not superseded by a requalification policy, not self-excluded.
 
+### Live skeleton as implemented (phase 5)
+
+No broker is integrated. `tradeflow.live.broker` must be `none` (anything else refuses to start), and the only
+production `BrokerAdapter` is `DisabledBrokerAdapter`, which refuses every call with 503 `BROKER_NOT_CONFIGURED`
+(an ArchUnit rule fails the build if another implementation appears). So **no request can reach a broker and no
+real order can be placed**; the order path is exercised only in tests with a test-only fake broker.
+
+* **Independent authorisation (`LiveAccessGuard`, in the service; the gateway is only a first line).** Every
+  state-changing call needs a step-up token (audience `tradeflow-live`, `amr` = pwd + otp, `auth_time` ≤ 10 min).
+  The guard then asks user-service (`/internal/users/{id}/session-state`) whether the account is active, the
+  token version is current and MFA is still on, checks the global and per-user kill switches, and asks
+  learning-service for eligibility. Any check that cannot be completed refuses the action
+  (`LIVE_CHECK_UNAVAILABLE`). Every refusal is audited with its code.
+* **What each action needs (D5).** Connect a broker, preview and place orders: everything above. Cancel an
+  order, disconnect, raise a limit: step-up and a current session, but not readiness or "not halted". Losing
+  readiness or a halt therefore blocks new exposure only; inspecting and cancelling stay possible, and
+  nothing ever cancels a broker order automatically.
+* **Broker linking.** The broker's own authorisation page (redirect + one-time code, `state` stored hashed and
+  single use, PKCE verifier encrypted, 10 minutes, bound to the user). TradeFlow never sees broker passwords or
+  OTPs.
+* **Broker tokens.** AES-256-GCM with live-trading-service's own key ring (separate from user-service's),
+  bound to the connection id (a ciphertext moved to another row will not decrypt). Decrypted only inside
+  `CredentialVault` at call time. No getter or response returns them and `toString` redacts them. Disconnecting
+  revokes and erases them.
+* **Orders.** Preview validates and checks limits, then returns a one-time confirmation (60 s) bound to the user
+  and a SHA-256 of the exact parameters. Placing re-checks limits under a per-user row lock, consumes the
+  confirmation, stores the order (`L-` ids), then calls the broker outside any DB transaction. A definite broker
+  refusal is REJECTED; anything unclear is UNKNOWN ("check your broker before retrying"), never retried
+  automatically. `clientOrderId` makes retries idempotent.
+* **Limits.** Platform ceilings (default 25,000 per order, 10 orders/day, 100,000 turnover/day, IST trading day);
+  users may only set stricter values. Raising a limit again needs step-up (decided by the server).
+* **Kill switches.** ADMIN, reason of 10+ characters, audited; per-user changes notify the user. They block new
+  orders and new broker links only.
+* **Audit.** `live_audit_log`: every allowed and refused action, hash-chained per user (platform chain = user 0),
+  written in its own transaction so refusals survive the failed request; append-only trigger on PostgreSQL;
+  ADMIN can verify the chain.
+* **Notifications.** `readiness.changed` (PLATFORM events; the LIVE codec refuses DEMO events) creates an in-app
+  notice when access is gained or lost. The event never grants access; the guard asks every time.
+* **Gateway.** `/api/live/**` and `/api/admin/live/**` go only to live-trading-service and are labelled `LIVE`.
+  POSTs to `/api/live/orders/**` and `/api/live/broker/**` need a step-up token at the edge too; a step-up token is
+  refused everywhere outside `/api/live/**` (including admin paths).
+
 ### D8: measured resources and recommendation (2026-10-31)
 
 Measured with `docker stats` and inside the Docker VM (`free`, `/proc/vmstat`, `/proc/pressure`):
@@ -442,6 +484,11 @@ memory is relieved; with one market-data replica the readiness E2E dropped from 
 **Estimate with phase 5:** live-trading-service ≈ 300–350 MiB in use (512 MiB limit, same profile as
 learning-service). Steady state ≈ 3.4 GiB of container memory; image builds inside Docker add ≈ 1–1.5 GiB
 (Maven stage `-Xmx768m`, Node build). Sum of container limits ≈ 5.9 GiB.
+
+**Measured with phase 5 (11 app containers):** live-trading-service 371 MiB in use; containers ≈ 2.75 GiB;
+the VM had **365 MiB available and swap 1,022/1,024 MiB full**, with memory-pressure stalls (Eureka heartbeat
+timeouts, the gateway briefly finding "no servers" for user-, order- and portfolio-service). No new OOM kill.
+The full stack no longer runs reliably in the 4 GiB VM.
 
 **Recommendation:** set Docker Desktop to **6 GiB minimum, 8 GiB recommended** (8 GiB lets you rebuild while
 the stack runs without swapping), keeping 4+ CPUs. If you must stay at 4 GiB: run one market-data replica

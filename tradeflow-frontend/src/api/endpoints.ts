@@ -1,5 +1,7 @@
 import { del, get, post, put } from './client';
 import type {
+  AdminUserLive, KillSwitchView, LiveLimits, LiveLimitsView, LiveNotification, LiveOrderParams, LiveOrderPreview,
+  LiveOrderView, LiveStatus, BrokerConnectionView,
   AcknowledgementView, AdminUserReadiness, ReadinessHistoryItem, ReadinessStatusView, ReviewCase, SizingScenario,
   AcademyOverview, LessonView, ModuleSummary, QuizAttemptView, QuizResultView,
   AlertRequest, AlertResponse, AlertStatus, AskResponse, AssistantCapabilities, HistoryResponse,
@@ -152,4 +154,37 @@ export const adminReadinessApi = {
   user: (userId: number) => get<AdminUserReadiness>(`/admin/readiness/users/${userId}`),
   revoke: (userId: number, reason: string) => post<ReadinessStatusView>(`/admin/readiness/users/${userId}/revoke`, { reason }),
   reinstate: (userId: number, reason: string) => post<ReadinessStatusView>(`/admin/readiness/users/${userId}/reinstate`, { reason }),
+};
+
+// live-trading-service: LiveController (/api/live/**, labelled LIVE). State-changing calls carry the
+// 10-minute step-up token instead of the access token; the service re-checks everything.
+const withStepUp = (stepUpToken: string) => ({
+  headers: { Authorization: `Bearer ${stepUpToken}`, 'X-TradeFlow-Step-Up': '1' },
+});
+
+export const liveApi = {
+  status: () => get<LiveStatus>('/live/status'),
+  connect: (t: string) => post<{ authorizationUrl: string; expiresAt: string }>('/live/broker/connect', undefined, withStepUp(t)),
+  completeConnection: (t: string, state: string, code: string) =>
+    post<BrokerConnectionView>('/live/broker/callback', { state, code }, withStepUp(t)),
+  disconnect: (t: string) => post<void>('/live/broker/disconnect', undefined, withStepUp(t)),
+  preview: (t: string, order: LiveOrderParams) => post<LiveOrderPreview>('/live/orders/preview', order, withStepUp(t)),
+  place: (t: string, confirmationId: string, clientOrderId: string, order: LiveOrderParams) =>
+    post<LiveOrderView>('/live/orders', { confirmationId, clientOrderId, order }, withStepUp(t)),
+  cancel: (t: string, orderId: string) => post<LiveOrderView>(`/live/orders/${enc(orderId)}/cancel`, undefined, withStepUp(t)),
+  orders: () => get<LiveOrderView[]>('/live/orders'),
+  limits: () => get<LiveLimitsView>('/live/limits'),
+  /** Tightening needs only the access token; raising a limit needs step-up (pass it). */
+  setLimits: (limits: LiveLimits, t?: string) => put<LiveLimitsView>('/live/limits', limits, t ? withStepUp(t) : undefined),
+  notifications: () => get<LiveNotification[]>('/live/notifications'),
+  markRead: (id: number) => post<LiveNotification>(`/live/notifications/${id}/read`),
+};
+
+// live-trading-service: LiveAdminController (ADMIN)
+export const adminLiveApi = {
+  killSwitch: () => get<KillSwitchView>('/admin/live/kill-switch'),
+  setKillSwitch: (enabled: boolean, reason: string) => put<KillSwitchView>('/admin/live/kill-switch', { enabled, reason }),
+  setUserKillSwitch: (userId: number, enabled: boolean, reason: string) =>
+    put<KillSwitchView>(`/admin/live/users/${userId}/kill-switch`, { enabled, reason }),
+  user: (userId: number) => get<AdminUserLive>(`/admin/live/users/${userId}`),
 };

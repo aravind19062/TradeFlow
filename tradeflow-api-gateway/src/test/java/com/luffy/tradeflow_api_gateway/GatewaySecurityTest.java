@@ -91,6 +91,31 @@ class GatewaySecurityTest {
     }
 
     @Test
+    void liveMutationsNeedAStepUpTokenWhichIsUsableOnlyForLiveTrading() throws Exception {
+        String access = TestJwts.bearer(TestJwts.user(5));
+        String stepUp = TestJwts.bearer(TestJwts.withAudience(5, "tradeflow-live",
+                java.util.Map.of("amr", java.util.List.of("pwd", "otp"))));
+        // Reads and routing: ordinary token reaches the live service (its 503 fallback here).
+        mvc.perform(get("/api/live/status").header("Authorization", access))
+                .andExpect(forwardedUrl("/fallback/live-trading-service"));
+        // Placing an order or linking a broker with an ordinary token is refused at the edge.
+        mvc.perform(post("/api/live/orders").header("Authorization", access)).andExpect(status().isForbidden());
+        mvc.perform(post("/api/live/orders/preview").header("Authorization", access)).andExpect(status().isForbidden());
+        mvc.perform(post("/api/live/broker/connect").header("Authorization", access)).andExpect(status().isForbidden());
+        mvc.perform(post("/api/live/orders").header("Authorization", stepUp))
+                .andExpect(forwardedUrl("/fallback/live-trading-service"));
+        mvc.perform(post("/api/live/orders")).andExpect(status().isUnauthorized());
+        // A step-up token is not an access token anywhere else (not even for an admin).
+        mvc.perform(get("/api/orders").header("Authorization", stepUp)).andExpect(status().isForbidden());
+        String adminStepUp = TestJwts.bearer(TestJwts.withAudience(1, "tradeflow-live", java.util.Map.of()));
+        mvc.perform(get("/api/admin/live/kill-switch").header("Authorization", adminStepUp)).andExpect(status().isForbidden());
+        // Live admin is ADMIN only.
+        mvc.perform(get("/api/admin/live/kill-switch").header("Authorization", access)).andExpect(status().isForbidden());
+        mvc.perform(get("/api/admin/live/kill-switch").header("Authorization", TestJwts.bearer(TestJwts.admin(1))))
+                .andExpect(forwardedUrl("/fallback/live-trading-service"));
+    }
+
+    @Test
     void refusesToStartWithoutPublicKeys() {
         assertThatThrownBy(() -> new GatewaySecurityConfig().jwtDecoder("", "tradeflow-user-service"))
                 .hasMessageContaining("public-keys is not set");

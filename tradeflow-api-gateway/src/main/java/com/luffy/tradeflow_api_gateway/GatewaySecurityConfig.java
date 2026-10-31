@@ -6,6 +6,13 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
+import org.springframework.security.authorization.AuthorityAuthorizationManager;
+import org.springframework.security.authorization.AuthorizationDecision;
+import org.springframework.security.authorization.AuthorizationManager;
+import org.springframework.security.authorization.AuthorizationManagers;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
+import org.springframework.security.web.access.intercept.RequestAuthorizationContext;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
@@ -64,10 +71,19 @@ public class GatewaySecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/api/auth/register", "/api/auth/login",
                                 "/api/auth/login/mfa", "/api/auth/refresh", "/api/auth/logout").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/market/**", "/api/demo/market/**").permitAll()
+                        // Live actions that place orders or link/unlink a broker need a step-up token
+                        // (live-trading-service checks it again, plus its age, readiness and limits).
+                        .requestMatchers(HttpMethod.POST, "/api/live/orders/**", "/api/live/broker/**")
+                        .access(audience(STEP_UP_AUDIENCE))
+                        .requestMatchers("/api/live/**").authenticated()
+                        // Everywhere else only ordinary access tokens: a step-up token is for live trading only.
                         // Readiness reviewers (not necessarily admins) handle review cases.
-                        .requestMatchers("/api/admin/readiness/reviews/**").hasAnyRole("READINESS_REVIEWER", "ADMIN")
-                        .requestMatchers("/api/admin/**").hasRole("ADMIN")
-                        .requestMatchers("/api/**").authenticated()
+                        .requestMatchers("/api/admin/readiness/reviews/**").access(AuthorizationManagers.allOf(
+                                AuthorityAuthorizationManager.hasAnyRole("READINESS_REVIEWER", "ADMIN"),
+                                audience(ACCESS_AUDIENCE)))
+                        .requestMatchers("/api/admin/**").access(AuthorizationManagers.allOf(
+                                AuthorityAuthorizationManager.hasRole("ADMIN"), audience(ACCESS_AUDIENCE)))
+                        .requestMatchers("/api/**").access(audience(ACCESS_AUDIENCE))
                         .anyRequest().denyAll())
                 .oauth2ResourceServer(o -> o.jwt(j -> j.jwtAuthenticationConverter(converter))
                         .authenticationEntryPoint((req, res, ex) -> problem(res, 401, "UNAUTHENTICATED",
@@ -78,6 +94,18 @@ public class GatewaySecurityConfig {
                         .accessDeniedHandler((req, res, ex) -> problem(res, 403, "FORBIDDEN",
                                 "You are not allowed to perform this action")))
                 .build();
+    }
+
+    static final String ACCESS_AUDIENCE = "tradeflow";
+    static final String STEP_UP_AUDIENCE = "tradeflow-live";
+
+    /** Authenticated with a JWT whose audience includes {@code audience}. */
+    static AuthorizationManager<RequestAuthorizationContext> audience(String audience) {
+        return (authentication, context) -> {
+            Authentication a = authentication.get();
+            return new AuthorizationDecision(a instanceof JwtAuthenticationToken jwt && a.isAuthenticated()
+                    && jwt.getToken().getAudience() != null && jwt.getToken().getAudience().contains(audience));
+        };
     }
 
     static void problem(HttpServletResponse response, int status, String code, String detail) throws IOException {

@@ -1,6 +1,7 @@
 import { Outlet } from 'react-router';
 import { FlaskConical, Radio } from 'lucide-react';
 import { cx } from './ui';
+import { StepUpProvider } from './StepUp';
 
 export type Env = 'DEMO' | 'LIVE';
 
@@ -31,5 +32,19 @@ export function DemoArea() {
       </div>
       <Outlet />
     </>
+  );
+}
+
+/** Layout for every real-money page: a persistent red LIVE banner, and step-up confirmation. */
+export function LiveArea() {
+  return (
+    <StepUpProvider>
+      <div className="mb-6 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border-2 border-rose-500 bg-rose-50 px-4 py-2.5 text-sm text-rose-900"
+        role="note" data-testid="live-banner">
+        <EnvironmentBadge env="LIVE" />
+        <span><strong>Live trading.</strong> Real broker account, real money. Orders here can lose money and are not simulated.</span>
+      </div>
+      <Outlet />
+    </StepUpProvider>
   );
 }

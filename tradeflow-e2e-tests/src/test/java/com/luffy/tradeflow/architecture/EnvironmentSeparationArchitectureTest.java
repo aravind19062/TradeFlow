@@ -40,9 +40,26 @@ class EnvironmentSeparationArchitectureTest {
         ArchRule rule = noClasses().that().resideInAnyPackage(LIVE)
                 .should().dependOnClassesThat().resideInAnyPackage(DEMO)
                 .because("live orders must never enter the simulated engine and virtual cash must never "
-                        + "appear as broker funds")
-                .allowEmptyShould(true);
+                        + "appear as broker funds");
         rule.check(CLASSES);
+    }
+
+    @Test
+    void theLiveModuleIsActuallyImported() {
+        // Guards against the rules above passing vacuously because the live classes are missing.
+        org.assertj.core.api.Assertions.assertThat(CLASSES.containPackage("com.luffy.tradeflow_live_trading_service.access"))
+                .isTrue();
+    }
+
+    @Test
+    void onlyTheLiveServiceTalksToBrokersAndNoBrokerIsIntegratedYet() {
+        // Until a broker is approved, DisabledBrokerAdapter is the only production implementation.
+        noClasses().that().implement(com.luffy.tradeflow_live_trading_service.broker.BrokerAdapter.class)
+                .and().doNotHaveSimpleName("DisabledBrokerAdapter")
+                .should().bePublic().orShould().notBePublic()
+                .because("no broker adapter may exist before a broker is approved")
+                .allowEmptyShould(true)
+                .check(CLASSES);
     }
 
     @Test

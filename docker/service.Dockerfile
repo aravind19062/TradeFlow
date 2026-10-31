@@ -10,7 +10,7 @@ ENV MAVEN_OPTS="-Xmx768m"
 # The cache mount keeps ~/.m2 between builds, so dependencies download once.
 RUN --mount=type=cache,target=/root/.m2 \
     mvn -B -q -DskipTests package \
-      -pl tradeflow-discovery-server,tradeflow-api-gateway,tradeflow-user-service,tradeflow-market-data-service,tradeflow-order-service,tradeflow-portfolio-service,tradeflow-learning-service -am
+      -pl tradeflow-discovery-server,tradeflow-api-gateway,tradeflow-user-service,tradeflow-market-data-service,tradeflow-order-service,tradeflow-portfolio-service,tradeflow-learning-service,tradeflow-live-trading-service -am
 
 # ---- runtime: JRE only, non-root user, curl for the compose health check
 FROM eclipse-temurin:17.0.18_8-jre-noble

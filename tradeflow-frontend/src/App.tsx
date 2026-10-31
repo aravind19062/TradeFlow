@@ -2,7 +2,7 @@ import { lazy, type ComponentType, type ReactNode } from 'react';
 import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router';
 import { AuthProvider, useAuth } from './auth/AuthContext';
 import { AppLayout } from './components/Layout';
-import { DemoArea } from './components/environment';
+import { DemoArea, LiveArea } from './components/environment';
 import { Spinner, ToastProvider } from './components/ui';
 import { LoginPage, RegisterPage } from './pages/AuthPages';
 import { NotFoundPage } from './pages/NotFoundPage';
@@ -28,6 +28,8 @@ const ReadinessPage = page(() => import('./pages/ReadinessPages'), 'ReadinessPag
 const AssessmentPage = page(() => import('./pages/ReadinessPages'), 'AssessmentPage');
 const AcknowledgementPage = page(() => import('./pages/ReadinessPages'), 'AcknowledgementPage');
 const ReviewPage = page(() => import('./pages/ReviewPage'), 'ReviewPage');
+const LiveDashboardPage = page(() => import('./pages/LivePages'), 'LiveDashboardPage');
+const BrokerCallbackPage = page(() => import('./pages/LivePages'), 'BrokerCallbackPage');
 
 function RequireAuth({ children }: { children: ReactNode }) {
   const { status } = useAuth();
@@ -81,6 +83,10 @@ export function AppRoutes() {
         {['market', 'orders', 'portfolio', 'watchlist', 'assistant'].map((p) => (
           <Route key={p} path={`${p}/*`} element={<LegacyDemoRedirect />} />
         ))}
+        <Route path="live" element={<LiveArea />}>
+          <Route index element={<LiveDashboardPage />} />
+          <Route path="broker/callback" element={<BrokerCallbackPage />} />
+        </Route>
         <Route path="academy" element={<AcademyPage />} />
         <Route path="academy/:slug" element={<ModulePage />} />
         <Route path="academy/:slug/quiz" element={<QuizPage />} />

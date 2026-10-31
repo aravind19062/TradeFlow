@@ -31,6 +31,7 @@
 		<module>tradeflow-order-service</module>
 		<module>tradeflow-portfolio-service</module>
 		<module>tradeflow-learning-service</module>
+		<module>tradeflow-live-trading-service</module>
 		<module>tradeflow-e2e-tests</module>
 	</modules>
 

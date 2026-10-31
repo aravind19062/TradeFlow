@@ -15,8 +15,9 @@
 # (9094 so it never collides with a Homebrew Kafka on 9092).
 #
 # Memory: every container has a limit so the whole stack fits in a ~4 GiB Docker VM
-# (services 576m each incl. 2 market-data replicas, gateway 448m, Eureka 384m,
-# Kafka 900m, PostgreSQL 256m, frontend 64m). Limits are ceilings; typical use is well below them.
+# (services 576m each incl. 2 market-data replicas, learning and live-trading 512m each,
+# gateway 448m, Eureka 384m, Kafka 900m, PostgreSQL 256m, frontend 64m; see D8 in
+# docs/DUAL_MODE_TRADING.md: 6 GiB minimum / 8 GiB recommended for the full stack). Limits are ceilings; typical use is well below them.
 
 name: tradeflow
 
@@ -127,17 +128,19 @@ services:
   # Started only with the "apps" profile: `make up` or `docker compose --profile apps up`.
 
   # One-shot: creates per-installation keys on first start, never overwrites them.
-  # Three volumes so each service mounts only what it needs: the token SIGNING key and the
-  # data-encryption keys go to user-service alone; the public key goes to everyone.
+  # Separate volumes so each service mounts only what it needs: the token SIGNING key and the
+  # user data-encryption keys go to user-service alone, the live data keys (broker tokens) to
+  # live-trading-service alone; the public key goes to everyone.
   keygen:
     profiles: ["apps"]
     image: eclipse-temurin:17.0.18_8-jre-noble
-    entrypoint: ["sh", "/keygen.sh", "/keys/jwt-private", "/keys/jwt-public", "/keys/user-data", "10001"]
+    entrypoint: ["sh", "/keygen.sh", "/keys/jwt-private", "/keys/jwt-public", "/keys/user-data", "10001", "/keys/live-data"]
     volumes:
       - ./docker/keygen.sh:/keygen.sh:ro
       - jwt_private:/keys/jwt-private
       - jwt_public:/keys/jwt-public
       - user_data_keys:/keys/user-data
+      - live_data_keys:/keys/live-data
     mem_limit: 64m
 
   # One-shot: creates databases added after the PostgreSQL volume was first initialised
@@ -153,7 +156,7 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-tradeflow}
     entrypoint: ["sh", "-c"]
     command:
-      - 'for db in tradeflow_learning; do psql -h postgres -U "$$POSTGRES_USER" -d postgres -tAc "SELECT 1 FROM pg_database WHERE datname = ''$$db''" | grep -q 1 || psql -h postgres -U "$$POSTGRES_USER" -d postgres -c "CREATE DATABASE $$db" || exit 1; done'
+      - 'for db in tradeflow_learning tradeflow_live; do psql -h postgres -U "$$POSTGRES_USER" -d postgres -tAc "SELECT 1 FROM pg_database WHERE datname = ''$$db''" | grep -q 1 || psql -h postgres -U "$$POSTGRES_USER" -d postgres -c "CREATE DATABASE $$db" || exit 1; done'
     mem_limit: 64m
 
   discovery-server:
@@ -227,6 +230,7 @@ services:
       TRADEFLOW_JWT_SIGNING_KEY: file:/run/tradeflow/jwt-private/signing-key.pem
       TRADEFLOW_DATA_KEYRING: file:/run/tradeflow/data-keys/data-keys.properties
       TRADEFLOW_SERVICE_SECRET_PORTFOLIO: ${TRADEFLOW_SERVICE_SECRET_PORTFOLIO:-local-dev-only-portfolio-client-secret}
+      TRADEFLOW_SERVICE_SECRET_LIVE: ${TRADEFLOW_SERVICE_SECRET_LIVE:-local-dev-only-live-trading-client-secret}
       TRADEFLOW_DEMO_ENABLED: ${TRADEFLOW_DEMO_ENABLED:-true}
       TRADEFLOW_DEMO_PASSWORD: ${TRADEFLOW_DEMO_PASSWORD:-Demo@12345}
     healthcheck: *app-health
@@ -307,11 +311,36 @@ services:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/tradeflow_learning
     healthcheck: *app-health
 
+  # LIVE trading (real money). Own database and own encryption keys. No broker is integrated:
+  # TRADEFLOW_LIVE_BROKER must stay "none" (any other value refuses to start).
+  live-trading-service:
+    profiles: ["apps"]
+    build: { context: ., dockerfile: docker/service.Dockerfile, args: { SERVICE: live-trading-service } }
+    image: tradeflow/live-trading-service:local
+    mem_limit: 512m
+    depends_on:
+      <<: *service-depends
+      db-init:
+        condition: service_completed_successfully
+    volumes:
+      - jwt_public:/run/tradeflow/jwt-public:ro
+      - live_data_keys:/run/tradeflow/data-keys:ro
+    environment:
+      <<: *service-env
+      SERVER_PORT: "8086"
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/tradeflow_live
+      TRADEFLOW_LIVE_DATA_KEYRING: file:/run/tradeflow/data-keys/data-keys.properties
+      TRADEFLOW_SERVICE_SECRET_LIVE: ${TRADEFLOW_SERVICE_SECRET_LIVE:-local-dev-only-live-trading-client-secret}
+      TRADEFLOW_LIVE_BROKER: none
+    healthcheck: *app-health
+
 volumes:
   postgres_data:
   kafka_data:
   # Key material (see keygen). Deleting jwt_private/jwt_public signs everyone out;
-  # deleting user_data_keys makes stored TOTP seeds unreadable (users must re-enrol).
+  # deleting user_data_keys makes stored TOTP seeds unreadable (users must re-enrol);
+  # deleting live_data_keys makes stored broker tokens unreadable (users must reconnect).
   jwt_private:
   jwt_public:
   user_data_keys:
+  live_data_keys:

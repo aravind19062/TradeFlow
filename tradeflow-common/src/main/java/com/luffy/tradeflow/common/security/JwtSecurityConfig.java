@@ -52,7 +52,9 @@ public class JwtSecurityConfig implements WebMvcConfigurer {
 
     @Bean
     public JwtDecoder jwtDecoder(JwtProperties properties) {
-        return decoder(PublicKeyRing.load(properties.publicKeys()), properties.issuer(), properties.audience());
+        // tradeflow.security.jwt.audience may list several (comma-separated), e.g. the live service.
+        return decoder(PublicKeyRing.load(properties.publicKeys()), properties.issuer(),
+                java.util.Arrays.stream(properties.audience().split(",")).map(String::trim).toList());
     }
 
     /**
@@ -60,6 +62,11 @@ public class JwtSecurityConfig implements WebMvcConfigurer {
      * issuer, audience, and the standard expiry/not-before checks.
      */
     public static NimbusJwtDecoder decoder(com.nimbusds.jose.jwk.JWKSet keys, String issuer, String audience) {
+        return decoder(keys, issuer, List.of(audience));
+    }
+
+    /** Accepts a token whose {@code aud} contains any of {@code audiences}. */
+    public static NimbusJwtDecoder decoder(com.nimbusds.jose.jwk.JWKSet keys, String issuer, List<String> audiences) {
         NimbusJwtDecoder decoder = NimbusJwtDecoder
                 .withJwkSource(new com.nimbusds.jose.jwk.source.ImmutableJWKSet<>(keys))
                 .jwsAlgorithm(org.springframework.security.oauth2.jose.jws.SignatureAlgorithm.RS256)
@@ -67,7 +74,7 @@ public class JwtSecurityConfig implements WebMvcConfigurer {
         decoder.setJwtValidator(JwtValidators.createDefaultWithValidators(List.of(
                 new org.springframework.security.oauth2.jwt.JwtIssuerValidator(issuer),
                 new org.springframework.security.oauth2.jwt.JwtClaimValidator<List<String>>("aud",
-                        aud -> aud != null && aud.contains(audience)))));
+                        aud -> aud != null && aud.stream().anyMatch(audiences::contains)))));
         return decoder;
     }
 

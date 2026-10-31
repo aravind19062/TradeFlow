@@ -1,7 +1,7 @@
 import { Suspense, useState } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router';
 import {
-  Bell, Bot, ChartCandlestick, ClipboardCheck, GraduationCap, KeyRound, LayoutDashboard, ListOrdered, LogOut, Menu, Shield, Wallet, X,
+  Bell, Bot, ChartCandlestick, Radio, ClipboardCheck, GraduationCap, KeyRound, LayoutDashboard, ListOrdered, LogOut, Menu, Shield, Wallet, X,
 } from 'lucide-react';
 import { useAuth } from '../auth/AuthContext';
 import { marketApi } from '../api/endpoints';
@@ -30,6 +30,12 @@ const DEMO_NAV: NavSection = {
   ],
 };
 
+const LIVE_NAV: NavSection = {
+  title: 'Live trading', env: 'LIVE', items: [
+    { to: '/live', label: 'Live dashboard', icon: Radio },
+  ],
+};
+
 export function Logo({ dark = true }: { dark?: boolean }) {
   return (
     <div className="flex items-center gap-2.5">
@@ -45,7 +51,7 @@ export function Logo({ dark = true }: { dark?: boolean }) {
 function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
   const { user, isAdmin, logout } = useAuth();
   const sim = useApi(() => marketApi.simulation(), [], { intervalMs: 30_000, topics: ['market'] });
-  const sections: NavSection[] = [DEMO_NAV, LEARN_NAV, { title: 'Account', items: [{ to: '/settings/security', label: 'Security', icon: KeyRound }] }];
+  const sections: NavSection[] = [DEMO_NAV, LEARN_NAV, LIVE_NAV, { title: 'Account', items: [{ to: '/settings/security', label: 'Security', icon: KeyRound }] }];
   const staff: NavItem[] = [];
   if (isAdmin || user?.role === 'READINESS_REVIEWER') staff.push({ to: '/review', label: 'Readiness reviews', icon: ClipboardCheck });
   if (isAdmin) staff.push({ to: '/admin', label: 'Admin', icon: Shield });
