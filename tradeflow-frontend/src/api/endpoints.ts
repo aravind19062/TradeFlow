@@ -1,7 +1,8 @@
 import { del, get, post, put } from './client';
 import type {
   AlertRequest, AlertResponse, AlertStatus, AskResponse, AssistantCapabilities, HistoryResponse,
-  InstrumentResponse, LedgerEntryView, LedgerType, LoginRequest, OrderDetailResponse, OrderResponse, OrderSide,
+  InstrumentResponse, LedgerEntryView, LedgerType, LoginRequest, LoginResponse, MfaEnrollment, MfaStatus,
+  SecurityEventView, StepUpResponse, OrderDetailResponse, OrderResponse, OrderSide,
   OrderStatus, PageResponse, PerformanceReport, PlaceOrderRequest, PortfolioSummary, QuoteResponse,
   ReconciliationReport, RegisterRequest, RiskReport, SimulationResponse, TokenResponse, TradeResponse, UserResponse,
 } from './types';
@@ -19,9 +20,28 @@ function params(p: Record<string, string | number | undefined | null>) {
 
 // user-service: AuthController
 export const authApi = {
-  login: (body: LoginRequest) => post<TokenResponse>('/auth/login', body),
+  login: (body: LoginRequest) => post<LoginResponse>('/auth/login', body),
+  loginMfa: (mfaToken: string, factor: { code?: string; recoveryCode?: string }) =>
+    post<TokenResponse>('/auth/login/mfa', { mfaToken, ...factor }),
   register: (body: RegisterRequest) => post<TokenResponse>('/auth/register', body),
+  /** Uses the HttpOnly refresh cookie; the new refresh token comes back as a cookie too. */
+  refresh: () => post<TokenResponse>('/auth/refresh'),
+  logout: () => post<void>('/auth/logout'),
+  logoutAll: () => post<void>('/auth/logout-all'),
+  stepUp: (password: string, code: string) => post<StepUpResponse>('/auth/step-up', { password, code }),
   me: () => get<UserResponse>('/users/me'),
+};
+
+// user-service: MfaController
+export const mfaApi = {
+  status: () => get<MfaStatus>('/auth/mfa'),
+  enroll: (password: string) => post<MfaEnrollment>('/auth/mfa/totp/enroll', { password }),
+  confirm: (code: string) => post<{ recoveryCodes: string[] }>('/auth/mfa/totp/confirm', { code }),
+  regenerateRecoveryCodes: (password: string, code: string) =>
+    post<{ recoveryCodes: string[] }>('/auth/mfa/recovery-codes', { password, code }),
+  disable: (password: string, factor: { code?: string; recoveryCode?: string }) =>
+    post<void>('/auth/mfa/totp/disable', { password, ...factor }),
+  securityEvents: () => get<SecurityEventView[]>('/auth/mfa/security-events'),
 };
 
 // market-data-service: MarketDataController, SimulationController (public GETs)

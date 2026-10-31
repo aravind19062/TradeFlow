@@ -9,7 +9,6 @@ import org.springframework.security.config.annotation.web.configurers.AbstractHt
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.oauth2.jose.jws.MacAlgorithm;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.jwt.JwtValidators;
@@ -22,9 +21,6 @@ import org.springframework.web.method.support.HandlerMethodArgumentResolver;
 import org.springframework.web.method.support.ModelAndViewContainer;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
-import javax.crypto.SecretKey;
-import javax.crypto.spec.SecretKeySpec;
-import java.nio.charset.StandardCharsets;
 import java.util.List;
 
 /**
@@ -54,43 +50,28 @@ public class JwtSecurityConfig implements WebMvcConfigurer {
         this.jwtAuthenticationConverter.setJwtGrantedAuthoritiesConverter(authorities);
     }
 
-    /** Prefix of the public placeholder secret that only the local profile may use. */
-    public static final String LOCAL_PLACEHOLDER_PREFIX = "local-dev-only";
-
     @Bean
-    public SecretKey jwtSigningKey(JwtProperties properties, org.springframework.core.env.Environment environment) {
-        if (properties.secret().startsWith(LOCAL_PLACEHOLDER_PREFIX)) {
-            boolean localOrTest = environment.acceptsProfiles(
-                    org.springframework.core.env.Profiles.of("local", "test"));
-            if (!localOrTest) {
-                throw new IllegalStateException("Refusing to start: the public local-development JWT secret is "
-                        + "configured outside the 'local' profile. Set TRADEFLOW_JWT_SECRET to a private value "
-                        + "(e.g. `openssl rand -base64 48`).");
-            }
-            org.slf4j.LoggerFactory.getLogger(JwtSecurityConfig.class).warn(
-                    "Using the public local-development JWT secret ('local' profile). Never use this profile on a "
-                            + "shared or internet-facing environment.");
-        }
-        return new SecretKeySpec(properties.secret().getBytes(StandardCharsets.UTF_8), "HmacSHA256");
+    public JwtDecoder jwtDecoder(JwtProperties properties) {
+        return decoder(PublicKeyRing.load(properties.publicKeys()), properties.issuer(), properties.audience());
     }
 
-    @Bean
-    public JwtDecoder jwtDecoder(SecretKey jwtSigningKey, JwtProperties properties) {
-        NimbusJwtDecoder decoder = NimbusJwtDecoder.withSecretKey(jwtSigningKey)
-                .macAlgorithm(MacAlgorithm.HS256)
+    /**
+     * RS256 only (an HS256 or "none" token is rejected regardless of its content), known key id,
+     * issuer, audience, and the standard expiry/not-before checks.
+     */
+    public static NimbusJwtDecoder decoder(com.nimbusds.jose.jwk.JWKSet keys, String issuer, String audience) {
+        NimbusJwtDecoder decoder = NimbusJwtDecoder
+                .withJwkSource(new com.nimbusds.jose.jwk.source.ImmutableJWKSet<>(keys))
+                .jwsAlgorithm(org.springframework.security.oauth2.jose.jws.SignatureAlgorithm.RS256)
                 .build();
-        decoder.setJwtValidator(JwtValidators.createDefaultWithIssuer(properties.issuer()));
+        decoder.setJwtValidator(JwtValidators.createDefaultWithValidators(List.of(
+                new org.springframework.security.oauth2.jwt.JwtIssuerValidator(issuer),
+                new org.springframework.security.oauth2.jwt.JwtClaimValidator<List<String>>("aud",
+                        aud -> aud != null && aud.contains(audience)))));
         return decoder;
     }
 
-    /** Signs user tokens (user-service) and short-lived service tokens (all services). */
-    @Bean
-    public org.springframework.security.oauth2.jwt.JwtEncoder jwtEncoder(SecretKey jwtSigningKey) {
-        return new org.springframework.security.oauth2.jwt.NimbusJwtEncoder(
-                new com.nimbusds.jose.jwk.source.ImmutableSecret<>(jwtSigningKey));
-    }
-
-    /** Stateless sessions, no CSRF (no cookies are used), JWT auth and JSON error bodies. */
+    /** Stateless sessions, no CSRF (bearer tokens only; no cookie authenticates these APIs), JWT auth, JSON errors. */
     public HttpSecurity applyDefaults(HttpSecurity http) throws Exception {
         return http
                 .csrf(AbstractHttpConfigurer::disable)

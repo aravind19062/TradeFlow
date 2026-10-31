@@ -47,6 +47,14 @@
 			<artifactId>spring-boot-starter-kafka-test</artifactId>
 			<scope>test</scope>
 		</dependency>
+		<!-- TEST-ONLY RS256 keys (TestJwts) and data-encryption keys. -->
+		<dependency>
+			<groupId>com.luffy</groupId>
+			<artifactId>tradeflow-common</artifactId>
+			<version>${project.version}</version>
+			<type>test-jar</type>
+			<scope>test</scope>
+		</dependency>
 		<!-- Architecture rules: DEMO and LIVE code must never depend on each other. -->
 		<dependency>
 			<groupId>com.tngtech.archunit</groupId>

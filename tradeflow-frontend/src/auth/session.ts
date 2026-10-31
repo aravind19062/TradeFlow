@@ -1,9 +1,9 @@
-// Access-token storage. The backend issues a single HS256 bearer token (8 h by default)
-// with no refresh token and no logout endpoint, so the client's job is to: keep it in
-// sessionStorage (gone when the tab/window closes, never shared with other origins),
-// never trust a token past its `exp`, and drop it on the first 401.
+// Access-token handling. The backend issues short-lived (15 min) RS256 access tokens and keeps
+// the session alive with a rotating refresh token in an HttpOnly, SameSite=Strict cookie that
+// scripts cannot read. The access token therefore lives ONLY in memory: nothing is written to
+// localStorage or sessionStorage, and a page reload restores the session through the cookie.
+// A separate 10-minute step-up token (password + TOTP) authorises live trading.
 
-const KEY = 'tradeflow.session';
 /** Treat a token as expired slightly early so a request never leaves with a dying token. */
 const EXPIRY_SKEW_MS = 30_000;
 
@@ -21,6 +21,9 @@ export interface JwtClaims {
   exp: number;
   iat?: number;
   iss?: string;
+  aud?: string | string[];
+  sid?: string;
+  amr?: string[];
 }
 
 /** Reads the (unverified) payload of a JWT. Verification is the backend's job. */
@@ -49,31 +52,33 @@ export function isExpired(session: Session, now = Date.now()): boolean {
   return now >= session.expiresAt - EXPIRY_SKEW_MS;
 }
 
-export function loadSession(): Session | null {
-  try {
-    const raw = sessionStorage.getItem(KEY);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw) as Session;
-    if (typeof parsed.token !== 'string' || typeof parsed.expiresAt !== 'number' || isExpired(parsed)) {
-      sessionStorage.removeItem(KEY);
-      return null;
-    }
-    return parsed;
-  } catch {
-    sessionStorage.removeItem(KEY);
-    return null;
-  }
+let current: Session | null = null;
+let stepUp: Session | null = null;
+
+export function setSession(session: Session | null): void {
+  current = session;
+  if (!session) stepUp = null;
 }
 
-export function saveSession(session: Session): void {
-  sessionStorage.setItem(KEY, JSON.stringify(session));
-}
-
-export function clearSession(): void {
-  sessionStorage.removeItem(KEY);
+export function getSession(): Session | null {
+  return current && !isExpired(current) ? current : null;
 }
 
 /** The token to send right now, or null if there is none or it has expired. */
 export function currentToken(): string | null {
-  return loadSession()?.token ?? null;
+  return getSession()?.token ?? null;
+}
+
+export function clearSession(): void {
+  current = null;
+  stepUp = null;
+}
+
+/** Live-trading step-up token (audience tradeflow-live), held in memory for its 10 minutes. */
+export function setStepUp(session: Session | null): void {
+  stepUp = session;
+}
+
+export function currentStepUp(): Session | null {
+  return stepUp && !isExpired(stepUp, Date.now()) ? stepUp : null;
 }

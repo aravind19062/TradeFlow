@@ -34,7 +34,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 @EmbeddedKafka(partitions = 3)
 class TradeFlowEndToEndTest {
 
-    private static final String SECRET = "e2e-only-jwt-secret-0123456789-abcdefghij";
+    private static final String SERVICE_CLIENT_SECRET = "e2e-only-portfolio-client-secret-0123";
     private static final String DEMO_PASSWORD = "E2e@12345";
     private static final JsonMapper JSON = JsonMapper.builder().build();
     private static final RestClient HTTP = RestClient.create();
@@ -193,7 +193,16 @@ class TradeFlowEndToEndTest {
         props.put("spring.kafka.consumer.auto-offset-reset", "earliest");
         props.put("spring.kafka.listener.ack-mode", "record");
         props.put("spring.kafka.producer.acks", "all");
-        props.put("tradeflow.security.jwt.secret", SECRET);
+        // RS256: every service verifies with the test public key; only user-service gets the signing key.
+        props.put("tradeflow.security.jwt.public-keys", com.luffy.tradeflow.common.testsupport.TestJwts.PUBLIC_KEYS);
+        if ("user".equals(module)) {
+            props.put("tradeflow.security.auth.signing-key", com.luffy.tradeflow.common.testsupport.TestJwts.SIGNING_KEY);
+            props.put("tradeflow.crypto.keyring", "classpath:crypto-test/data-keys.properties");
+            props.put("tradeflow.security.auth.service-clients.tradeflow-portfolio-service", SERVICE_CLIENT_SECRET);
+        }
+        if ("portfolio".equals(module)) {
+            props.put("tradeflow.security.service-client.secret", SERVICE_CLIENT_SECRET);
+        }
         props.put("tradeflow.security.jwt.issuer", "tradeflow-user-service");
         props.put("tradeflow.outbox.poll-interval-ms", "100");
         props.put("tradeflow.kafka.retry.interval-ms", "200");

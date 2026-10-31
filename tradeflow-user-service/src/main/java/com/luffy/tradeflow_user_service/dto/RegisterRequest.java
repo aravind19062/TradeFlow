@@ -8,14 +8,17 @@ import jakarta.validation.constraints.Size;
 
 import java.time.LocalDate;
 
+/**
+ * Registration input. PAN is deliberately not accepted: TradeFlow has no need for it (identity
+ * verification for live trading is the broker's KYC). A client that still sends "panNumber" has
+ * it ignored and never stored.
+ */
 public record RegisterRequest(
         @NotBlank @Size(max = 100) String name,
         @NotBlank @Email @Size(max = 255) String email,
         @NotBlank @Size(min = 8, max = 72, message = "must be 8-72 characters") String password,
         @Past LocalDate dateOfBirth,
         @Size(max = 20) String gender,
-        @Pattern(regexp = "^[A-Za-z]{5}[0-9]{4}[A-Za-z]$", message = "must be a valid PAN, e.g. ABCDE1234F")
-        String panNumber,
         @Pattern(regexp = "^\\+?[0-9]{10,15}$", message = "must be 10-15 digits") String mobileNumber,
         @Size(max = 100) String occupation,
         @Size(max = 20) String maritalStatus,

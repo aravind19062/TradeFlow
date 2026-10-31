@@ -2,30 +2,23 @@ package com.luffy.tradeflow.common.security;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
-import java.nio.charset.StandardCharsets;
-import java.time.Duration;
-
 /**
- * HS256 settings shared by the issuer (user-service) and every resource server.
- * The secret must come from the environment ({@code TRADEFLOW_JWT_SECRET}) outside
- * local development.
+ * How every service verifies access tokens. Tokens are RS256-signed by user-service only;
+ * services hold public keys, so none of them can issue a user token.
+ *
+ * @param issuer     required {@code iss}
+ * @param publicKeys resource pattern of the PEM public keys (file name = key id)
+ * @param audience   {@code aud} this service accepts (default {@value #DEFAULT_AUDIENCE})
  */
 @ConfigurationProperties("tradeflow.security.jwt")
-public record JwtProperties(String secret, String issuer, Duration accessTokenTtl) {
+public record JwtProperties(String issuer, String publicKeys, String audience) {
+
+    public static final String DEFAULT_AUDIENCE = "tradeflow";
+    /** Audience of short-lived step-up tokens that authorise live-trading actions. */
+    public static final String LIVE_AUDIENCE = "tradeflow-live";
 
     public JwtProperties {
-        if (secret == null || secret.getBytes(StandardCharsets.UTF_8).length < 32) {
-            throw new IllegalStateException("Refusing to start: TRADEFLOW_JWT_SECRET (tradeflow.security.jwt.secret) "
-                    + "must be set to a private value of at least 32 bytes, e.g. `openssl rand -base64 48`. "
-                    + "For local development activate the 'local' profile instead.");
-        }
-        issuer = issuer == null ? "tradeflow" : issuer;
-        accessTokenTtl = accessTokenTtl == null ? Duration.ofHours(1) : accessTokenTtl;
-    }
-
-    /** Never print the signing secret (records include all fields in toString by default). */
-    @Override
-    public String toString() {
-        return "JwtProperties[secret=<redacted>, issuer=" + issuer + ", accessTokenTtl=" + accessTokenTtl + "]";
+        issuer = issuer == null ? "tradeflow-user-service" : issuer;
+        audience = audience == null || audience.isBlank() ? DEFAULT_AUDIENCE : audience;
     }
 }

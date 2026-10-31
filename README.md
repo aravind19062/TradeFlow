@@ -206,10 +206,12 @@ Lucide icons). Every figure on screen comes from the backend through the gateway
 (port 5173) proxies `/api/**` to the gateway. The gateway has no CORS configuration and the services publish
 no ports, so nothing else is reachable.
 
-**Sessions.** The JWT from login/registration is kept in `sessionStorage` (cleared when the tab closes) and
-sent as `Authorization: Bearer`. The client signs out at the token's `exp` (8 h; there is no refresh token)
-and on any 401. Sign-out is local because the backend has no revocation endpoint. nginx sends a strict
-Content-Security-Policy to limit XSS exposure of the token.
+**Sessions.** The 15-minute RS256 access token is kept in memory only (never in web storage) and sent as
+`Authorization: Bearer`. The session continues through a rotating refresh token in an HttpOnly,
+SameSite=Strict cookie; a reload restores the session through it, and a 401 triggers one silent refresh.
+Two-factor sign-in, recovery codes and sign-out everywhere are on the Security page. See
+[docs/SECURITY.md](docs/SECURITY.md). Signing out revokes the session on the server. nginx sends a
+strict Content-Security-Policy to limit XSS exposure of the in-memory token.
 
 **Develop and test**
 
@@ -271,7 +273,10 @@ Errors use RFC 9457 `ProblemDetail` with a stable `code`, e.g. `VALIDATION_FAILE
 | Variable | Default | Notes |
 |---|---|---|
 | `SPRING_PROFILES_ACTIVE` | none (= PostgreSQL, secure) | `local` = public dev placeholders allowed; `h2` = no-Docker mode (implies `local`) |
-| `TRADEFLOW_JWT_SECRET` | **required** outside `local` | ≥ 32 bytes, same value in all services and the gateway (`openssl rand -base64 48`) |
+| `TRADEFLOW_JWT_PUBLIC_KEYS` | **required** (Docker: generated) | Pattern of user-service's RSA public keys, e.g. `file:/run/tradeflow/jwt-public/*.pem` |
+| `TRADEFLOW_JWT_SIGNING_KEY` | **required** in user-service only | PKCS#8 RSA private key; no other service gets it |
+| `TRADEFLOW_DATA_KEYRING` | **required** in user-service | AES-256 key ring for secrets at rest (TOTP seeds) |
+| `TRADEFLOW_SERVICE_SECRET_PORTFOLIO` | placeholder in `local` | Client secret for portfolio-service's SERVICE tokens (≥ 24 chars elsewhere) |
 | `TRADEFLOW_DEMO_ENABLED` / `TRADEFLOW_DEMO_PASSWORD` | `false` / none (`true` / public password in `local`) | Outside `local`, needs a private password of 12+ characters |
 | `SPRING_DATASOURCE_URL`, `TRADEFLOW_DB_USERNAME`, `TRADEFLOW_DB_PASSWORD` | local container values | |
 | `KAFKA_BOOTSTRAP_SERVERS` | `localhost:9094` | `kafka:29092` inside Compose |
@@ -280,8 +285,10 @@ Errors use RFC 9457 `ProblemDetail` with a stable `code`, e.g. `VALIDATION_FAILE
 
 **Security model**
 
-* **Identity:** HS256 JWTs issued by user-service and validated at the gateway and again by every
-  service. The user id always comes from the token; no endpoint accepts it from the caller.
+* **Identity:** RS256 JWTs signed only by user-service; the gateway and every service verify them with
+  the public key and cannot issue tokens. 15-minute access tokens, rotating HttpOnly refresh cookie with
+  reuse detection, TOTP two-factor authentication with recovery codes, and a 10-minute step-up token
+  for live trading. The user id always comes from the token. Details: [docs/SECURITY.md](docs/SECURITY.md).
 * **Login protection:** BCrypt password hashing. Throttling locks an account after 5 failures in 15
   minutes, with a cap of 20 failures per client address.
 * **Operational endpoints:** health details are visible only with an ADMIN token; anonymous callers see
@@ -426,7 +433,7 @@ make psql DB=tradeflow_order | make topics | make dlt T=trades.executed
 
 | Symptom | Likely cause / fix |
 |---|---|
-| A service refuses to start: "public local-development JWT secret … outside the 'local' profile" | Working as intended. Set `TRADEFLOW_JWT_SECRET` or use the `local` profile. |
+| A service refuses to start: "tradeflow.security.jwt.public-keys is not set" / "signing-key is not set" | Keys are missing. Docker generates them (`keygen`); outside Docker run `make keys`. |
 | Gateway returns 503 `DEPENDENCY_UNAVAILABLE` | Service down, not ready (DB unreachable), or its circuit breaker is open. Check `make ps` and the Eureka dashboard. |
 | `orderPipeline: DOWN` | A saga needs an operator: `GET /api/admin/orders/sagas?state=SETTLEMENT_FAILED`, fix the cause, then `POST …/retry`. |
 | `accounting: DOWN` | Reconciliation or cross-service mismatch; see `RECONCILIATION MISMATCH` / `CROSS-SERVICE MISMATCH` in the logs, or `GET /api/admin/reconciliation/cross-service`. |
@@ -453,10 +460,10 @@ make psql DB=tradeflow_order | make topics | make dlt T=trades.executed
 * **Execution:** no matching engine, order book or partial fills.
 * **Simplified trading:** no fees or taxes, long-only, single currency.
 * **Not production-ready:** in-memory login throttling is per instance; single-node Kafka and
-  PostgreSQL; HS256 shared secret (RS256 + JWKS would isolate token issuing); no TLS in local Compose.
+  PostgreSQL; no TLS in local Compose (the refresh cookie is sent without `Secure` only under the `local` profile).
 * **Not verified:** the real Anthropic API (see the procedure above); no load or performance testing.
 
-**Future work:** RS256/JWKS, refresh tokens, distributed rate limiting, OpenTelemetry tracing,
+**Future work:** distributed rate limiting, OpenTelemetry tracing,
 notifications for alerts and failed sagas, partial fills and an order book.
 
 ## Repository layout

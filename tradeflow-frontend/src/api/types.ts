@@ -26,6 +26,44 @@ export interface TokenResponse {
   user: UserResponse;
 }
 
+/** POST /api/auth/login: tokens, or an MFA challenge for accounts with two-factor authentication. */
+export interface LoginResponse {
+  mfaRequired: boolean;
+  accessToken?: string;
+  tokenType?: string;
+  expiresInSeconds?: number;
+  user?: UserResponse;
+  mfaToken?: string;
+  mfaExpiresInSeconds?: number;
+}
+
+export interface StepUpResponse {
+  stepUpToken: string;
+  tokenType: string;
+  expiresInSeconds: number;
+}
+
+export interface MfaStatus {
+  enabled: boolean;
+  enabledAt: string | null;
+  recoveryCodesRemaining: number;
+  enrollmentPending: boolean;
+}
+
+export interface MfaEnrollment {
+  secret: string;
+  otpauthUri: string;
+}
+
+export interface SecurityEventView {
+  type: string;
+  detail: string | null;
+  clientIp: string | null;
+  userAgent: string | null;
+  occurredAt: string;
+  byAdministrator: boolean;
+}
+
 export interface LoginRequest {
   email: string;
   password: string;
@@ -37,7 +75,6 @@ export interface RegisterRequest {
   password: string;
   dateOfBirth?: string;
   gender?: string;
-  panNumber?: string;
   mobileNumber?: string;
   occupation?: string;
   maritalStatus?: string;

@@ -52,7 +52,6 @@ public class UserService {
         user.setPassword(request.password());
         user.setDateOfBirth(request.dateOfBirth());
         user.setGender(request.gender());
-        user.setPanNumber(request.panNumber() == null ? null : request.panNumber().toUpperCase(Locale.ROOT));
         user.setMobileNumber(request.mobileNumber());
         user.setOccupation(request.occupation());
         user.setMaritalStatus(request.maritalStatus());

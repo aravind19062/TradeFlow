@@ -19,6 +19,7 @@ const PortfolioPage = page(() => import('./pages/PortfolioPage'), 'PortfolioPage
 const WatchlistPage = page(() => import('./pages/WatchlistPage'), 'WatchlistPage');
 const AssistantPage = page(() => import('./pages/AssistantPage'), 'AssistantPage');
 const AdminPage = page(() => import('./pages/AdminPage'), 'AdminPage');
+const SecurityPage = page(() => import('./pages/SecurityPage'), 'SecurityPage');
 
 function RequireAuth({ children }: { children: ReactNode }) {
   const { status } = useAuth();
@@ -66,6 +67,7 @@ export function AppRoutes() {
         {['market', 'orders', 'portfolio', 'watchlist', 'assistant'].map((p) => (
           <Route key={p} path={`${p}/*`} element={<LegacyDemoRedirect />} />
         ))}
+        <Route path="settings/security" element={<SecurityPage />} />
         <Route path="admin" element={<RequireAdmin><AdminPage /></RequireAdmin>} />
         <Route path="*" element={<NotFoundPage />} />
       </Route>

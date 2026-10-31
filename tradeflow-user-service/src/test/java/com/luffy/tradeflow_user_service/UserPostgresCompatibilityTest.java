@@ -36,7 +36,7 @@ class UserPostgresCompatibilityTest {
     @Test
     void registersUsersOnPostgres() {
         var user = userService.register(new RegisterRequest("Pg User", "Pg@Test.dev", "Secret#123", null, null,
-                null, null, null, null, null));
+                null, null, null, null));
         assertThat(userRepository.findByMailId("pg@test.dev")).get()
                 .satisfies(u -> assertThat(u.getId()).isEqualTo(user.getId()));
     }

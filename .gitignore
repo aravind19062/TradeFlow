@@ -4,6 +4,8 @@ target/
 
 # Local configuration and data (never commit secrets)
 .env
+# Per-machine key material from `make keys` (never commit)
+.secrets/
 data/
 
 # OS / IDE
