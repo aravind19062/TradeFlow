@@ -4,14 +4,11 @@ import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.core.env.Environment;
-import org.springframework.core.env.Profiles;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
-import org.springframework.security.oauth2.jose.jws.MacAlgorithm;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.jwt.JwtValidators;
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
@@ -19,9 +16,7 @@ import org.springframework.security.oauth2.server.resource.authentication.JwtAut
 import org.springframework.security.oauth2.server.resource.authentication.JwtGrantedAuthoritiesConverter;
 import org.springframework.security.web.SecurityFilterChain;
 
-import javax.crypto.spec.SecretKeySpec;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 
 /**
  * Edge security. Requests are checked here first (valid JWT, role for admin paths) so
@@ -32,22 +27,22 @@ import java.nio.charset.StandardCharsets;
 @Configuration
 public class GatewaySecurityConfig {
 
+    /**
+     * RS256 only, keys from user-service's public key ring (the gateway cannot issue tokens),
+     * issuer and audience checked. Step-up tokens (audience tradeflow-live) are also accepted
+     * here so they can reach /api/live/**; the live service enforces which token each action needs.
+     */
     @Bean
-    public JwtDecoder jwtDecoder(@Value("${tradeflow.security.jwt.secret:}") String secret,
-                                 @Value("${tradeflow.security.jwt.issuer:tradeflow-user-service}") String issuer,
-                                 Environment environment) {
-        if (secret == null || secret.getBytes(StandardCharsets.UTF_8).length < 32) {
-            throw new IllegalStateException("Refusing to start: TRADEFLOW_JWT_SECRET must be set (>= 32 bytes) "
-                    + "or the 'local' profile activated");
-        }
-        if (secret.startsWith("local-dev-only") && !environment.acceptsProfiles(Profiles.of("local", "test"))) {
-            throw new IllegalStateException("Refusing to start: the public local-development JWT secret is configured "
-                    + "outside the 'local' profile");
-        }
-        NimbusJwtDecoder decoder = NimbusJwtDecoder.withSecretKey(
-                        new SecretKeySpec(secret.getBytes(StandardCharsets.UTF_8), "HmacSHA256"))
-                .macAlgorithm(MacAlgorithm.HS256).build();
-        decoder.setJwtValidator(JwtValidators.createDefaultWithIssuer(issuer));
+    public JwtDecoder jwtDecoder(@Value("${tradeflow.security.jwt.public-keys:}") String publicKeys,
+                                 @Value("${tradeflow.security.jwt.issuer:tradeflow-user-service}") String issuer) {
+        NimbusJwtDecoder decoder = NimbusJwtDecoder
+                .withJwkSource(new com.nimbusds.jose.jwk.source.ImmutableJWKSet<>(GatewayKeys.load(publicKeys)))
+                .jwsAlgorithm(org.springframework.security.oauth2.jose.jws.SignatureAlgorithm.RS256)
+                .build();
+        decoder.setJwtValidator(JwtValidators.createDefaultWithValidators(java.util.List.of(
+                new org.springframework.security.oauth2.jwt.JwtIssuerValidator(issuer),
+                new org.springframework.security.oauth2.jwt.JwtClaimValidator<java.util.List<String>>("aud",
+                        aud -> aud != null && (aud.contains("tradeflow") || aud.contains("tradeflow-live"))))));
         return decoder;
     }
 
@@ -66,7 +61,8 @@ public class GatewaySecurityConfig {
                         .requestMatchers("/internal/**").denyAll()
                         .requestMatchers("/actuator/health/**", "/actuator/info", "/fallback/**", "/error",
                                 "/swagger-ui/**", "/swagger-ui.html", "/v3/api-docs/**").permitAll()
-                        .requestMatchers(HttpMethod.POST, "/api/auth/register", "/api/auth/login").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/auth/register", "/api/auth/login",
+                                "/api/auth/login/mfa", "/api/auth/refresh", "/api/auth/logout").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/market/**", "/api/demo/market/**").permitAll()
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
                         .requestMatchers("/api/**").authenticated()

@@ -43,6 +43,9 @@ dlt: ## Show dead-lettered messages for a topic (make dlt T=trades.executed)
 	$(COMPOSE) exec kafka /opt/kafka/bin/kafka-console-consumer.sh --bootstrap-server kafka:29092 \
 		--topic $${T:-trades.executed}.DLT --from-beginning --timeout-ms 5000 --property print.headers=true
 
+keys: ## Generate per-machine keys in .secrets/ for running services outside Docker (Docker does this itself)
+	sh docker/keygen.sh .secrets/jwt/private .secrets/jwt/public .secrets/user-service
+
 # ---------------------------------------------------------------- Build & test
 build: ## Compile and package every module (skip tests)
 	mvn -B -q install -DskipTests
@@ -64,7 +67,7 @@ web-e2e: ## Browser end-to-end journey against the running stack (E2E_BASE_URL=h
 	cd tradeflow-frontend && npx playwright install chromium && npm run test:e2e
 
 # ---------------------------------------------------------------- Run without Docker
-run-h2: build ## Run all four services on file-based H2 (needs Kafka; KAFKA=localhost:9092 for Homebrew)
+run-h2: build keys ## Run all four services on file-based H2 (needs Kafka; KAFKA=localhost:9092 for Homebrew)
 	@mkdir -p data/logs
 	@for s in $(SERVICES); do \
 		SPRING_PROFILES_ACTIVE=h2 KAFKA_BOOTSTRAP_SERVERS=$${KAFKA:-localhost:9094} \
@@ -78,4 +81,4 @@ stop-h2: ## Stop services started with run-h2
 demo: ## Run the scripted API walkthrough against running services
 	./scripts/demo.sh
 
-.PHONY: help infra-up up tools down ps logs reset psql topics dlt build test test-postgres web-dev web-test web-e2e run-h2 stop-h2 demo
+.PHONY: help infra-up up tools down ps logs reset psql topics dlt keys build test test-postgres web-dev web-test web-e2e run-h2 stop-h2 demo

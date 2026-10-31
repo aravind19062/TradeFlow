@@ -1,4 +1,4 @@
-import axios, { AxiosError, type AxiosRequestConfig } from 'axios';
+import axios, { AxiosError, type AxiosRequestConfig, type InternalAxiosRequestConfig } from 'axios';
 import { clearSession, currentToken } from '../auth/session';
 import type { ProblemDetail } from './types';
 
@@ -37,18 +37,37 @@ export class ApiError extends Error {
 
 type UnauthorizedListener = () => void;
 let onUnauthorized: UnauthorizedListener | null = null;
+let refreshHandler: (() => Promise<boolean>) | null = null;
+let refreshInFlight: Promise<boolean> | null = null;
 
-/** The auth layer registers here to be told when the backend rejects our token. */
+/** The auth layer registers here to be told when the session cannot be continued. */
 export function setUnauthorizedListener(listener: UnauthorizedListener | null): void {
   onUnauthorized = listener;
 }
 
-const PUBLIC_AUTH_PATHS = ['/auth/login', '/auth/register'];
+/** The auth layer registers how to obtain a new access token from the refresh cookie. */
+export function setRefreshHandler(handler: (() => Promise<boolean>) | null): void {
+  refreshHandler = handler;
+}
+
+/** One refresh at a time, however many requests hit a 401 together. */
+export function refreshOnce(): Promise<boolean> {
+  if (!refreshHandler) return Promise.resolve(false);
+  refreshInFlight ??= refreshHandler().finally(() => { refreshInFlight = null; });
+  return refreshInFlight;
+}
+
+const AUTH_PATHS = ['/auth/login', '/auth/register', '/auth/refresh', '/auth/logout', '/auth/login/mfa'];
+const isAuthPath = (url?: string) => !!url && AUTH_PATHS.some((p) => url.startsWith(p));
+
+type RetriableConfig = InternalAxiosRequestConfig & { _retried?: boolean };
 
 http.interceptors.request.use((config) => {
-  const token = currentToken();
-  if (token) {
-    config.headers.set('Authorization', `Bearer ${token}`);
+  // Lets the backend refuse cookie-authenticated calls that did not come from this app (CSRF).
+  config.headers.set('X-TradeFlow-Client', 'web');
+  if (!config.headers.has('Authorization')) {
+    const token = currentToken();
+    if (token) config.headers.set('Authorization', `Bearer ${token}`);
   }
   return config;
 });
@@ -75,12 +94,18 @@ http.interceptors.response.use(
     }
     return response;
   },
-  (error: AxiosError<ProblemDetail>) => {
+  async (error: AxiosError<ProblemDetail>) => {
     const apiError = toApiError(error);
-    const path = error.config?.url ?? '';
-    // A 401 on a protected call means the token is missing, expired or no longer valid.
-    // (A 401 from login itself just means wrong credentials.)
-    if (apiError.status === 401 && !PUBLIC_AUTH_PATHS.some((p) => path.startsWith(p))) {
+    const config = error.config as RetriableConfig | undefined;
+    // A 401 on a protected call: the access token expired or was revoked. Try the refresh
+    // cookie once, then repeat the request; if that fails the session is over.
+    if (apiError.status === 401 && config && !isAuthPath(config.url) && !config._retried
+        && config.headers?.get('X-TradeFlow-Step-Up') == null) {
+      config._retried = true;
+      if (await refreshOnce()) {
+        config.headers.delete('Authorization');
+        return http.request(config);
+      }
       clearSession();
       onUnauthorized?.();
     }

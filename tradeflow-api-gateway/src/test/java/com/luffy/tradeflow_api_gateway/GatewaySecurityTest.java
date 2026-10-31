@@ -5,7 +5,6 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
-import org.springframework.mock.env.MockEnvironment;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -63,13 +62,37 @@ class GatewaySecurityTest {
     }
 
     @Test
-    void refusesThePlaceholderSecretOutsideLocalProfile() {
-        MockEnvironment prod = new MockEnvironment();
-        prod.setActiveProfiles("prod");
-        assertThatThrownBy(() -> new GatewaySecurityConfig().jwtDecoder(
-                "local-dev-only-insecure-jwt-secret-do-not-use-in-prod", "tradeflow-user-service", prod))
-                .hasMessageContaining("outside the 'local' profile");
-        assertThatThrownBy(() -> new GatewaySecurityConfig().jwtDecoder("", "x", prod))
-                .hasMessageContaining("TRADEFLOW_JWT_SECRET");
+    void onlyTokensSignedByUserServiceAreAccepted() throws Exception {
+        // Signed with a key that is not in user-service's public key ring.
+        mvc.perform(get("/api/orders").header("Authorization", TestJwts.bearer(TestJwts.untrustedUser(5))))
+                .andExpect(status().isUnauthorized());
+        mvc.perform(get("/api/orders").header("Authorization", TestJwts.bearer(TestJwts.expiredUser(5))))
+                .andExpect(status().isUnauthorized());
+        // The former shared-secret scheme no longer works at all.
+        com.nimbusds.jwt.SignedJWT hs = new com.nimbusds.jwt.SignedJWT(
+                new com.nimbusds.jose.JWSHeader(com.nimbusds.jose.JWSAlgorithm.HS256),
+                new com.nimbusds.jwt.JWTClaimsSet.Builder().issuer(TestJwts.ISSUER).subject("1").audience("tradeflow")
+                        .claim("roles", java.util.List.of("ADMIN"))
+                        .expirationTime(new java.util.Date(System.currentTimeMillis() + 60_000)).build());
+        hs.sign(new com.nimbusds.jose.crypto.MACSigner("local-dev-only-insecure-jwt-secret-do-not-use-in-prod".getBytes()));
+        mvc.perform(get("/api/admin/orders/sagas").header("Authorization", "Bearer " + hs.serialize()))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void sessionEndpointsArePublicButMfaManagementIsNot() throws Exception {
+        // Reach the route (and its 503 fallback here, as no user-service runs in this test).
+        mvc.perform(post("/api/auth/refresh")).andExpect(forwardedUrl("/fallback/user-service"));
+        mvc.perform(post("/api/auth/login/mfa")).andExpect(forwardedUrl("/fallback/user-service"));
+        mvc.perform(post("/api/auth/logout")).andExpect(forwardedUrl("/fallback/user-service"));
+        mvc.perform(post("/api/auth/step-up")).andExpect(status().isUnauthorized());
+        mvc.perform(post("/api/auth/mfa/totp/enroll")).andExpect(status().isUnauthorized());
+        mvc.perform(post("/internal/auth/service-token")).andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void refusesToStartWithoutPublicKeys() {
+        assertThatThrownBy(() -> new GatewaySecurityConfig().jwtDecoder("", "tradeflow-user-service"))
+                .hasMessageContaining("public-keys is not set");
     }
 }

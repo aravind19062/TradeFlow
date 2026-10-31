@@ -49,6 +49,8 @@ class SagaParticipantTest {
     @Autowired CrossServiceReconciliationService crossService;
     @MockitoBean MarketDataClient marketData;
     @MockitoBean OrderServiceClient orderService;
+    /** Service tokens come from user-service (client credentials); stubbed here. */
+    @MockitoBean com.luffy.tradeflow.common.security.ServiceTokenProvider serviceTokens;
 
     private long user;
 
@@ -121,6 +123,7 @@ class SagaParticipantTest {
 
     @Test
     void crossServiceCheckReleasesLeakedReservationsAndReportsTheRest() {
+        org.mockito.Mockito.when(serviceTokens.token()).thenReturn(com.luffy.tradeflow.common.testsupport.TestJwts.service());
         UUID leaked = reserveBuy("10.00");
         UUID unsettled = reserveBuy("20.00");
         UUID orphan = reserveBuy("30.00");
@@ -145,6 +148,7 @@ class SagaParticipantTest {
 
     @Test
     void crossServiceCheckReportsUnreachableOrderServiceWithoutGuessing() {
+        org.mockito.Mockito.when(serviceTokens.token()).thenReturn(com.luffy.tradeflow.common.testsupport.TestJwts.service());
         reserveBuy("10.00");
         when(orderService.statuses(anyCollection(), anyString()))
                 .thenThrow(ApiException.dependencyUnavailable("order-service", "down"));

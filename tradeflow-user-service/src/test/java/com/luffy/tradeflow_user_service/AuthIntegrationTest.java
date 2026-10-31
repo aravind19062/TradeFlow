@@ -33,6 +33,7 @@ class AuthIntegrationTest {
     @Autowired JsonMapper json;
     @Autowired JwtDecoder jwtDecoder;
     @Autowired OutboxEventRepository outbox;
+    @Autowired org.springframework.jdbc.core.JdbcTemplate jdbc;
 
     private JsonNode register(String email, String password) throws Exception {
         String body = mvc.perform(post("/api/auth/register").contentType(MediaType.APPLICATION_JSON)
@@ -57,6 +58,15 @@ class AuthIntegrationTest {
             assertThat(e.getTopic()).isEqualTo("users.registered");
             assertThat(e.getPayload()).contains("asha@test.dev").doesNotContain("Secret#123");
         });
+        // D7: a client that still sends a PAN has it ignored; nothing is stored.
+        assertThat(jdbc.queryForObject("select pan_number from users where mail_id = 'asha@test.dev'", String.class))
+                .isNull();
+        // Access tokens are short-lived and carry session/revocation claims.
+        assertThat(response.get("expiresInSeconds").asLong()).isBetween(800L, 900L);
+        assertThat(jwt.getAudience()).containsExactly("tradeflow");
+        assertThat(jwt.getClaimAsString("sid")).isNotBlank();
+        assertThat(jwt.getClaimAsStringList("amr")).containsExactly("pwd");
+        assertThat(jwt.getHeaders()).containsEntry("alg", "RS256");
     }
 
     @Test
@@ -74,7 +84,7 @@ class AuthIntegrationTest {
                         .content("{\"name\":\"\",\"email\":\"not-an-email\",\"password\":\"short\",\"panNumber\":\"123\"}"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("VALIDATION_FAILED"))
-                .andExpect(jsonPath("$.errors.length()").value(4));
+                .andExpect(jsonPath("$.errors.length()").value(3)); // PAN is no longer accepted, so not validated
     }
 
     @Test

@@ -18,7 +18,10 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(JwtSecurityConfig.PUBLIC_PATHS).permitAll()
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
-                        .requestMatchers(HttpMethod.POST, "/api/auth/register", "/api/auth/login").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/auth/register", "/api/auth/login",
+                                "/api/auth/login/mfa", "/api/auth/refresh", "/api/auth/logout").permitAll()
+                        // Authenticated by its own client-credentials check; never routed by the gateway.
+                        .requestMatchers(HttpMethod.POST, "/internal/auth/service-token").permitAll()
                         // Allow anyone to reach the H2 console without logging in (h2 profile only).
                         .requestMatchers("/h2-console/**").permitAll()
                         .anyRequest().authenticated()

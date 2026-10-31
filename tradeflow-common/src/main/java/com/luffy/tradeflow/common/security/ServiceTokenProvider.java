@@ -1,59 +1,90 @@
 package com.luffy.tradeflow.common.security;
 
+import com.luffy.tradeflow.common.web.ApiException;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.security.oauth2.jose.jws.MacAlgorithm;
-import org.springframework.security.oauth2.jwt.JwsHeader;
-import org.springframework.security.oauth2.jwt.JwtClaimsSet;
-import org.springframework.security.oauth2.jwt.JwtEncoder;
-import org.springframework.security.oauth2.jwt.JwtEncoderParameters;
+import org.springframework.cloud.client.ServiceInstance;
+import org.springframework.cloud.client.loadbalancer.LoadBalancerClient;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
+import org.springframework.web.client.RestClient;
 
+import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
-import java.util.List;
+import java.util.Base64;
 
 /**
- * Mints short-lived tokens with role SERVICE for background service-to-service calls
- * that have no end-user token to relay (e.g. reconciliation jobs). Endpoints under
- * /internal/** accept only this role; the API gateway never routes /internal/**.
+ * Obtains short-lived SERVICE-role tokens for background service-to-service calls that have no
+ * user token to relay (e.g. reconciliation jobs). Services cannot sign tokens: they authenticate
+ * to user-service with their own client credentials (client id = spring.application.name) and
+ * receive a token for that identity only. Endpoints under /internal/** accept only this role;
+ * the API gateway never routes /internal/**.
  */
 @Component
 public class ServiceTokenProvider {
 
     public static final String ROLE_SERVICE = "SERVICE";
-    private static final Duration TTL = Duration.ofMinutes(5);
+    private static final String USER_SERVICE = "tradeflow-user-service";
 
-    private final JwtEncoder encoder;
-    private final JwtProperties properties;
+    record TokenResponse(String accessToken, String tokenType, long expiresInSeconds) {
+    }
+
+    private final LoadBalancerClient loadBalancer;
     private final Clock clock;
-    private final String serviceName;
+    private final String clientId;
+    private final String clientSecret;
+    private final RestClient http;
     private volatile String cached;
-    private volatile Instant cachedUntil = Instant.MIN;
+    private volatile Instant refreshAfter = Instant.MIN;
 
-    public ServiceTokenProvider(JwtEncoder encoder, JwtProperties properties, Clock clock,
-                                @Value("${spring.application.name}") String serviceName) {
-        this.encoder = encoder;
-        this.properties = properties;
+    public ServiceTokenProvider(LoadBalancerClient loadBalancer, Clock clock,
+                                @Value("${spring.application.name}") String clientId,
+                                @Value("${tradeflow.security.service-client.secret:}") String clientSecret) {
+        this.loadBalancer = loadBalancer;
         this.clock = clock;
-        this.serviceName = serviceName;
+        this.clientId = clientId;
+        this.clientSecret = clientSecret;
+        SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
+        factory.setConnectTimeout(Duration.ofSeconds(2));
+        factory.setReadTimeout(Duration.ofSeconds(5));
+        this.http = RestClient.builder().requestFactory(factory).build();
     }
 
     public String token() {
         Instant now = clock.instant();
-        if (cached == null || now.isAfter(cachedUntil)) {
-            JwtClaimsSet claims = JwtClaimsSet.builder()
-                    .issuer(properties.issuer())
-                    .subject("0")
-                    .issuedAt(now)
-                    .expiresAt(now.plus(TTL))
-                    .claim("roles", List.of(ROLE_SERVICE))
-                    .claim("service", serviceName)
-                    .build();
-            cached = encoder.encode(JwtEncoderParameters.from(JwsHeader.with(MacAlgorithm.HS256).build(), claims))
-                    .getTokenValue();
-            cachedUntil = now.plus(TTL).minusSeconds(60);
+        if (cached == null || now.isAfter(refreshAfter)) {
+            synchronized (this) {
+                if (cached == null || clock.instant().isAfter(refreshAfter)) {
+                    fetch();
+                }
+            }
         }
         return cached;
+    }
+
+    private void fetch() {
+        if (clientSecret == null || clientSecret.isBlank()) {
+            throw new IllegalStateException("tradeflow.security.service-client.secret is not configured for "
+                    + clientId + "; it cannot call other services' internal endpoints");
+        }
+        ServiceInstance instance = loadBalancer.choose(USER_SERVICE);
+        if (instance == null) {
+            throw ApiException.dependencyUnavailable(USER_SERVICE, "no instance available to issue a service token");
+        }
+        String basic = Base64.getEncoder().encodeToString((clientId + ":" + clientSecret).getBytes(StandardCharsets.UTF_8));
+        TokenResponse response = http.post()
+                .uri(instance.getUri().resolve("/internal/auth/service-token"))
+                .header(HttpHeaders.AUTHORIZATION, "Basic " + basic)
+                .accept(MediaType.APPLICATION_JSON)
+                .retrieve()
+                .body(TokenResponse.class);
+        if (response == null || response.accessToken() == null) {
+            throw ApiException.dependencyUnavailable(USER_SERVICE, "empty service-token response");
+        }
+        cached = response.accessToken();
+        refreshAfter = clock.instant().plusSeconds(Math.max(0, response.expiresInSeconds() - 60));
     }
 }

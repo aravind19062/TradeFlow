@@ -1,12 +1,11 @@
 import { Suspense, useState } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router';
 import {
-  Bell, Bot, ChartCandlestick, LayoutDashboard, ListOrdered, LogOut, Menu, Shield, Wallet, X,
+  Bell, Bot, ChartCandlestick, KeyRound, LayoutDashboard, ListOrdered, LogOut, Menu, Shield, Wallet, X,
 } from 'lucide-react';
 import { useAuth } from '../auth/AuthContext';
 import { marketApi } from '../api/endpoints';
 import { useApi } from '../lib/useApi';
-import { time } from '../lib/format';
 import { cx, Spinner } from './ui';
 import { EnvironmentBadge } from './environment';
 
@@ -39,7 +38,7 @@ export function Logo({ dark = true }: { dark?: boolean }) {
 function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
   const { user, isAdmin, logout } = useAuth();
   const sim = useApi(() => marketApi.simulation(), [], { intervalMs: 30_000, topics: ['market'] });
-  const sections: NavSection[] = [DEMO_NAV];
+  const sections: NavSection[] = [DEMO_NAV, { title: 'Account', items: [{ to: '/settings/security', label: 'Security', icon: KeyRound }] }];
   if (isAdmin) sections.push({ title: 'Administration', items: [{ to: '/admin', label: 'Admin', icon: Shield }] });
   return (
     <div className="flex h-full flex-col bg-[#0b1220] text-slate-300">
@@ -95,7 +94,6 @@ function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
 export function AppLayout() {
   const [open, setOpen] = useState(false);
   const location = useLocation();
-  const { expiresAt } = useAuth();
   return (
     <div className="min-h-dvh lg:pl-64">
       <aside className="fixed inset-y-0 left-0 hidden w-64 lg:block"><Sidebar /></aside>
@@ -123,8 +121,7 @@ export function AppLayout() {
       <main key={location.pathname} className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
         <Suspense fallback={<Spinner />}><Outlet /></Suspense>
         <footer className="mt-12 border-t border-slate-200 pt-4 text-xs text-slate-400">
-          TradeFlow demo · all prices are simulated · not investment advice
-          {expiresAt && <> · session ends {time(new Date(expiresAt).toISOString())}</>}
+          TradeFlow · demo prices are simulated · not investment advice
         </footer>
       </main>
     </div>
