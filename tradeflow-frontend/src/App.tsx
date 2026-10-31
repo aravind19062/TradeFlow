@@ -20,6 +20,10 @@ const WatchlistPage = page(() => import('./pages/WatchlistPage'), 'WatchlistPage
 const AssistantPage = page(() => import('./pages/AssistantPage'), 'AssistantPage');
 const AdminPage = page(() => import('./pages/AdminPage'), 'AdminPage');
 const SecurityPage = page(() => import('./pages/SecurityPage'), 'SecurityPage');
+const AcademyPage = page(() => import('./pages/AcademyPages'), 'AcademyPage');
+const ModulePage = page(() => import('./pages/AcademyPages'), 'ModulePage');
+const LessonPage = page(() => import('./pages/AcademyPages'), 'LessonPage');
+const QuizPage = page(() => import('./pages/AcademyPages'), 'QuizPage');
 
 function RequireAuth({ children }: { children: ReactNode }) {
   const { status } = useAuth();
@@ -67,6 +71,10 @@ export function AppRoutes() {
         {['market', 'orders', 'portfolio', 'watchlist', 'assistant'].map((p) => (
           <Route key={p} path={`${p}/*`} element={<LegacyDemoRedirect />} />
         ))}
+        <Route path="academy" element={<AcademyPage />} />
+        <Route path="academy/:slug" element={<ModulePage />} />
+        <Route path="academy/:slug/quiz" element={<QuizPage />} />
+        <Route path="academy/:slug/:lesson" element={<LessonPage />} />
         <Route path="settings/security" element={<SecurityPage />} />
         <Route path="admin" element={<RequireAdmin><AdminPage /></RequireAdmin>} />
         <Route path="*" element={<NotFoundPage />} />

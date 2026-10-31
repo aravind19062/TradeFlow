@@ -45,6 +45,13 @@ class MarketDataIntegrationTest {
                 .andExpect(jsonPath("$", hasSize(14)))
                 .andExpect(jsonPath("$[0].source").value("SIMULATED"));
         mvc.perform(get("/api/market/quotes?symbols=tcs,INFY")).andExpect(jsonPath("$", hasSize(2)));
+        // D2: every quote carries the simulated touch (default 10 bps), bid < mid < ask.
+        var tcs = getJson("/api/market/quotes/TCS");
+        java.math.BigDecimal mid = tcs.get("price").decimalValue();
+        assertThat(tcs.get("bid").decimalValue()).isLessThan(mid);
+        assertThat(tcs.get("ask").decimalValue()).isGreaterThan(mid);
+        assertThat(tcs.get("spread").decimalValue())
+                .isEqualByComparingTo(tcs.get("ask").decimalValue().subtract(tcs.get("bid").decimalValue()));
         mvc.perform(get("/api/market/quotes/NOPE")).andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.code").value("UNKNOWN_SYMBOL"));
 

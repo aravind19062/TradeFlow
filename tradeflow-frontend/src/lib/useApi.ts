@@ -3,9 +3,9 @@ import { ApiError } from '../api/client';
 
 // ---- Cross-page refresh: after a mutation (order placed, alert created, ...) the caller
 // bumps a topic and every mounted query that depends on it refetches.
-export type Topic = 'portfolio' | 'orders' | 'watchlist' | 'alerts' | 'market';
+export type Topic = 'portfolio' | 'orders' | 'watchlist' | 'alerts' | 'market' | 'academy' | 'readiness' | 'live';
 
-const versions: Record<Topic, number> = { portfolio: 0, orders: 0, watchlist: 0, alerts: 0, market: 0 };
+const versions: Record<Topic, number> = { portfolio: 0, orders: 0, watchlist: 0, alerts: 0, market: 0, academy: 0, readiness: 0, live: 0 };
 const listeners = new Set<() => void>();
 
 export function invalidate(...topics: Topic[]): void {

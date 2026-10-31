@@ -64,6 +64,8 @@ public class GatewaySecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/api/auth/register", "/api/auth/login",
                                 "/api/auth/login/mfa", "/api/auth/refresh", "/api/auth/logout").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/market/**", "/api/demo/market/**").permitAll()
+                        // Readiness reviewers (not necessarily admins) handle review cases.
+                        .requestMatchers("/api/admin/readiness/reviews/**").hasAnyRole("READINESS_REVIEWER", "ADMIN")
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
                         .requestMatchers("/api/**").authenticated()
                         .anyRequest().denyAll())

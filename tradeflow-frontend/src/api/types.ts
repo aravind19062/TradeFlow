@@ -91,7 +91,11 @@ export interface InstrumentResponse {
 }
 
 export interface QuoteResponse extends InstrumentResponse {
+  /** Mid price. Market buys fill at `ask`, market sells at `bid` (simulated spread). */
   price: number;
+  bid: number;
+  ask: number;
+  spread: number;
   previousPrice: number | null;
   change: number | null;
   changeRatio: number | null;
@@ -142,7 +146,8 @@ export interface AlertResponse {
 
 // ---- order-service: web/OrderDtos.java, domain/OrderStatus.java, common Events.OrderSide/OrderType
 export type OrderSide = 'BUY' | 'SELL';
-export type OrderType = 'MARKET' | 'LIMIT';
+/** STOP and STOP_LIMIT are SELL-only in the demo (long-only): they protect holdings. */
+export type OrderType = 'MARKET' | 'LIMIT' | 'STOP' | 'STOP_LIMIT';
 export type OrderStatus = 'PENDING' | 'OPEN' | 'FILLED' | 'REJECTED' | 'CANCELLED' | 'EXPIRED';
 
 export const TERMINAL_STATUSES: readonly OrderStatus[] = ['FILLED', 'REJECTED', 'CANCELLED', 'EXPIRED'];
@@ -153,6 +158,7 @@ export interface PlaceOrderRequest {
   type: OrderType;
   quantity: number;
   limitPrice?: number;
+  triggerPrice?: number;
   clientOrderId?: string;
 }
 
@@ -172,6 +178,8 @@ export interface OrderResponse {
   averageFillPrice: number | null;
   createdAt: string;
   updatedAt: string;
+  triggerPrice: number | null;
+  triggeredAt: string | null;
 }
 
 export interface StatusChangeResponse {
@@ -362,4 +370,85 @@ export interface ProblemDetail {
   code?: string;
   errors?: { field: string; message: string }[];
   service?: string;
+}
+
+// ---- learning-service: academy/AcademyService.java, academy/QuizService.java
+export type ModuleStatus = 'NOT_STARTED' | 'IN_PROGRESS' | 'QUIZ_AVAILABLE' | 'COMPLETED';
+
+export interface LessonSummary { slug: string; title: string; completed: boolean }
+
+export interface ModuleSummary {
+  slug: string;
+  title: string;
+  summary: string;
+  position: number;
+  mandatory: boolean;
+  lessonsCompleted: number;
+  lessonCount: number;
+  bestScorePct: number | null;
+  quizPassed: boolean;
+  status: ModuleStatus;
+  lessons: LessonSummary[];
+  quizQuestions: number;
+  quizTimeLimitMinutes: number;
+}
+
+export interface AcademyOverview {
+  contentVersion: number;
+  policyVersion: number;
+  modulePassMarkPct: number;
+  modulesCompleted: number;
+  moduleCount: number;
+  modules: ModuleSummary[];
+}
+
+export interface LessonView {
+  moduleSlug: string;
+  moduleTitle: string;
+  slug: string;
+  title: string;
+  body: string;
+  completed: boolean;
+  previousLesson: string | null;
+  nextLesson: string | null;
+}
+
+export interface ServedQuestion {
+  key: string;
+  position: number;
+  prompt: string;
+  multi: boolean;
+  options: { key: string; text: string }[];
+}
+
+export interface QuizAttemptView {
+  id: string;
+  quizKey: string;
+  startedAt: string;
+  expiresAt: string;
+  passMarkPct: number;
+  questions: ServedQuestion[];
+}
+
+export interface GradedQuestion {
+  key: string;
+  prompt: string;
+  multi: boolean;
+  options: { key: string; text: string; correct: boolean; selected: boolean }[];
+  correct: boolean;
+  explanation: string;
+}
+
+export interface QuizResultView {
+  id: string;
+  quizKey: string;
+  startedAt: string;
+  submittedAt: string;
+  questionCount: number;
+  correctCount: number;
+  scorePct: number;
+  passMarkPct: number;
+  passed: boolean;
+  policyVersion: number | null;
+  questions: GradedQuestion[];
 }

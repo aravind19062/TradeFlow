@@ -37,12 +37,15 @@ public class QuoteService {
     private final InstrumentRepository instrumentRepository;
     private final PriceTickRepository tickRepository;
     private final SimulationStateRepository stateRepository;
+    private final int spreadBps;
 
     public QuoteService(InstrumentRepository instrumentRepository, PriceTickRepository tickRepository,
-                        SimulationStateRepository stateRepository) {
+                        SimulationStateRepository stateRepository,
+                        com.luffy.tradeflow_market_data_service.config.MarketProperties properties) {
         this.instrumentRepository = instrumentRepository;
         this.tickRepository = tickRepository;
         this.stateRepository = stateRepository;
+        this.spreadBps = properties.spreadBps();
     }
 
     public List<Instrument> instruments() {
@@ -79,10 +82,11 @@ public class QuoteService {
             PriceTick previous = byTick.get(tick - 1);
             BigDecimal prev = previous == null ? current.getPrice() : previous.getPrice();
             BigDecimal change = Money.price(current.getPrice().subtract(prev));
+            var touch = com.luffy.tradeflow.common.money.SimulatedSpread.of(current.getPrice(), spreadBps);
             quotes.add(new QuoteResponse(instrument.getSymbol(), instrument.getName(), instrument.getSector(),
                     instrument.getAssetClass(), instrument.getCurrency(), Money.price(current.getPrice()),
                     Money.price(prev), change, Money.ratio(change, prev), current.getTick(), current.getAsOf(),
-                    MarketSimulationService.SOURCE));
+                    MarketSimulationService.SOURCE, touch.bid(), touch.ask(), touch.spread()));
         }
         return quotes;
     }

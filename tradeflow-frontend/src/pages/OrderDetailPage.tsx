@@ -47,6 +47,8 @@ export function OrderDetailPage() {
             <Row label="Type" value={o.type} />
             <Row label="Quantity" value={quantity(o.quantity)} />
             <Row label="Limit price" value={o.limitPrice != null ? money(o.limitPrice) : '—'} />
+            {o.triggerPrice != null && <Row label="Stop (trigger)" value={money(o.triggerPrice)} />}
+            {o.triggerPrice != null && <Row label="Triggered" value={o.triggeredAt ? dateTime(o.triggeredAt) : 'Not yet'} />}
             <Row label="Reservation price" value={money(o.reservationPrice)} />
             <Row label="Filled" value={`${quantity(o.filledQuantity)} / ${quantity(o.quantity)}`} />
             <Row label="Average fill" value={o.averageFillPrice != null ? money(o.averageFillPrice) : '—'} />

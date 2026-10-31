@@ -56,7 +56,18 @@ public class Order {
     @Column(name = "limit_price")
     private BigDecimal limitPrice;
 
-    /** Per-share price used to size the reservation: accepted quote (MARKET) or limit (LIMIT). */
+    /** Sell stop / stop-limit: the bid at or below which the order triggers. */
+    @Column(name = "trigger_price")
+    private BigDecimal triggerPrice;
+
+    /** When a stop order triggered (a triggered STOP_LIMIT then rests as a limit order). */
+    @Column(name = "triggered_at")
+    private Instant triggeredAt;
+
+    /**
+     * Per-share price used to size the reservation: the accepted ask/bid (MARKET), the limit (LIMIT,
+     * STOP_LIMIT) or the trigger (STOP; a SELL reserves shares, not cash).
+     */
     @Column(name = "reservation_price", nullable = false)
     private BigDecimal reservationPrice;
 
@@ -92,6 +103,12 @@ public class Order {
 
     public static Order place(long userId, String clientOrderId, String symbol, OrderSide side, OrderType type,
                               long quantity, BigDecimal limitPrice, BigDecimal reservationPrice, Instant now) {
+        return place(userId, clientOrderId, symbol, side, type, quantity, limitPrice, null, reservationPrice, now);
+    }
+
+    public static Order place(long userId, String clientOrderId, String symbol, OrderSide side, OrderType type,
+                              long quantity, BigDecimal limitPrice, BigDecimal triggerPrice,
+                              BigDecimal reservationPrice, Instant now) {
         Order order = new Order();
         order.id = UUID.randomUUID();
         order.userId = userId;
@@ -101,6 +118,7 @@ public class Order {
         order.type = type;
         order.quantity = quantity;
         order.limitPrice = limitPrice;
+        order.triggerPrice = triggerPrice;
         order.reservationPrice = reservationPrice;
         order.status = OrderStatus.PENDING;
         order.createdAt = now;
@@ -110,12 +128,38 @@ public class Order {
         return order;
     }
 
-    /** Would a fill at {@code price} respect the limit? MARKET orders are always marketable. */
+    /**
+     * Would a fill at {@code price} respect the order's price limit? MARKET and (triggered) STOP orders
+     * have none; LIMIT and STOP_LIMIT orders must not buy above / sell below the limit.
+     */
     public boolean isMarketableAt(BigDecimal price) {
-        if (type == OrderType.MARKET) {
+        if (type == OrderType.MARKET || type == OrderType.STOP) {
             return true;
         }
         return side == OrderSide.BUY ? price.compareTo(limitPrice) <= 0 : price.compareTo(limitPrice) >= 0;
+    }
+
+    public boolean isStop() {
+        return type == OrderType.STOP || type == OrderType.STOP_LIMIT;
+    }
+
+    /**
+     * Applies a simulated quote to a working (OPEN, or just-reserved) order and returns the fill price
+     * if it should execute now. Buys trade at the ask, sells at the bid. A sell stop triggers when the
+     * bid falls to its trigger: a STOP then sells at the bid; a STOP_LIMIT becomes a resting limit sell.
+     */
+    public java.util.Optional<BigDecimal> evaluate(Touch touch, Instant now) {
+        if (isStop() && triggeredAt == null) {
+            if (touch.bid().compareTo(triggerPrice) > 0) {
+                return java.util.Optional.empty();
+            }
+            triggeredAt = now;
+            history.add(new OrderStatusChange(this, status, status, "Triggered: bid " + touch.bid()
+                    + " reached the stop " + triggerPrice + (type == OrderType.STOP ? "; selling at market"
+                    : "; now a limit sell at " + limitPrice), now));
+        }
+        BigDecimal executable = side == OrderSide.BUY ? touch.ask() : touch.bid();
+        return isMarketableAt(executable) ? java.util.Optional.of(executable) : java.util.Optional.empty();
     }
 
     public void open(String reason, Instant now) {

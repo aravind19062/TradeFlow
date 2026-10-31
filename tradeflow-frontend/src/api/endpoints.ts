@@ -1,5 +1,6 @@
 import { del, get, post, put } from './client';
 import type {
+  AcademyOverview, LessonView, ModuleSummary, QuizAttemptView, QuizResultView,
   AlertRequest, AlertResponse, AlertStatus, AskResponse, AssistantCapabilities, HistoryResponse,
   InstrumentResponse, LedgerEntryView, LedgerType, LoginRequest, LoginResponse, MfaEnrollment, MfaStatus,
   SecurityEventView, StepUpResponse, OrderDetailResponse, OrderResponse, OrderSide,
@@ -109,4 +110,16 @@ export const assistantApi = {
 // portfolio-service: AdminController (ADMIN only)
 export const adminApi = {
   reconcileAll: () => get<ReconciliationReport>('/admin/reconciliation'),
+};
+
+// learning-service: AcademyController
+export const academyApi = {
+  overview: () => get<AcademyOverview>('/academy/modules'),
+  module: (slug: string) => get<ModuleSummary>(`/academy/modules/${enc(slug)}`),
+  lesson: (module: string, lesson: string) => get<LessonView>(`/academy/modules/${enc(module)}/lessons/${enc(lesson)}`),
+  completeLesson: (module: string, lesson: string) =>
+    post<void>(`/academy/modules/${enc(module)}/lessons/${enc(lesson)}/complete`),
+  startQuiz: (module: string) => post<QuizAttemptView>(`/academy/modules/${enc(module)}/quiz/attempts`),
+  submit: (attemptId: string, answers: { questionKey: string; optionKeys: string[] }[]) =>
+    post<QuizResultView>(`/academy/attempts/${enc(attemptId)}/submit`, { answers }),
 };

@@ -20,7 +20,11 @@ public final class Events {
 
     public enum OrderSide { BUY, SELL }
 
-    public enum OrderType { MARKET, LIMIT }
+    /**
+     * MARKET and LIMIT for both sides. STOP (stop-market) and STOP_LIMIT are SELL-only in the demo
+     * (it is long-only): they rest untriggered until the bid falls to the trigger price.
+     */
+    public enum OrderType { MARKET, LIMIT, STOP, STOP_LIMIT }
 
     /** users.registered (user-service → portfolio-service): open a cash account. */
     public record UserRegistered(
@@ -108,12 +112,31 @@ public final class Events {
             @NotNull ReleaseOutcome outcome) {
     }
 
-    /** prices.updated (market-data-service → order-service): a new simulated tick. */
+    /**
+     * prices.updated (market-data-service → order-service): a new simulated tick. {@code price} is the
+     * mid; {@code bid}/{@code ask} are the simulated touch (absent on events from before the spread
+     * existed, which consumers treat as bid = ask = price).
+     */
     public record PriceUpdated(
             @NotBlank String symbol,
             @NotNull @Positive BigDecimal price,
             @PositiveOrZero long tick,
             @NotNull Instant asOf,
-            @NotBlank String source) {
+            @NotBlank String source,
+            @Positive BigDecimal bid,
+            @Positive BigDecimal ask) {
+
+        /** A tick without a simulated spread (bid = ask = price). */
+        public PriceUpdated(String symbol, BigDecimal price, long tick, Instant asOf, String source) {
+            this(symbol, price, tick, asOf, source, null, null);
+        }
+
+        public BigDecimal bidOrMid() {
+            return bid == null ? price : bid;
+        }
+
+        public BigDecimal askOrMid() {
+            return ask == null ? price : ask;
+        }
     }
 }

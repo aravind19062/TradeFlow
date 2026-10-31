@@ -33,18 +33,26 @@ public final class OrderDtos {
             @NotNull OrderType type,
             @NotNull @Positive Long quantity,
             @DecimalMin("0.01") @Digits(integer = 15, fraction = 2) BigDecimal limitPrice,
-            @Size(max = 64) @Pattern(regexp = "^[A-Za-z0-9_-]+$") String clientOrderId) {
+            @Size(max = 64) @Pattern(regexp = "^[A-Za-z0-9_-]+$") String clientOrderId,
+            @DecimalMin("0.01") @Digits(integer = 15, fraction = 2) BigDecimal triggerPrice) {
+
+        /** MARKET / LIMIT orders (no trigger). */
+        public PlaceOrderRequest(String symbol, OrderSide side, OrderType type, Long quantity, BigDecimal limitPrice,
+                                 String clientOrderId) {
+            this(symbol, side, type, quantity, limitPrice, clientOrderId, null);
+        }
     }
 
     public record OrderResponse(UUID id, String clientOrderId, String symbol, OrderSide side, OrderType type,
                                 long quantity, BigDecimal limitPrice, BigDecimal reservationPrice,
                                 OrderStatus status, String rejectCode, String statusReason, long filledQuantity,
-                                BigDecimal averageFillPrice, Instant createdAt, Instant updatedAt) {
+                                BigDecimal averageFillPrice, Instant createdAt, Instant updatedAt,
+                                BigDecimal triggerPrice, Instant triggeredAt) {
         public static OrderResponse from(Order o) {
             return new OrderResponse(o.getId(), o.getClientOrderId(), o.getSymbol(), o.getSide(), o.getType(),
                     o.getQuantity(), o.getLimitPrice(), o.getReservationPrice(), o.getStatus(), o.getRejectCode(),
                     o.getStatusReason(), o.getFilledQuantity(), o.getAverageFillPrice(), o.getCreatedAt(),
-                    o.getUpdatedAt());
+                    o.getUpdatedAt(), o.getTriggerPrice(), o.getTriggeredAt());
         }
     }
 
