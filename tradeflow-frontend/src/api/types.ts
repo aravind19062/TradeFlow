@@ -547,3 +547,108 @@ export interface AdminUserReadiness {
   history: ReadinessHistoryItem[];
   chain: { userId: number; events: number; intact: boolean; firstBrokenSeq: number | null };
 }
+
+// ---------------------------------------------------------------- live-trading-service (/api/live/**, LIVE)
+
+export interface LiveEligibility {
+  /** false when readiness could not be checked (then never treated as eligible). */
+  available: boolean;
+  eligible: boolean;
+  state: string | null;
+  reasons: string[];
+  expiresAt: string | null;
+}
+
+export interface BrokerConnectionView {
+  id: string;
+  broker: string;
+  status: string;
+  accountRef: string | null;
+  connectedAt: string | null;
+  expiresAt: string | null;
+}
+
+export interface LiveLimits {
+  maxOrderValue: number;
+  maxOrdersPerDay: number;
+  maxDailyTurnover: number;
+}
+
+export interface LiveLimitsView {
+  effective: LiveLimits;
+  platform: LiveLimits;
+  customised: boolean;
+}
+
+export interface LiveStatus {
+  brokerConfigured: boolean;
+  broker: string;
+  eligibility: LiveEligibility;
+  connection: BrokerConnectionView | null;
+  halted: boolean;
+  haltReason: string | null;
+  limits: LiveLimitsView;
+  notice: string | null;
+}
+
+export type LiveOrderType = 'MARKET' | 'LIMIT' | 'STOP' | 'STOP_LIMIT';
+
+export interface LiveOrderParams {
+  exchange: 'NSE' | 'BSE';
+  symbol: string;
+  side: OrderSide;
+  type: LiveOrderType;
+  quantity: number;
+  limitPrice?: number | null;
+  triggerPrice?: number | null;
+}
+
+export interface LiveOrderPreview {
+  confirmationId: string;
+  expiresAt: string;
+  order: LiveOrderParams;
+  estimatedValue: number;
+  limits: LiveLimits;
+  ordersToday: number;
+  turnoverToday: number;
+  warning: string;
+}
+
+export interface LiveOrderView {
+  id: string;
+  brokerOrderId: string | null;
+  order: LiveOrderParams;
+  orderValue: number;
+  status: string;
+  statusMessage: string | null;
+  filledQuantity: number;
+  averagePrice: number | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface LiveNotification {
+  id: number;
+  kind: string;
+  message: string;
+  createdAt: string;
+  readAt: string | null;
+}
+
+export interface KillSwitchView {
+  scope: 'GLOBAL' | 'USER';
+  userId: number;
+  enabled: boolean;
+  reason: string | null;
+  actorId: number | null;
+  changedAt: string | null;
+}
+
+export interface AdminUserLive {
+  userId: number;
+  killSwitch: KillSwitchView;
+  connections: BrokerConnectionView[];
+  orders: LiveOrderView[];
+  audit: { seq: number; action: string; outcome: string; detail: string | null; actorId: number; occurredAt: string }[];
+  chain: { intact: boolean; events: number; firstBrokenSeq: number | null };
+}

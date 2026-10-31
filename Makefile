@@ -44,7 +44,7 @@ dlt: ## Show dead-lettered messages for a topic (make dlt T=trades.executed)
 		--topic $${T:-trades.executed}.DLT --from-beginning --timeout-ms 5000 --property print.headers=true
 
 keys: ## Generate per-machine keys in .secrets/ for running services outside Docker (Docker does this itself)
-	sh docker/keygen.sh .secrets/jwt/private .secrets/jwt/public .secrets/user-service
+	sh docker/keygen.sh .secrets/jwt/private .secrets/jwt/public .secrets/user-service "" .secrets/live-trading
 
 # ---------------------------------------------------------------- Build & test
 build: ## Compile and package every module (skip tests)

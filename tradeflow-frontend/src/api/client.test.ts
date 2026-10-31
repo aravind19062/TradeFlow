@@ -97,6 +97,38 @@ describe('interceptors', () => {
   });
 });
 
+describe('live step-up calls', () => {
+  it('send the step-up token instead of the access token, and a refused step-up is not "refreshed"', async () => {
+    setSession({ token: 'access', expiresAt: Date.now() + 3_600_000 });
+    const refresh = vi.fn(async () => true);
+    setRefreshHandler(refresh);
+    const seen: (string | undefined)[] = [];
+    const adapter = async (config: InternalAxiosRequestConfig) => {
+      seen.push(config.headers.get('Authorization') as string | undefined);
+      throw new AxiosError('failed', undefined, config, null,
+        { status: 401, data: { code: 'SESSION_REVOKED' }, headers: {}, statusText: '', config });
+    };
+    await expect(http.post('/live/orders', {}, { adapter, headers: { Authorization: 'Bearer stepup', 'X-TradeFlow-Step-Up': '1' } }))
+      .rejects.toMatchObject({ code: 'SESSION_REVOKED' });
+    expect(seen).toEqual(['Bearer stepup']);
+    expect(refresh).not.toHaveBeenCalled();
+  });
+
+  it('a refused step-up (wrong password or code) is reported, not retried after a refresh', async () => {
+    setSession({ token: 'access', expiresAt: Date.now() + 3_600_000 });
+    const refresh = vi.fn(async () => true);
+    setRefreshHandler(refresh);
+    const adapter = vi.fn(async (config: InternalAxiosRequestConfig) => {
+      throw new AxiosError('failed', undefined, config, null,
+        { status: 401, data: { code: 'INVALID_CREDENTIALS', detail: 'Invalid password or code' }, headers: {}, statusText: '', config });
+    });
+    await expect(http.post('/auth/step-up', { password: 'x', code: '000000' }, { adapter }))
+      .rejects.toMatchObject({ status: 401, message: 'Invalid password or code' });
+    expect(adapter).toHaveBeenCalledOnce();
+    expect(refresh).not.toHaveBeenCalled();
+  });
+});
+
 describe('environment guard', () => {
   const respond = (header?: string) => async (config: InternalAxiosRequestConfig) => ({
     data: { ok: true }, status: 200, statusText: 'OK', config,
@@ -112,6 +144,8 @@ describe('environment guard', () => {
   it('accepts live data only when labelled LIVE', async () => {
     await expect(http.get('/live/funds', { adapter: respond('DEMO') })).rejects.toMatchObject({ code: 'ENVIRONMENT_MISMATCH' });
     await expect(http.get('/live/funds', { adapter: respond('LIVE') })).resolves.toBeTruthy();
+    await expect(http.get('/admin/live/kill-switch', { adapter: respond() })).rejects.toMatchObject({ code: 'ENVIRONMENT_MISMATCH' });
+    await expect(http.get('/admin/live/kill-switch', { adapter: respond('LIVE') })).resolves.toBeTruthy();
   });
 
   it('does not require a label on environment-neutral paths', async () => {

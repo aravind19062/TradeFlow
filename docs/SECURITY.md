@@ -71,6 +71,9 @@ There is **no self-service bypass** of the second factor. Recovery is an audited
   at `POST /internal/auth/service-token` and receive a 5-minute token with role `SERVICE` and subject
   `service:<name>`. A compromised service can obtain only that, never a user token.
 * `/internal/**` is denied by the gateway and accepted by services only with role `SERVICE`.
+* live-trading-service uses its own client credentials (`TRADEFLOW_SERVICE_SECRET_LIVE`) to call
+  `GET /internal/users/{id}/session-state` (user-service) and `GET /internal/readiness/{id}/eligibility`
+  (learning-service) before every live action. It cannot mint tokens.
 * Placeholder client secrets (`local-dev-only…`) are refused outside the `local` profile; real secrets
   must be ≥ 24 characters.
 
@@ -80,7 +83,8 @@ There is **no self-service bypass** of the second factor. Recovery is an audited
 |---|---|---|---|
 | Token signing key (RSA-3072, PKCS#8) | user-service only | volume `jwt_private`, generated once by `keygen` | secret manager / KMS-backed file |
 | Token public keys (`<kid>.pem`) | all services, gateway | volume `jwt_public` | config distribution |
-| Data-encryption key ring (AES-256) | user-service only (TOTP seeds); live-trading-service gets its own | volume `user_data_keys` | secret manager |
+| Data-encryption key ring (AES-256) | user-service only (TOTP seeds) | volume `user_data_keys` | secret manager |
+| Live data-encryption key ring (AES-256) | live-trading-service only (broker tokens) | volume `live_data_keys` | secret manager |
 | Service client secrets | user-service and the client service | `.env` / local placeholders | secret manager |
 
 Nothing secret is committed. `make keys` creates the same material under `.secrets/` (git-ignored) for
@@ -90,6 +94,17 @@ running services outside Docker. Services refuse to start without their keys.
 restart them; (3) switch user-service to the new private key; (4) after 24 hours (the longest session) remove
 the old public key. **Data-key rotation:** add a key id, set `active` to it; old ciphertexts stay readable
 by their key id and can be re-encrypted (`DataEncryptor.needsRotation`).
+
+## Live trading
+
+* **Step-up for every state-changing live action**, checked again by live-trading-service: audience
+  `tradeflow-live`, password + TOTP, at most 10 minutes since authentication, token version current, MFA on.
+  The gateway also refuses step-up tokens outside `/api/live/**` and requires them for live order and broker POSTs.
+* **Broker tokens** are encrypted at rest with a key ring only live-trading-service holds, bound to the
+  connection, decrypted only at call time, never returned by an API, never logged (`toString` redacts).
+  The frontend never sees them: the browser only ever holds TradeFlow's own tokens.
+* **Every live action is independently authorised and audited** (allowed and refused) in a hash-chained,
+  append-only log. Administrators can halt new orders but have no endpoint that places or cancels orders for a user.
 
 ## Security events
 

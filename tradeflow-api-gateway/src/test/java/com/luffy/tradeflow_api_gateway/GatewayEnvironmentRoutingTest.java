@@ -62,7 +62,7 @@ class GatewayEnvironmentRoutingTest {
     static void instances(DynamicPropertyRegistry registry) {
         String uri = "http://127.0.0.1:" + STUB.getAddress().getPort();
         for (String service : List.of("tradeflow-market-data-service", "tradeflow-order-service",
-                "tradeflow-portfolio-service")) {
+                "tradeflow-portfolio-service", "tradeflow-live-trading-service")) {
             registry.add("spring.cloud.discovery.client.simple.instances." + service + "[0].uri", () -> uri);
         }
     }
@@ -113,5 +113,17 @@ class GatewayEnvironmentRoutingTest {
         mvc.perform(get("/api/demo/internal/orders").header("Authorization", TestJwts.bearer(TestJwts.user(5))))
                 .andExpect(status().is4xxClientError()); // not a demo route: nothing is proxied
         assertThat(RECEIVED).isEmpty();
+    }
+
+    @Test
+    void livePathsReachOnlyTheLiveServiceAndAreLabelledLive() throws Exception {
+        String user = TestJwts.bearer(TestJwts.user(5));
+        mvc.perform(get("/api/live/status").header("Authorization", user))
+                .andExpect(status().isOk()).andExpect(header().string("X-TradeFlow-Environment", "LIVE"));
+        mvc.perform(get("/api/admin/live/kill-switch").header("Authorization", TestJwts.bearer(TestJwts.admin(1))))
+                .andExpect(status().isOk()).andExpect(header().string("X-TradeFlow-Environment", "LIVE"));
+        // No demo path leads to live trading.
+        mvc.perform(get("/api/demo/live/status").header("Authorization", user)).andExpect(status().is4xxClientError());
+        assertThat(RECEIVED).containsExactly("GET /api/live/status", "GET /api/admin/live/kill-switch");
     }
 }

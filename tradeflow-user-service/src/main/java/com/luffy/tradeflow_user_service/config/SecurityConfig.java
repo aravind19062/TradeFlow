@@ -22,6 +22,7 @@ public class SecurityConfig {
                                 "/api/auth/login/mfa", "/api/auth/refresh", "/api/auth/logout").permitAll()
                         // Authenticated by its own client-credentials check; never routed by the gateway.
                         .requestMatchers(HttpMethod.POST, "/internal/auth/service-token").permitAll()
+                        .requestMatchers("/internal/**").hasRole("SERVICE")
                         // Allow anyone to reach the H2 console without logging in (h2 profile only).
                         .requestMatchers("/h2-console/**").permitAll()
                         .anyRequest().authenticated()

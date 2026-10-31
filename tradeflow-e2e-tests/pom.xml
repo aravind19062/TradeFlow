@@ -37,6 +37,13 @@
 			<version>${project.version}</version>
 			<scope>test</scope>
 		</dependency>
+		<!-- On the classpath only for the architecture rules below; never started by the e2e test. -->
+		<dependency>
+			<groupId>com.luffy</groupId>
+			<artifactId>tradeflow-live-trading-service</artifactId>
+			<version>${project.version}</version>
+			<scope>test</scope>
+		</dependency>
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-test</artifactId>
