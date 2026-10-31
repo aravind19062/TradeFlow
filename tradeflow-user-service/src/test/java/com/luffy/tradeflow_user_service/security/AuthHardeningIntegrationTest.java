@@ -138,12 +138,21 @@ class AuthHardeningIntegrationTest {
         Jwt refreshed = jwtDecoder.decode(json.readTree(first.getContentAsString()).get("accessToken").asString());
         assertThat(refreshed.getClaimAsString("sid")).isEqualTo(jwtDecoder.decode(s.accessToken()).getClaimAsString("sid"));
 
-        // Presented again immediately (two tabs refreshing at once): refused, but nothing is revoked
-        // and no token is issued.
+        // The response to that refresh was lost (aborted page load): the client still has the old cookie and
+        // its successor was never used. Within the grace window it may continue; the orphan is revoked.
+        MockHttpServletResponse recovered = mvc.perform(withCookie(post("/api/auth/refresh"), s.refreshCookie()))
+                .andExpect(status().isOk()).andReturn().getResponse();
+        String latest = refreshCookie(recovered);
+        mvc.perform(withCookie(post("/api/auth/refresh"), rotated)).andExpect(status().isUnauthorized());
+        assertThat(events.findByUserIdAndTypeOrderByOccurredAtDesc(s.userId(), "REFRESH_REUSE_DETECTED")).isEmpty();
+
+        // Two tabs: once the successor has been used, presenting the old cookie again is a race: nothing issued.
+        MockHttpServletResponse next = mvc.perform(withCookie(post("/api/auth/refresh"), latest))
+                .andExpect(status().isOk()).andReturn().getResponse();
+        rotated = refreshCookie(next);
         mvc.perform(withCookie(post("/api/auth/refresh"), s.refreshCookie()))
                 .andExpect(status().isUnauthorized()).andExpect(jsonPath("$.code").value("REFRESH_RACE"))
                 .andExpect(jsonPath("$.accessToken").doesNotExist());
-        assertThat(events.findByUserIdAndTypeOrderByOccurredAtDesc(s.userId(), "REFRESH_REUSE_DETECTED")).isEmpty();
 
         // The old token comes back later (stolen copy): the whole session is revoked.
         jdbc.update("update refresh_tokens set used_at = used_at - interval '1' minute where token_hash = ?",

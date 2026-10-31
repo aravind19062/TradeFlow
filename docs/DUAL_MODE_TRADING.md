@@ -381,7 +381,7 @@ Every phase leaves the application working, adds tests, and keeps demo behaviour
 | 1. Environment foundations | `99ea7b3` | Done: event environment check, `/api/demo/**`, `X-TradeFlow-Environment`, ArchUnit rules, DEMO UI |
 | 2. Security prerequisites | `ed5b14f` | Done: RS256 + public key ring, service client credentials, 15-min tokens + rotating refresh cookie, TOTP + recovery codes, step-up, audited admin MFA reset, PAN no longer collected. See [SECURITY.md](SECURITY.md) |
 | 3. Academy (+ D2) | phase 3 commit | Done: learning-service, 10 modules / 20 lessons / 80 module questions + 25 final-assessment questions, server-graded quizzes, versioned readiness policy v1; simulated bid/ask and SELL stop / stop-limit in the demo engine |
-| 4. Readiness | – | Next |
+| 4. Readiness | phase 4 commit | Done: state machine (incl. REVIEW_REQUIRED), hash-chained audit (append-only trigger on PostgreSQL), exercises verified from DEMO events, final assessment with cooldown/attempt limit, authorised reviewer, versioned risk acknowledgement, self-exclusion, admin revoke/reinstate, policy publishing, fail-closed internal eligibility API |
 | 5. Live skeleton (no broker) | – | Planned |
 | 6–7. Broker, live orders | – | **Blocked on your broker approval** |
 
@@ -403,3 +403,47 @@ Every phase leaves the application working, adds tests, and keeps demo behaviour
 * **D6** TOTP with enrolment, recovery codes and an audited, non-bypass recovery procedure (SECURITY.md).
 * **D7** PAN no longer collected; existing values untouched pending [PAN_MIGRATION.md](PAN_MIGRATION.md).
 * **D8** See the resource section below.
+
+### Readiness as implemented (phase 4)
+
+* **States:** NOT_STARTED → IN_PROGRESS → ASSESSMENT_PENDING → ACKNOWLEDGEMENT_PENDING → QUALIFIED, with
+  REVIEW_REQUIRED (after the policy's maximum failed final attempts) and ACCESS_REVOKED (admin, expiry, or a
+  policy version that requires requalification). Only ACKNOWLEDGEMENT_PENDING can lead to QUALIFIED.
+* **Evidence:** all mandatory modules (lessons read, quiz ≥ module pass mark) and the policy's exercises.
+  Exercises are started explicitly and completed only from DEMO order events after the start
+  (market buy filled; limit order cancelled by the user; sell stop accepted; position size equal to the scenario).
+* **Final assessment:** 20 of 25 questions, 40 minutes, ≥ 85%. A failed or abandoned attempt starts a 24 h pause;
+  the third failure in a cycle moves the user to REVIEW_REQUIRED.
+* **Authorised reviewer:** role `READINESS_REVIEWER` (or ADMIN), never the user themselves. Decision: allow a new
+  cycle of attempts, or require named modules to be redone first; notes ≥ 20 characters. Recorded in
+  `readiness_reviews` and in the audit chain with actor type REVIEWER. Demo account: `reviewer@tradeflow.dev`.
+* **Acknowledgement:** versioned text (academy/acknowledgement/v1.md), typed phrase, stored with the text hash,
+  time, IP and user agent. It states that passing is not a suitability judgement or a guarantee of competence.
+* **Audit:** `readiness_events` is hash-chained per user (SHA-256 over the previous hash and every field);
+  admins can verify the chain; on PostgreSQL a trigger rejects UPDATE/DELETE on it and on acknowledgements.
+* **Eligibility:** `GET /internal/readiness/{userId}/eligibility` (SERVICE token only) re-evaluates on every call:
+  QUALIFIED, not expired, not superseded by a requalification policy, not self-excluded.
+
+### D8: measured resources and recommendation (2026-10-31)
+
+Measured with `docker stats` and inside the Docker VM (`free`, `/proc/vmstat`, `/proc/pressure`):
+
+| Point in time | Containers' memory in use | Notes |
+|---|---|---|
+| Baseline (10 containers, before this work) | 2,956 MiB | VM has 3.82 GiB |
+| After phase 2 | 2,971 MiB | |
+| With learning-service (phase 3/4) | 2,880–3,050 MiB | learning-service ≈ 305–330 MiB (limit 512 MiB) |
+| VM during a rebuild with the stack running | 3,447 MiB used, **468 MiB available, swap 995/1,023 MiB** | **4 OOM kills** (incl. portfolio-service), Kafka restarted twice, CPU pressure 41% (5-min avg) |
+
+Effects observed: requests stalling 15–60 s after restarts, orders staying PENDING while consumers rejoin, one
+service OOM-killed during an image build. These are resource symptoms, not logic faults (all tests pass once
+memory is relieved; with one market-data replica the readiness E2E dropped from >150 s to 22 s).
+
+**Estimate with phase 5:** live-trading-service ≈ 300–350 MiB in use (512 MiB limit, same profile as
+learning-service). Steady state ≈ 3.4 GiB of container memory; image builds inside Docker add ≈ 1–1.5 GiB
+(Maven stage `-Xmx768m`, Node build). Sum of container limits ≈ 5.9 GiB.
+
+**Recommendation:** set Docker Desktop to **6 GiB minimum, 8 GiB recommended** (8 GiB lets you rebuild while
+the stack runs without swapping), keeping 4+ CPUs. If you must stay at 4 GiB: run one market-data replica
+(`docker compose --profile apps up -d --scale market-data-service=1`) and stop the stack before rebuilding images.
+I have not changed your Docker settings.

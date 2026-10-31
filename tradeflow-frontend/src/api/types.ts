@@ -2,7 +2,7 @@
 // BigDecimal values arrive as JSON numbers; Instants as ISO-8601 strings.
 
 // ---- user-service: dto/AuthDtos.java, dto/RegisterRequest.java
-export type Role = 'USER' | 'ADMIN';
+export type Role = 'USER' | 'ADMIN' | 'READINESS_REVIEWER';
 
 export interface UserResponse {
   id: number;
@@ -451,4 +451,99 @@ export interface QuizResultView {
   passed: boolean;
   policyVersion: number | null;
   questions: GradedQuestion[];
+}
+
+// ---- learning-service: readiness/ReadinessService.java, readiness/ExerciseService.java
+export type ReadinessState = 'NOT_STARTED' | 'IN_PROGRESS' | 'ASSESSMENT_PENDING' | 'REVIEW_REQUIRED'
+  | 'ACKNOWLEDGEMENT_PENDING' | 'QUALIFIED' | 'ACCESS_REVOKED';
+
+export interface ExerciseView {
+  slug: string;
+  title: string;
+  module: string;
+  description: string;
+  required: boolean;
+  startedAt: string | null;
+  completedAt: string | null;
+}
+
+export interface FinalAssessmentView {
+  available: boolean;
+  failedAttempts: number;
+  maxFailedAttempts: number;
+  retakeAvailableAt: string | null;
+  lastScorePct: number | null;
+  passed: boolean;
+  passMarkPct: number;
+  questions: number;
+  timeLimitMinutes: number;
+}
+
+export interface ReadinessStatusView {
+  state: ReadinessState;
+  reason: string;
+  policyVersion: number;
+  qualifiedAt: string | null;
+  expiresAt: string | null;
+  selfExcludedUntil: string | null;
+  eligibleForLiveTrading: boolean;
+  nextStep: string;
+  checklist: {
+    modulesCompleted: number;
+    moduleCount: number;
+    modulesDone: boolean;
+    remediationModules: string[];
+    exercises: ExerciseView[];
+    exercisesDone: boolean;
+    finalAssessment: FinalAssessmentView;
+    acknowledged: boolean;
+  };
+  policy: {
+    version: number;
+    modulePassMarkPct: number;
+    finalPassMarkPct: number;
+    finalRetakeCooldownHours: number;
+    maxFailedFinalAttempts: number;
+    qualificationValidityDays: number;
+  };
+}
+
+export interface ReadinessHistoryItem {
+  seq: number;
+  fromState: string | null;
+  toState: string;
+  reasonCode: string;
+  actorType: string;
+  policyVersion: number;
+  occurredAt: string;
+}
+
+export interface AcknowledgementView { textVersion: number; text: string; textSha256: string; phrase: string }
+
+export interface SizingScenario {
+  id: string;
+  symbol: string;
+  accountValue: number;
+  riskPct: number;
+  entryPrice: number;
+  stopPrice: number;
+  expiresAt: string;
+  answeredCorrectly: boolean;
+  requiredQuantity: number | null;
+  answerAttempts: number;
+}
+
+export interface ReviewCase {
+  userId: number;
+  state: ReadinessState;
+  failedAttempts: number;
+  scores: number[];
+  cycleStartedAt: string | null;
+  weakModules: string[];
+}
+
+export interface AdminUserReadiness {
+  status: ReadinessStatusView;
+  history: ReadinessHistoryItem[];
+  chain: { userId: number; events: number; intact: boolean; firstBrokenSeq: number | null };
 }

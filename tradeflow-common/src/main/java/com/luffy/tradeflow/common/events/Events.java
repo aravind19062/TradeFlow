@@ -139,4 +139,19 @@ public final class Events {
             return ask == null ? price : ask;
         }
     }
+
+    /**
+     * readiness.changed (learning-service → live-trading-service): the user's readiness state
+     * moved. Consumers treat it as a hint and confirm eligibility synchronously before any live
+     * action (the event alone never grants access).
+     */
+    public record ReadinessChanged(
+            @NotNull Long userId,
+            @NotBlank String fromState,
+            @NotBlank String toState,
+            @NotBlank String reasonCode,
+            boolean qualified,
+            int policyVersion,
+            @NotNull Instant occurredAt) {
+    }
 }

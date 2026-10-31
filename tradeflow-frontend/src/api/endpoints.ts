@@ -1,5 +1,6 @@
 import { del, get, post, put } from './client';
 import type {
+  AcknowledgementView, AdminUserReadiness, ReadinessHistoryItem, ReadinessStatusView, ReviewCase, SizingScenario,
   AcademyOverview, LessonView, ModuleSummary, QuizAttemptView, QuizResultView,
   AlertRequest, AlertResponse, AlertStatus, AskResponse, AssistantCapabilities, HistoryResponse,
   InstrumentResponse, LedgerEntryView, LedgerType, LoginRequest, LoginResponse, MfaEnrollment, MfaStatus,
@@ -122,4 +123,33 @@ export const academyApi = {
   startQuiz: (module: string) => post<QuizAttemptView>(`/academy/modules/${enc(module)}/quiz/attempts`),
   submit: (attemptId: string, answers: { questionKey: string; optionKeys: string[] }[]) =>
     post<QuizResultView>(`/academy/attempts/${enc(attemptId)}/submit`, { answers }),
+};
+
+// learning-service: ReadinessController
+export const readinessApi = {
+  status: () => get<ReadinessStatusView>('/readiness'),
+  startAssessment: () => post<QuizAttemptView>('/readiness/assessment/attempts'),
+  acknowledgement: () => get<AcknowledgementView>('/readiness/acknowledgement'),
+  acknowledge: (textVersion: number, typedPhrase: string) =>
+    post<ReadinessStatusView>('/readiness/acknowledgement', { textVersion, typedPhrase }),
+  selfExclude: (days: number) => post<ReadinessStatusView>('/readiness/self-exclusion', { days }),
+  history: () => get<ReadinessHistoryItem[]>('/readiness/history'),
+  startExercise: (slug: string) => post<void>(`/readiness/exercises/${enc(slug)}/start`),
+  scenario: () => post<SizingScenario>('/readiness/exercises/position-sizing/scenario'),
+  answer: (quantity: number) =>
+    post<{ correct: boolean; explanation: string; scenario: SizingScenario }>('/readiness/exercises/position-sizing/answer', { quantity }),
+};
+
+// learning-service: ReviewController (READINESS_REVIEWER or ADMIN)
+export const reviewApi = {
+  queue: () => get<ReviewCase[]>('/admin/readiness/reviews'),
+  decide: (userId: number, decision: 'ALLOW_RETAKE' | 'REQUIRE_REMEDIATION', notes: string, remediationModules: string[]) =>
+    post<ReadinessStatusView>(`/admin/readiness/reviews/${userId}/decision`, { decision, notes, remediationModules }),
+};
+
+// learning-service: AdminReadinessController (ADMIN)
+export const adminReadinessApi = {
+  user: (userId: number) => get<AdminUserReadiness>(`/admin/readiness/users/${userId}`),
+  revoke: (userId: number, reason: string) => post<ReadinessStatusView>(`/admin/readiness/users/${userId}/revoke`, { reason }),
+  reinstate: (userId: number, reason: string) => post<ReadinessStatusView>(`/admin/readiness/users/${userId}/reinstate`, { reason }),
 };

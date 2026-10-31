@@ -16,6 +16,9 @@ public interface RefreshTokenRepository extends JpaRepository<RefreshToken, UUID
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     Optional<RefreshToken> findByTokenHash(String tokenHash);
 
+    /** Tokens of a session issued at or after a moment (the successors of a rotated token). */
+    java.util.List<RefreshToken> findByFamilyIdAndIssuedAtGreaterThanEqual(UUID familyId, Instant since);
+
     @Modifying
     @Query("update RefreshToken t set t.revokedAt = :at, t.revokeReason = :reason "
             + "where t.familyId = :family and t.revokedAt is null")
