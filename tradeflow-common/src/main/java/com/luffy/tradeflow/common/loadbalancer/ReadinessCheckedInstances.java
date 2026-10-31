@@ -26,7 +26,11 @@ public class ReadinessCheckedInstances {
     public ServiceInstanceListSupplier readinessCheckedInstanceSupplier(ConfigurableApplicationContext context) {
         SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
         factory.setConnectTimeout(Duration.ofSeconds(1));
-        factory.setReadTimeout(Duration.ofSeconds(2));
+        // A single slow answer removes the instance until the next check (interval), and with one
+        // replica that means "no servers" (503). Right after a cold start, eleven JVMs warming up on a
+        // 4-CPU laptop VM can take more than 2 s to answer, so allow 5 s by default.
+        factory.setReadTimeout(context.getEnvironment().getProperty(
+                "tradeflow.loadbalancer.health-check-timeout", Duration.class, Duration.ofSeconds(5)));
         RestClient plain = RestClient.builder().requestFactory(factory).build();
         return ServiceInstanceListSupplier.builder()
                 .withBlockingDiscoveryClient()

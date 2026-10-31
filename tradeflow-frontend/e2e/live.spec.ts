@@ -1,5 +1,5 @@
-import { createHmac } from 'node:crypto';
 import { expect, test, type Page } from '@playwright/test';
+import { adminCode, signInAdmin, totpAt } from './admin';
 
 // Phase 5: the LIVE area against the running stack. No broker is integrated, so these tests
 // prove the safe default (nothing can reach a broker) and the real step-up flow.
@@ -7,15 +7,7 @@ import { expect, test, type Page } from '@playwright/test';
 const DEMO_PASSWORD = process.env.TRADEFLOW_DEMO_PASSWORD ?? 'Demo@12345';
 
 function totp(base32Secret: string, offsetSteps = 0): string {
-  const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
-  let bits = '';
-  for (const c of base32Secret.replace(/\s/g, '')) bits += alphabet.indexOf(c).toString(2).padStart(5, '0');
-  const key = Buffer.from(bits.match(/.{8}/g)!.map((b) => parseInt(b, 2)));
-  const counter = Buffer.alloc(8);
-  counter.writeBigUInt64BE(BigInt(Math.floor(Date.now() / 30_000) + offsetSteps));
-  const h = createHmac('sha1', key).update(counter).digest();
-  const o = h[h.length - 1] & 0x0f;
-  return String((h.readUInt32BE(o) & 0x7fffffff) % 1_000_000).padStart(6, '0');
+  return totpAt(base32Secret, Math.floor(Date.now() / 30_000) + offsetSteps);
 }
 
 async function registerFresh(page: Page, prefix: string, password: string): Promise<string> {
@@ -99,33 +91,51 @@ test('tightening a limit needs nothing more; raising it needs password + authent
 });
 
 test('administrators see the live trading controls and the global halt state', async ({ page }) => {
-  await page.goto('/login');
-  await page.getByLabel('Email').fill('admin@tradeflow.dev');
-  await page.getByLabel('Password').fill(DEMO_PASSWORD);
-  await page.getByRole('button', { name: 'Sign in' }).click();
+  test.setTimeout(120_000);
+  await signInAdmin(page);
   await page.getByRole('navigation', { name: 'Main' }).getByRole('link', { name: 'Admin' }).click();
   await expect(page.getByText('Live trading controls')).toBeVisible();
   await expect(page.getByTestId('global-halt')).toHaveText('open');
   await expect(page.getByRole('button', { name: 'Halt all live orders' })).toBeDisabled(); // reason required
 });
 
-test('changing a live halt asks for the administrator\'s own password + authenticator code', async ({ page }) => {
-  // The seeded demo admin has no authenticator enrolled, so the server refuses the step-up: the halt
-  // must stay open. (The accepted path is covered by the backend tests with a real step-up token.)
-  await page.goto('/login');
-  await page.getByLabel('Email').fill('admin@tradeflow.dev');
-  await page.getByLabel('Password').fill(DEMO_PASSWORD);
-  await page.getByRole('button', { name: 'Sign in' }).click();
+test('changing a live halt needs the administrator\'s own password + authenticator code, and is audited', async ({ page }) => {
+  test.setTimeout(150_000);
+  expect(await signInAdmin(page), 'the seeded admin must have an authenticator enrolled').toBe(true);
   await page.getByRole('navigation', { name: 'Main' }).getByRole('link', { name: 'Admin' }).click();
   await expect(page.getByTestId('global-halt')).toHaveText('open');
-  await page.getByLabel(/Reason \(min. 10 characters, recorded\)/).last().fill('Playwright step-up check');
+  const reason = page.getByLabel(/Reason \(min. 10 characters, recorded\)/).last();
+  await reason.fill('Playwright step-up check');
   await page.getByRole('button', { name: 'Halt all live orders' }).click();
   const form = page.getByTestId('step-up-form');
   await expect(form).toContainText('needs your own confirmation');
+
+  // Rejected: wrong authenticator code. Nothing changes.
   await form.getByLabel('Password').fill(DEMO_PASSWORD);
-  await form.getByLabel('Authenticator code').fill('123456');
+  const good = await adminCode(page);
+  await form.getByLabel('Authenticator code').fill(good === '000000' ? '111111' : '000000');
   await form.getByRole('button', { name: 'Confirm' }).click();
-  await expect(form.getByText(/two-factor/i)).toBeVisible();
-  await form.getByRole('button', { name: 'Cancel' }).click();
+  await expect(form.getByRole('alert')).toContainText(/incorrect/i);
   await expect(page.getByTestId('global-halt')).toHaveText('open');
+
+  // Accepted: password + the current code. The halt is applied.
+  await form.getByLabel('Password').fill(DEMO_PASSWORD);
+  await form.getByLabel('Authenticator code').fill(good);
+  await form.getByRole('button', { name: 'Confirm' }).click();
+  await expect(form).toHaveCount(0);
+  await expect(page.getByTestId('global-halt')).toHaveText('HALTED');
+
+  // Lifting reuses the 10-minute step-up (no second prompt).
+  await reason.fill('Playwright step-up check finished');
+  await page.getByRole('button', { name: 'Lift platform halt' }).click();
+  await expect(page.getByTestId('global-halt')).toHaveText('open');
+  await expect(page.getByTestId('step-up-form')).toHaveCount(0);
+
+  // The platform audit chain (user 0) shows both changes with the step-up and stays intact.
+  await page.getByLabel('User id').last().fill('0');
+  await page.getByRole('button', { name: 'Look up' }).last().click();
+  const audit = page.getByTestId('admin-live');
+  await expect(audit).toContainText('Live audit chain intact');
+  await expect(audit).toContainText(/KILL_SWITCH_OFF · ALLOWED · GLOBAL: Playwright step-up check finished \[was on; admin \d+; step-up pwd\+otp/);
+  await expect(audit).toContainText(/KILL_SWITCH_ON · ALLOWED · GLOBAL: Playwright step-up check \[was off/);
 });

@@ -113,7 +113,13 @@ by their key id and can be re-encrypted (`DataEncryptor.needsRotation`).
     with the administrator as actor.
   * **Changes** record the scope, the reason, the previous state, the administrator id, the authentication
     methods and time, and the session id. No token material is stored.
-  * An administrator therefore needs TOTP enrolled before they can halt or resume live trading. In an
+  * An administrator therefore needs TOTP enrolled before they can halt or resume live trading.
+    The local seeded admin (`admin@tradeflow.dev`) was enrolled through the normal API flow on 1 Nov 2026.
+    Its seed, `otpauth` URI and recovery codes are only in `.secrets/admin-totp.properties` (git-ignored,
+    mode 600). The browser tests read the seed from there or from `E2E_ADMIN_TOTP_SECRET`. The first
+    enrollment attempt lost the seed (the folder did not exist); with your approval, those rows (one
+    `user_totp`, ten `recovery_codes`, user 2 only) were deleted directly in the database before
+    re-enrolling. The `MFA_ENROLLMENT_STARTED`/`MFA_ENABLED` security events of both attempts remain. In an
     emergency the step-up adds about 30 seconds; an administrator without an authenticator cannot halt
     trading at all.
 * **Uncertain orders block new ones.** A live order whose outcome at the broker is unknown blocks that user's

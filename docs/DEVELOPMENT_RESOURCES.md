@@ -104,3 +104,17 @@ restart or a Mac reboot) and `stop_grace_period: 30s`.
 
 Current Docker Desktop settings: 4 CPUs (was 8), swap 2 GiB (was 1 GiB), memory unchanged (3.8 GiB
 usable). 4 CPUs is enough for this stack; the larger swap is a useful safety margin.
+
+## Cold start (measured 1 Nov 2026)
+
+`docker compose --profile apps stop` followed by `up -d` (volumes and data kept): all 11 services healthy
+after 84-93 s, about 2.9 GiB used and under 100 MiB swap. The full browser suite (28 tests) passed when
+started immediately afterwards.
+
+For the first ~3 minutes, eleven JVMs warm up together on 4 CPUs with the C1-only JIT. During that time the
+gateway can briefly drop an instance whose readiness check is slow, so an occasional single request gets a
+503 ("No servers available" in the gateway log; 6 in one run, all retried or polled successfully by the
+UI). The readiness-check timeout was raised from 2 s to 5 s
+(`tradeflow.loadbalancer.health-check-timeout`) after one such 503 signed a browser test out. In steady
+state: 1,020 requests across all six services, all 200, slowest 0.2 s, no drops. If you see a 503 right
+after `make up`, wait a minute.
