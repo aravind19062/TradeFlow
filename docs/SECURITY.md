@@ -105,6 +105,20 @@ by their key id and can be re-encrypted (`DataEncryptor.needsRotation`).
   The frontend never sees them: the browser only ever holds TradeFlow's own tokens.
 * **Every live action is independently authorised and audited** (allowed and refused) in a hash-chained,
   append-only log. Administrators can halt new orders but have no endpoint that places or cancels orders for a user.
+* **Kill-switch changes need the administrator's own step-up** (password + authenticator code, at most 10 minutes
+  old, ADMIN role in the step-up token, administrator's session current and MFA on). The gateway requires a
+  step-up token for `PUT /api/admin/live/kill-switch` and `PUT /api/admin/live/users/*/kill-switch`;
+  live-trading-service checks it again. Reading the halt state still uses the ordinary admin token.
+  * **Refused attempts** are audited on the chain the change targets (the user's, or the platform chain 0),
+    with the administrator as actor.
+  * **Changes** record the scope, the reason, the previous state, the administrator id, the authentication
+    methods and time, and the session id. No token material is stored.
+  * An administrator therefore needs TOTP enrolled before they can halt or resume live trading. In an
+    emergency the step-up adds about 30 seconds; an administrator without an authenticator cannot halt
+    trading at all.
+* **Uncertain orders block new ones.** A live order whose outcome at the broker is unknown blocks that user's
+  new orders until reconciliation or the user's step-up confirmation resolves it, so an uncertain order is
+  never followed by an accidental duplicate. Nothing is ever resubmitted automatically.
 
 ## Security events
 

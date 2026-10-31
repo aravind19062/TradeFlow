@@ -11,6 +11,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.forwardedUrl;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -113,6 +114,45 @@ class GatewaySecurityTest {
         mvc.perform(get("/api/admin/live/kill-switch").header("Authorization", access)).andExpect(status().isForbidden());
         mvc.perform(get("/api/admin/live/kill-switch").header("Authorization", TestJwts.bearer(TestJwts.admin(1))))
                 .andExpect(forwardedUrl("/fallback/live-trading-service"));
+    }
+
+    @Test
+    void changingALiveKillSwitchNeedsTheAdministratorsOwnStepUpToken() throws Exception {
+        String admin = TestJwts.bearer(TestJwts.admin(1));
+        String adminStepUp = TestJwts.bearer(TestJwts.withAudience(1, "ADMIN", "tradeflow-live",
+                java.util.Map.of("amr", java.util.List.of("pwd", "otp"))));
+        String userStepUp = TestJwts.bearer(TestJwts.withAudience(5, "tradeflow-live",
+                java.util.Map.of("amr", java.util.List.of("pwd", "otp"))));
+        for (String path : java.util.List.of("/api/admin/live/kill-switch", "/api/admin/live/users/5/kill-switch")) {
+            // An ordinary admin access token is refused at the edge ...
+            mvc.perform(put(path).header("Authorization", admin)).andExpect(status().isForbidden());
+            // ... as is a trader's step-up token ...
+            mvc.perform(put(path).header("Authorization", userStepUp)).andExpect(status().isForbidden());
+            mvc.perform(put(path)).andExpect(status().isUnauthorized());
+            // ... an admin step-up token is routed (the live service re-checks age, session and MFA).
+            mvc.perform(put(path).header("Authorization", adminStepUp))
+                    .andExpect(forwardedUrl("/fallback/live-trading-service"));
+        }
+        // Reading the halt state still uses the ordinary admin token; the step-up token is not an access token.
+        mvc.perform(get("/api/admin/live/kill-switch").header("Authorization", adminStepUp)).andExpect(status().isForbidden());
+        mvc.perform(get("/api/admin/live/users/5").header("Authorization", adminStepUp)).andExpect(status().isForbidden());
+    }
+
+    @Test
+    void swaggerUiIsServedAndListsEveryServiceDocumentThroughTheGateway() throws Exception {
+        // Regression: springdoc.api-docs.enabled=false used to remove the whole Swagger UI (404).
+        mvc.perform(get("/swagger-ui.html")).andExpect(status().is3xxRedirection());
+        mvc.perform(get("/swagger-ui/index.html")).andExpect(status().isOk());
+        mvc.perform(get("/v3/api-docs/gateway/swagger-config")).andExpect(status().isOk())
+                .andExpect(jsonPath("$.urls.length()").value(6))
+                .andExpect(jsonPath("$.urls[*].url").value(org.hamcrest.Matchers.containsInAnyOrder(
+                        "/v3/api-docs/user", "/v3/api-docs/market-data", "/v3/api-docs/order",
+                        "/v3/api-docs/portfolio", "/v3/api-docs/learning", "/v3/api-docs/live-trading")));
+        // Each document is proxied to its own service (no instance runs in this test, so the lookup fails).
+        assertThatThrownBy(() -> mvc.perform(get("/v3/api-docs/live-trading")))
+                .hasMessageContaining("tradeflow-live-trading-service");
+        assertThatThrownBy(() -> mvc.perform(get("/v3/api-docs/learning")))
+                .hasMessageContaining("tradeflow-learning-service");
     }
 
     @Test

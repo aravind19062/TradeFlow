@@ -79,6 +79,7 @@ test('tightening a limit needs nothing more; raising it needs password + authent
   await page.getByRole('button', { name: 'Save limits' }).click();
   await expect(page.getByText('Limits saved')).toBeVisible();
   await expect(page.getByRole('dialog')).toHaveCount(0); // stricter: no step-up asked
+  await expect(page.getByText('Limits saved')).toHaveCount(0); // toast gone, so the next one is unambiguous
 
   await perDay.fill('5');
   await page.getByRole('button', { name: 'Save limits' }).click();
@@ -106,4 +107,25 @@ test('administrators see the live trading controls and the global halt state', a
   await expect(page.getByText('Live trading controls')).toBeVisible();
   await expect(page.getByTestId('global-halt')).toHaveText('open');
   await expect(page.getByRole('button', { name: 'Halt all live orders' })).toBeDisabled(); // reason required
+});
+
+test('changing a live halt asks for the administrator\'s own password + authenticator code', async ({ page }) => {
+  // The seeded demo admin has no authenticator enrolled, so the server refuses the step-up: the halt
+  // must stay open. (The accepted path is covered by the backend tests with a real step-up token.)
+  await page.goto('/login');
+  await page.getByLabel('Email').fill('admin@tradeflow.dev');
+  await page.getByLabel('Password').fill(DEMO_PASSWORD);
+  await page.getByRole('button', { name: 'Sign in' }).click();
+  await page.getByRole('navigation', { name: 'Main' }).getByRole('link', { name: 'Admin' }).click();
+  await expect(page.getByTestId('global-halt')).toHaveText('open');
+  await page.getByLabel(/Reason \(min. 10 characters, recorded\)/).last().fill('Playwright step-up check');
+  await page.getByRole('button', { name: 'Halt all live orders' }).click();
+  const form = page.getByTestId('step-up-form');
+  await expect(form).toContainText('needs your own confirmation');
+  await form.getByLabel('Password').fill(DEMO_PASSWORD);
+  await form.getByLabel('Authenticator code').fill('123456');
+  await form.getByRole('button', { name: 'Confirm' }).click();
+  await expect(form.getByText(/two-factor/i)).toBeVisible();
+  await form.getByRole('button', { name: 'Cancel' }).click();
+  await expect(page.getByTestId('global-halt')).toHaveText('open');
 });

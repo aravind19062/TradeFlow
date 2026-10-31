@@ -4,7 +4,7 @@ import {
   Bell, Bot, ChartCandlestick, Radio, ClipboardCheck, GraduationCap, KeyRound, LayoutDashboard, ListOrdered, LogOut, Menu, Shield, Wallet, X,
 } from 'lucide-react';
 import { useAuth } from '../auth/AuthContext';
-import { marketApi } from '../api/endpoints';
+import { liveApi, marketApi } from '../api/endpoints';
 import { useApi } from '../lib/useApi';
 import { cx, Spinner } from './ui';
 import { EnvironmentBadge } from './environment';
@@ -51,6 +51,10 @@ export function Logo({ dark = true }: { dark?: boolean }) {
 function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
   const { user, isAdmin, logout } = useAuth();
   const sim = useApi(() => marketApi.simulation(), [], { intervalMs: 30_000, topics: ['market'] });
+  // Live notices (readiness lost, account halted) must be seen even by users who never open the
+  // Live dashboard. Best effort: if live-trading-service is not running the badge just stays hidden.
+  const liveNotes = useApi(() => liveApi.notifications(), [], { intervalMs: 60_000, topics: ['live'] });
+  const unreadLive = liveNotes.data?.filter((n) => !n.readAt).length ?? 0;
   const sections: NavSection[] = [DEMO_NAV, LEARN_NAV, LIVE_NAV, { title: 'Account', items: [{ to: '/settings/security', label: 'Security', icon: KeyRound }] }];
   const staff: NavItem[] = [];
   if (isAdmin || user?.role === 'READINESS_REVIEWER') staff.push({ to: '/review', label: 'Readiness reviews', icon: ClipboardCheck });
@@ -73,6 +77,10 @@ function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
                     isActive ? 'bg-slate-800 text-white' : 'text-slate-400 hover:bg-slate-800/60 hover:text-slate-100')}
                 >
                   <Icon className="size-4.5" aria-hidden /> {label}
+                  {to === '/live' && unreadLive > 0 && (
+                    <span data-testid="live-unread" aria-label={`${unreadLive} unread live-trading notices`}
+                      className="ml-auto rounded-full bg-rose-600 px-1.5 text-[10px] font-semibold leading-4 text-white">{unreadLive}</span>
+                  )}
                 </NavLink>
               ))}
             </div>

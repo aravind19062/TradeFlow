@@ -8,6 +8,8 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 RUN --mount=type=cache,target=/root/.npm npm ci --no-audit --no-fund
 COPY . .
+# Cap Node's heap: the build runs inside the Docker VM next to the running stack.
+ENV NODE_OPTIONS=--max-old-space-size=512
 RUN npm run build
 
 # ---- runtime: nginx as non-root (uid 101), listening on 8080

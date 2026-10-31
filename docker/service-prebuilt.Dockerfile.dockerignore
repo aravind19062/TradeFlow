@@ -1,0 +1,3 @@
+# Only the service jars are sent to the builder (replaces the root .dockerignore for this file).
+*
+!tradeflow-*/target/tradeflow-*-0.0.1-SNAPSHOT-exec.jar

@@ -60,9 +60,9 @@ class NoBrokerConfiguredTest {
 
     @Test
     void refusesToStartWithAnUnapprovedBroker() {
-        LiveProperties props = new LiveProperties("somebroker", null, null, null, null, null);
+        LiveProperties props = new LiveProperties("somebroker", null, null, null, null, null, null, null);
         assertThatThrownBy(() -> new LiveConfig().brokerAdapter(props)).hasMessageContaining("not integrated");
-        assertThatThrownBy(() -> new LiveProperties(null, null, null, null, null, java.time.Duration.ofMinutes(30)))
+        assertThatThrownBy(() -> new LiveProperties(null, null, null, null, null, java.time.Duration.ofMinutes(30), null, null))
                 .hasMessageContaining("at most 15 minutes");
     }
 }

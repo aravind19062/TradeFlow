@@ -140,8 +140,9 @@ transaction. Details: [docs/EVENTS.md](docs/EVENTS.md).
 ### Prerequisites
 
 * JDK 17, Maven 3.9+
-* Docker (Docker Desktop, OrbStack or Colima). The full stack (10 containers) uses about **2.8 GiB**;
-  each container has a memory limit.
+* Docker (Docker Desktop, OrbStack or Colima). The full stack (11 containers) uses about **2.8 GiB** and
+  runs in a 4 GiB Docker VM; each container has a memory limit. `make up-demo` / `make up-academy` start less.
+  See [docs/DEVELOPMENT_RESOURCES.md](docs/DEVELOPMENT_RESOURCES.md).
 * `curl` and `jq` for the demo script
 * Node.js 22 only for frontend development outside Docker (`tradeflow-frontend/.nvmrc`)
 
@@ -149,7 +150,8 @@ transaction. Details: [docs/EVENTS.md](docs/EVENTS.md).
 
 ```bash
 cp .env.example .env     # optional; every value has a safe LOCAL default
-make up                  # builds images, starts PostgreSQL, Kafka, Eureka, gateway, services (2 market-data replicas), web app
+make up                  # builds images, starts PostgreSQL, Kafka, Eureka, gateway, all services, web app
+make rebuild S=order-service   # after a code change: build on the Mac, restart only that service
 make ps                  # wait until everything is "healthy"
 make demo                # scripted walkthrough through the gateway
 ```
@@ -159,7 +161,7 @@ make demo                # scripted walkthrough through the gateway
 | **http://localhost:3000** | **TradeFlow web app** (sign in as `demo@tradeflow.dev` / `Demo@12345`) |
 | http://localhost:8000 | API gateway (all `/api/**` routes) |
 | http://localhost:8000/v3/api-docs/{user,market-data,order,portfolio} | OpenAPI documents per service |
-| http://localhost:8000/swagger-ui.html | Aggregated Swagger UI. **Currently returns 404**: the gateway sets `springdoc.api-docs.enabled=false`, which also disables the UI. |
+| http://localhost:8000/swagger-ui.html | Aggregated Swagger UI: pick a service (user, market-data, order, portfolio, learning, live-trading) at the top. "Try it out" goes through the gateway; use **Authorize** with an access token from `POST /api/auth/login`. |
 | http://localhost:8761 | Eureka dashboard (registered instances) |
 | http://localhost:8085 | Kafka UI, after `make tools` |
 
@@ -445,7 +447,7 @@ make psql DB=tradeflow_order | make topics | make dlt T=trades.executed
 **Implemented and tested:**
 * Gateway, Eureka, Feign with load balancing, circuit breakers and GET-only retries.
 * JWT with roles; login throttling; secure-by-default configuration.
-* Simulated market: 14 instruments, history, two replicas with a single shared ticker.
+* Simulated market: 14 instruments, history; replicas (`MARKET_DATA_REPLICAS=2`) share a single ticker.
 * Watchlists and price alerts.
 * MARKET/LIMIT orders: idempotency keys, cancellation, expiry, status history, filtering and pagination.
 * Saga with explicit state, timeouts, compensations, re-drives and admin retry.

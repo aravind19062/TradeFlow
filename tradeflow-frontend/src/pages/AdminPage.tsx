@@ -3,6 +3,7 @@ import { FastForward, ShieldCheck } from 'lucide-react';
 import { ApiError } from '../api/client';
 import { adminApi, adminLiveApi, adminReadinessApi, marketApi } from '../api/endpoints';
 import type { AdminUserLive, AdminUserReadiness, ReconciliationReport } from '../api/types';
+import { StepUpCancelled, StepUpProvider, useStepUp } from '../components/StepUp';
 import { Alert, Button, Card, PageHeader, TextInput, useToast } from '../components/ui';
 import { dateTime } from '../lib/format';
 import { invalidate, useApi } from '../lib/useApi';
@@ -74,7 +75,9 @@ export function AdminPage() {
         </Card>
       </div>
       <ReadinessAdmin />
-      <LiveAdmin />
+      <StepUpProvider purpose="Changing a live-trading halt is a safety control and needs your own confirmation.">
+        <LiveAdmin />
+      </StepUpProvider>
     </>
   );
 }
@@ -130,13 +133,14 @@ function ReadinessAdmin() {
 /** Live-trading halts (kill switches) and a user's live audit trail. Halts never cancel existing orders. */
 function LiveAdmin() {
   const toast = useToast();
+  const stepUp = useStepUp();
   const global = useApi(() => adminLiveApi.killSwitch(), [], { topics: ['live'] });
   const [reason, setReason] = useState('');
   const [userId, setUserId] = useState('');
   const [data, setData] = useState<AdminUserLive | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const fail = (e: unknown) => setError(e instanceof ApiError ? e.message : String(e));
+  const fail = (e: unknown) => { if (!(e instanceof StepUpCancelled)) setError(e instanceof ApiError ? e.message : String(e)); };
   async function load() {
     setBusy(true); setError(null);
     try { setData(await adminLiveApi.user(Number(userId))); } catch (e) { fail(e); } finally { setBusy(false); }
@@ -144,7 +148,7 @@ function LiveAdmin() {
   async function setGlobal(enabled: boolean) {
     setBusy(true); setError(null);
     try {
-      await adminLiveApi.setKillSwitch(enabled, reason.trim());
+      await stepUp((t) => adminLiveApi.setKillSwitch(t, enabled, reason.trim()));
       toast('success', enabled ? 'New live orders halted platform-wide' : 'Platform halt lifted');
       setReason(''); global.reload();
     } catch (e) { fail(e); } finally { setBusy(false); }
@@ -152,7 +156,7 @@ function LiveAdmin() {
   async function setUser(enabled: boolean) {
     setBusy(true); setError(null);
     try {
-      await adminLiveApi.setUserKillSwitch(Number(userId), enabled, reason.trim());
+      await stepUp((t) => adminLiveApi.setUserKillSwitch(t, Number(userId), enabled, reason.trim()));
       toast('success', enabled ? 'New live orders halted for this user' : 'User halt lifted');
       setReason(''); setBusy(false); await load();
     } catch (e) { fail(e); setBusy(false); }
@@ -160,7 +164,7 @@ function LiveAdmin() {
   const g = global.data;
   return (
     <Card title="Live trading controls" className="mt-6">
-      <p className="text-sm text-slate-600">A halt blocks new live orders and broker links. It never cancels orders at the broker; users can still view and cancel them. Every change is audited.</p>
+      <p className="text-sm text-slate-600">A halt blocks new live orders and broker links. It never cancels orders at the broker; users can still view and cancel them. Every change needs your password and authenticator code (two-factor must be enabled on your account) and is audited.</p>
       <p className="mt-3 text-sm">Platform-wide: <strong data-testid="global-halt">{g ? (g.enabled ? 'HALTED' : 'open') : '…'}</strong>
         {g?.enabled && g.reason && <span className="text-slate-500"> ({g.reason})</span>}</p>
       <div className="mt-3 max-w-xl"><TextInput label="Reason (min. 10 characters, recorded)" value={reason} onChange={(e) => setReason(e.target.value)} /></div>

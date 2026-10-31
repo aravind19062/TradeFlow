@@ -10,6 +10,7 @@ import com.luffy.tradeflow_live_trading_service.connection.CredentialVault;
 import com.luffy.tradeflow_live_trading_service.notifications.NotificationService;
 import com.luffy.tradeflow_live_trading_service.orders.LiveOrderService;
 import com.luffy.tradeflow_live_trading_service.orders.OrderParams;
+import com.luffy.tradeflow_live_trading_service.orders.OrderReconciler;
 import com.luffy.tradeflow_live_trading_service.platform.PlatformChecks;
 import com.luffy.tradeflow_live_trading_service.risk.RiskLimitService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -75,10 +76,12 @@ public class LiveController {
     private final RiskLimitService limits;
     private final KillSwitchService killSwitches;
     private final NotificationService notifications;
+    private final OrderReconciler reconciler;
 
     public LiveController(LiveAccessGuard guard, PlatformChecks platform, BrokerConnectionService connections,
                           CredentialVault vault, BrokerAdapter broker, LiveOrderService orders, RiskLimitService limits,
-                          KillSwitchService killSwitches, NotificationService notifications) {
+                          KillSwitchService killSwitches, NotificationService notifications, OrderReconciler reconciler) {
+        this.reconciler = reconciler;
         this.guard = guard;
         this.platform = platform;
         this.connections = connections;
@@ -173,6 +176,25 @@ public class LiveController {
     @Operation(summary = "Cancel an order (step-up). Allowed even after readiness revocation or a halt.")
     public LiveOrderService.View cancel(@AuthenticationPrincipal Jwt jwt, @PathVariable String orderId) {
         return orders.cancel(guard.authorize(jwt, LiveAction.CANCEL_ORDER), orderId);
+    }
+
+    @PostMapping("/orders/{orderId}/resolve")
+    @Operation(summary = "After checking your broker account, mark an order that NEEDS_REVIEW as resolved (step-up). "
+            + "Nothing is sent to the broker; this unblocks new orders.")
+    public LiveOrderService.View resolve(@AuthenticationPrincipal Jwt jwt, @PathVariable String orderId) {
+        return orders.resolve(guard.authorize(jwt, LiveAction.RESOLVE_ORDER), orderId, LiveAccessGuard.authSummary(jwt));
+    }
+
+    @PostMapping("/reconciliation")
+    @Operation(summary = "Check your unresolved and open live orders against the broker's order book now (read-only "
+            + "at the broker; never resubmits or cancels)")
+    public List<OrderReconciler.Result> reconcile(@AuthenticationPrincipal Jwt jwt) {
+        if (!connections.brokerConfigured()) {
+            throw new ApiException(HttpStatus.SERVICE_UNAVAILABLE, "BROKER_NOT_CONFIGURED",
+                    "No broker is integrated yet. Live trading will open once a broker has been approved.");
+        }
+        long userId = guard.authorize(jwt, LiveAction.VIEW_BROKER_DATA);
+        return reconciler.reconcileUser(userId, userId);
     }
 
     @GetMapping("/orders")

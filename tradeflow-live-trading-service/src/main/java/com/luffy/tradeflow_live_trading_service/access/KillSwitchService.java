@@ -54,19 +54,26 @@ public class KillSwitchService {
         return u.enabled() ? "Live trading is halted for your account by an administrator." : null;
     }
 
+    /**
+     * {@code authentication} describes how the administrator proved it was them (recorded in the
+     * audit detail; never a token). Callers authorise first: {@code LiveAccessGuard#authorizeAdmin}.
+     */
     @Transactional
-    public View set(KillSwitch.Scope scope, long userId, boolean enabled, String reason, long actorId) {
+    public View set(KillSwitch.Scope scope, long userId, boolean enabled, String reason, long actorId,
+                    String authentication) {
         if (reason == null || reason.trim().length() < 10) {
             throw ApiException.badRequest("REASON_REQUIRED", "Give a reason of at least 10 characters");
         }
         long target = scope == KillSwitch.Scope.GLOBAL ? 0 : userId;
         KillSwitch.Key key = new KillSwitch.Key(scope.name(), target);
         KillSwitch k = repository.findById(key).orElseGet(() -> new KillSwitch(key));
+        boolean was = k.isEnabled();
         k.set(enabled, reason.trim(), actorId, clock.instant());
         repository.save(k);
         audit.record(scope == KillSwitch.Scope.GLOBAL ? LiveAuditService.PLATFORM : target,
                 enabled ? "KILL_SWITCH_ON" : "KILL_SWITCH_OFF", LiveAuditService.Outcome.ALLOWED,
-                scope + ": " + reason.trim(), actorId);
+                scope + ": " + reason.trim() + " [was " + (was ? "on" : "off") + "; admin " + actorId + "; "
+                        + authentication + "]", actorId);
         if (scope == KillSwitch.Scope.USER) {
             notifications.notify(target, enabled ? "TRADING_HALTED" : "TRADING_RESUMED", enabled
                     ? "An administrator halted new live orders on your account. Orders already at your broker were "

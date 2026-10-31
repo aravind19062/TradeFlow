@@ -81,6 +81,10 @@ public class GatewaySecurityConfig {
                         .requestMatchers("/api/admin/readiness/reviews/**").access(AuthorizationManagers.allOf(
                                 AuthorityAuthorizationManager.hasAnyRole("READINESS_REVIEWER", "ADMIN"),
                                 audience(ACCESS_AUDIENCE)))
+                        // Changing a live kill switch needs the administrator's own step-up token.
+                        .requestMatchers(HttpMethod.PUT, "/api/admin/live/kill-switch",
+                                "/api/admin/live/users/*/kill-switch").access(AuthorizationManagers.allOf(
+                                AuthorityAuthorizationManager.hasRole("ADMIN"), audience(STEP_UP_AUDIENCE)))
                         .requestMatchers("/api/admin/**").access(AuthorizationManagers.allOf(
                                 AuthorityAuthorizationManager.hasRole("ADMIN"), audience(ACCESS_AUDIENCE)))
                         .requestMatchers("/api/**").access(audience(ACCESS_AUDIENCE))

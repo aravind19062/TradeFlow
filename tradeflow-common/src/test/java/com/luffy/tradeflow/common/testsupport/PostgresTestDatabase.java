@@ -15,6 +15,9 @@ import java.sql.Statement;
  * Testcontainers ({@code postgres:16-alpine}) when Docker is available, otherwise
  * zonky embedded-postgres, which runs genuine PostgreSQL binaries from a Maven
  * artifact without Docker. Either way the SQL runs on PostgreSQL, not H2.
+ * <p>
+ * {@code -Dtradeflow.test.postgres=embedded} (or {@code docker}) forces one engine. Embedded
+ * runs on the host, so the tests don't take memory from a Docker VM that is running the stack.
  */
 public final class PostgresTestDatabase {
 
@@ -36,7 +39,14 @@ public final class PostgresTestDatabase {
 
     public static synchronized PostgresTestDatabase get() {
         if (instance == null) {
-            instance = dockerAvailable() ? startContainer() : startEmbedded();
+            String engine = System.getProperty("tradeflow.test.postgres", "auto");
+            instance = switch (engine) {
+                case "embedded" -> startEmbedded();
+                case "docker" -> startContainer();
+                case "auto" -> dockerAvailable() ? startContainer() : startEmbedded();
+                default -> throw new IllegalArgumentException(
+                        "tradeflow.test.postgres must be auto, docker or embedded, not " + engine);
+            };
             System.out.println("[PostgresTestDatabase] using " + instance.engine);
         }
         return instance;

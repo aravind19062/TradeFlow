@@ -1,5 +1,6 @@
 package com.luffy.tradeflow_live_trading_service.orders;
 
+import com.luffy.tradeflow_live_trading_service.broker.BrokerAdapter;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
@@ -60,6 +61,14 @@ public class LiveOrder {
     private Instant createdAt;
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
+    @Column(name = "broker_updated_at")
+    private Instant brokerUpdatedAt;
+    @Column(name = "review_reason")
+    private String reviewReason;
+    @Column(name = "reconcile_checks", nullable = false)
+    private int reconcileChecks;
+    @Column(name = "last_reconciled_at")
+    private Instant lastReconciledAt;
     @Version
     private long version;
 
@@ -77,7 +86,7 @@ public class LiveOrder {
         this.limitPrice = p.limitPrice();
         this.triggerPrice = p.triggerPrice();
         this.orderValue = orderValue;
-        this.status = "SUBMITTING";
+        this.status = LiveOrderStatus.SUBMITTING;
         this.confirmationId = confirmationId;
         this.createdAt = now;
         this.updatedAt = now;
@@ -98,9 +107,75 @@ public class LiveOrder {
     }
 
     void cancelRequested(String message, Instant now) {
-        this.status = "CANCEL_REQUESTED";
+        this.status = LiveOrderStatus.CANCEL_REQUESTED;
         this.statusMessage = message;
         this.updatedAt = now;
+    }
+
+    /**
+     * Applies the broker's view of this order. Never moves backwards: a snapshot older than the last
+     * one applied is ignored, a terminal order stays terminal, the filled quantity never decreases,
+     * and a pending cancellation is kept until the broker reports a final state. Returns whether
+     * anything changed (applying the same snapshot twice is a no-op).
+     */
+    boolean applyBroker(BrokerAdapter.BrokerOrder b, Instant now) {
+        if (LiveOrderStatus.TERMINAL.contains(status) || !LiveOrderStatus.FROM_BROKER.contains(b.status())) {
+            return false;
+        }
+        if (b.updatedAt() != null && brokerUpdatedAt != null && b.updatedAt().isBefore(brokerUpdatedAt)) {
+            return false;
+        }
+        String next = b.status();
+        if (LiveOrderStatus.CANCEL_REQUESTED.equals(status)
+                && (LiveOrderStatus.OPEN.equals(next) || LiveOrderStatus.PARTIALLY_FILLED.equals(next))) {
+            next = LiveOrderStatus.CANCEL_REQUESTED;
+        }
+        long filled = Math.max(filledQuantity, b.filledQuantity());
+        BigDecimal avg = b.averagePrice() != null ? b.averagePrice() : averagePrice;
+        boolean changed = !next.equals(status) || filled != filledQuantity || !java.util.Objects.equals(avg, averagePrice)
+                || brokerOrderId == null || reviewReason != null;
+        brokerOrderId = brokerOrderId == null ? b.brokerOrderId() : brokerOrderId;
+        status = next;
+        filledQuantity = filled;
+        averagePrice = avg;
+        reviewReason = null;
+        if (b.updatedAt() != null) {
+            brokerUpdatedAt = b.updatedAt();
+        }
+        if (changed) {
+            statusMessage = b.message();
+            updatedAt = now;
+        }
+        return changed;
+    }
+
+    /** The submission did not complete (crash or lost response): outcome unknown, never assumed failed. */
+    void outcomeUnknown(String message, Instant now) {
+        status = LiveOrderStatus.UNKNOWN;
+        statusMessage = message;
+        updatedAt = now;
+    }
+
+    boolean needsReview(String reason, String message, Instant now) {
+        if (LiveOrderStatus.NEEDS_REVIEW.equals(status) && reason.equals(reviewReason)) {
+            return false;
+        }
+        status = LiveOrderStatus.NEEDS_REVIEW;
+        reviewReason = reason;
+        statusMessage = message;
+        updatedAt = now;
+        return true;
+    }
+
+    void resolvedByUser(String message, Instant now) {
+        status = LiveOrderStatus.RESOLVED_BY_USER;
+        statusMessage = message;
+        updatedAt = now;
+    }
+
+    void checked(Instant now) {
+        reconcileChecks++;
+        lastReconciledAt = now;
     }
 
     public OrderParams params() {

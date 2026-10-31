@@ -3,7 +3,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router';
 import { Ban, CheckCircle2, Circle, Link2, Link2Off, PlugZap, Radio } from 'lucide-react';
 import { ApiError } from '../api/client';
 import { liveApi, mfaApi } from '../api/endpoints';
-import type { LiveOrderParams, LiveOrderPreview, LiveOrderType, LiveStatus } from '../api/types';
+import type { LiveOrderParams, LiveOrderPreview, LiveOrderType, LiveOrderView, LiveStatus } from '../api/types';
 import { StepUpCancelled, useStepUp } from '../components/StepUp';
 import { Alert, Badge, Button, Card, ConfirmDialog, EmptyState, ErrorState, PageHeader, Segmented, SelectInput, Spinner, TextInput, useToast } from '../components/ui';
 import { dateTime, money } from '../lib/format';
@@ -255,6 +255,7 @@ function LimitsCard() {
 
 function NotificationsCard() {
   const notes = useApi(() => liveApi.notifications(), [], { topics: ['live'] });
+  const toast = useToast();
   return (
     <Card title="Notifications">
       {notes.error ? <ErrorState error={notes.error} onRetry={notes.reload} compact />
@@ -270,7 +271,8 @@ function NotificationsCard() {
                 </p>
                 <p className="mt-1">{n.message}</p>
                 {!n.readAt && <button className="mt-1 text-xs font-medium text-slate-500 underline"
-                  onClick={() => liveApi.markRead(n.id).then(() => invalidate('live'))}>Mark as read</button>}
+                  onClick={() => liveApi.markRead(n.id).then(() => invalidate('live'),
+                    (e) => toast('error', e instanceof ApiError ? e.message : String(e)))}>Mark as read</button>}
               </li>
             ))}
           </ul>
@@ -284,6 +286,8 @@ function LiveOrdersCard() {
   const stepUp = useStepUp();
   const toast = useToast();
   const [error, setError] = useState<string | null>(null);
+  const [checking, setChecking] = useState(false);
+  const [resolving, setResolving] = useState<LiveOrderView | null>(null);
   async function cancel(id: string) {
     setError(null);
     try {
@@ -294,9 +298,36 @@ function LiveOrdersCard() {
       if (!(e instanceof StepUpCancelled)) setError(message(e));
     }
   }
+  async function checkNow() {
+    setError(null); setChecking(true);
+    try {
+      await liveApi.reconcile();
+      invalidate('live');
+    } catch (e) { setError(message(e)); } finally { setChecking(false); }
+  }
+  async function resolve(o: LiveOrderView) {
+    setError(null);
+    try {
+      await stepUp((t) => liveApi.resolve(t, o.id));
+      toast('success', 'Marked as resolved. New live orders are possible again.');
+      invalidate('live');
+    } catch (e) {
+      if (!(e instanceof StepUpCancelled)) setError(message(e));
+    }
+  }
+  const unresolved = orders.data?.filter((o) => UNRESOLVED.includes(o.status)) ?? [];
   return (
     <Card title={<span className="flex items-center gap-2"><Radio className="size-4 text-rose-600" /> Live orders</span>} className="mt-6">
       {error && <div className="mb-3"><Alert tone="error">{error}</Alert></div>}
+      {unresolved.length > 0 && (
+        <div className="mb-3" data-testid="live-unresolved">
+          <Alert tone="warning" title="An order's outcome at your broker is not confirmed">
+            TradeFlow never resubmits such an order. It checks your broker's order book every minute; until the order
+            is found or you have checked it yourself, new live orders are blocked so nothing is placed twice.
+            <div className="mt-2"><Button size="sm" variant="secondary" onClick={checkNow} loading={checking}>Check with broker now</Button></div>
+          </Alert>
+        </div>
+      )}
       {orders.error ? <ErrorState error={orders.error} onRetry={orders.reload} compact />
         : !orders.data ? <Spinner />
         : orders.data.length === 0 ? <EmptyState title="No live orders">Orders you place with your broker through TradeFlow appear here.</EmptyState>
@@ -308,18 +339,34 @@ function LiveOrdersCard() {
                 <tr key={o.id} className="border-t border-slate-100">
                   <td className="py-2">{o.order.side} {o.order.quantity} {o.order.exchange}:{o.order.symbol} <span className="text-xs text-slate-500">{o.order.type}</span></td>
                   <td className="tabular-nums">{money(o.orderValue)}</td>
-                  <td>{o.status}{o.statusMessage && <p className="text-xs text-slate-500">{o.statusMessage}</p>}</td>
+                  <td>{o.status}{o.filledQuantity > 0 && <span className="text-xs text-slate-500"> ({o.filledQuantity}/{o.order.quantity} filled)</span>}
+                    {o.statusMessage && <p className="text-xs text-slate-500">{o.statusMessage}</p>}</td>
                   <td className="text-xs text-slate-500">{dateTime(o.createdAt)}</td>
-                  <td className="text-right">{o.brokerOrderId && !['CANCEL_REQUESTED', 'CANCELLED', 'REJECTED', 'FILLED', 'COMPLETE'].includes(o.status) && (
-                    <Button size="sm" variant="secondary" onClick={() => cancel(o.id)}><Ban className="size-3.5" /> Cancel</Button>)}</td>
+                  <td className="text-right">{o.brokerOrderId && ['OPEN', 'PARTIALLY_FILLED'].includes(o.status) && (
+                    <Button size="sm" variant="secondary" onClick={() => cancel(o.id)}><Ban className="size-3.5" /> Cancel</Button>)}
+                    {o.status === 'NEEDS_REVIEW' && (
+                      <Button size="sm" variant="secondary" onClick={() => setResolving(o)}>I've checked my broker</Button>)}</td>
                 </tr>
               ))}
             </tbody>
           </table>
         )}
+      <ConfirmDialog
+        open={!!resolving}
+        title="Mark this order as resolved?"
+        confirmLabel="Yes, I checked my broker account"
+        onCancel={() => setResolving(null)}
+        onConfirm={() => { const o = resolving; setResolving(null); if (o) void resolve(o); }}
+      >
+        Only confirm after you have looked at this order in your broker account and dealt with it there (cancelled a
+        duplicate, or confirmed it is not there). TradeFlow will not send anything to the broker. New live orders become
+        possible again.
+      </ConfirmDialog>
     </Card>
   );
 }
+
+const UNRESOLVED = ['SUBMITTING', 'UNKNOWN', 'NEEDS_REVIEW'];
 
 /** The broker redirects here after the user signs in on its page; finishing the link needs a fresh step-up. */
 export function BrokerCallbackPage() {

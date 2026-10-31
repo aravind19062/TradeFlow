@@ -40,7 +40,8 @@ public class LiveOrderService {
     private static final Set<String> TYPES = Set.of("MARKET", "LIMIT", "STOP", "STOP_LIMIT");
     private static final Pattern SYMBOL = Pattern.compile("[A-Z0-9&_-]{1,30}");
     private static final Pattern CLIENT_ID = Pattern.compile("[A-Za-z0-9-]{8,64}");
-    private static final Set<String> COUNTED = Set.of("REJECTED");
+    /** Orders the broker definitely refused do not use up the daily limits; every other order does. */
+    private static final Set<String> NOT_COUNTED = Set.of(LiveOrderStatus.REJECTED);
 
     public record Preview(UUID confirmationId, Instant expiresAt, OrderParams order, BigDecimal estimatedValue,
                           RiskLimitService.Limits limits, int ordersToday, BigDecimal turnoverToday, String warning) {
@@ -48,10 +49,11 @@ public class LiveOrderService {
 
     public record View(String id, String brokerOrderId, OrderParams order, BigDecimal orderValue, String status,
                        String statusMessage, long filledQuantity, BigDecimal averagePrice, Instant createdAt,
-                       Instant updatedAt) {
+                       Instant updatedAt, String reviewReason, Instant lastReconciledAt) {
         static View of(LiveOrder o) {
             return new View(o.getId(), o.getBrokerOrderId(), o.params(), o.getOrderValue(), o.getStatus(),
-                    o.getStatusMessage(), o.getFilledQuantity(), o.getAveragePrice(), o.getCreatedAt(), o.getUpdatedAt());
+                    o.getStatusMessage(), o.getFilledQuantity(), o.getAveragePrice(), o.getCreatedAt(), o.getUpdatedAt(),
+                    o.getReviewReason(), o.getLastReconciledAt());
         }
     }
 
@@ -86,6 +88,7 @@ public class LiveOrderService {
 
     public Preview preview(long userId, OrderParams raw) {
         OrderParams p = normalise(raw);
+        requireNoUnresolvedOrder(userId);
         BrokerConnection c = connections.requireActive(userId);
         BigDecimal value = estimatedValue(c, p);
         Preview preview = tx.execute(s -> {
@@ -121,6 +124,8 @@ public class LiveOrderService {
         try {
             order = tx.execute(s -> {
                 RiskLimitService.Limits l = limits.lockAndGet(userId);
+                // Under the per-user lock, so two concurrent placements cannot both pass.
+                requireNoUnresolvedOrder(userId);
                 OrderConfirmation conf = confirmations.lock(confirmationId == null ? new UUID(0, 0) : confirmationId)
                         .filter(x -> x.getUserId() == userId)
                         .orElseThrow(() -> ApiException.conflict("CONFIRMATION_INVALID", "Preview the order again"));
@@ -157,9 +162,16 @@ public class LiveOrderService {
                             order.getSide(), order.getOrderType(), order.getQuantity(), order.getLimitPrice(),
                             order.getTriggerPrice()));
             brokerId = ack.brokerOrderId();
-            status = ack.status();
+            // An adapter must map the broker's vocabulary; anything else is "accepted, details to follow".
+            status = LiveOrderStatus.FROM_BROKER.contains(ack.status()) ? ack.status() : LiveOrderStatus.OPEN;
             message = ack.message();
             outcome = LiveAuditService.Outcome.SUBMITTED;
+            if (brokerId == null || brokerId.isBlank()) { // accepted without an id: we cannot manage it
+                brokerId = null;
+                status = LiveOrderStatus.UNKNOWN;
+                message = "The broker did not return an order id. Check your broker account before trying again.";
+                outcome = LiveAuditService.Outcome.UNKNOWN;
+            }
         } catch (ApiException e) {
             boolean definite = e.getStatus().is4xxClientError();
             status = definite ? "REJECTED" : "UNKNOWN";
@@ -173,16 +185,62 @@ public class LiveOrderService {
             outcome = LiveAuditService.Outcome.UNKNOWN;
         }
         final String fStatus = status, fMessage = message, fBrokerId = brokerId;
-        tx.executeWithoutResult(s -> {
+        String applied = tx.execute(s -> {
             LiveOrder o = orders.findById(order.getId()).orElseThrow();
+            if (!LiveOrderStatus.SUBMITTING.equals(o.getStatus())) {
+                // A very late answer: reconciliation has already decided from the broker's order book.
+                // Keep that decision; only an id we did not know yet, or a contradicting one, matters.
+                if (fBrokerId != null && o.getBrokerOrderId() == null && !LiveOrderStatus.TERMINAL.contains(o.getStatus())) {
+                    o.acknowledged(fBrokerId, fStatus, fMessage, clock.instant());
+                    return "late ack applied";
+                }
+                if (fBrokerId != null && o.getBrokerOrderId() != null && !fBrokerId.equals(o.getBrokerOrderId())) {
+                    o.needsReview(OrderReconciler.ID_MISMATCH, "The broker reported two different order ids for this "
+                            + "order. Check your broker account.", clock.instant());
+                    return "late ack contradicts broker id " + o.getBrokerOrderId();
+                }
+                return "late answer ignored (already " + o.getStatus() + ")";
+            }
             if (fBrokerId != null) {
                 o.acknowledged(fBrokerId, fStatus, fMessage, clock.instant());
             } else {
                 o.failed(fStatus, fMessage, clock.instant());
             }
+            return null;
         });
-        audit.record(order.getUserId(), "SUBMIT_ORDER", outcome, order.getId() + " broker " + brokerId + " " + status,
-                order.getUserId());
+        audit.record(order.getUserId(), "SUBMIT_ORDER", outcome, order.getId() + " broker " + brokerId + " " + status
+                + (applied == null ? "" : " (" + applied + ")"), order.getUserId());
+    }
+
+    /**
+     * An order whose outcome is not established blocks new orders (see {@link LiveOrderStatus#UNRESOLVED}),
+     * so a user who cannot tell whether an order went through cannot accidentally place it twice.
+     */
+    private void requireNoUnresolvedOrder(long userId) {
+        if (orders.existsByUserIdAndStatusIn(userId, LiveOrderStatus.UNRESOLVED)) {
+            throw ApiException.conflict("UNRESOLVED_ORDER", "An earlier live order's outcome at your broker is not "
+                    + "confirmed yet. TradeFlow is checking your broker's order book; new orders are blocked until "
+                    + "it is resolved. It is never resubmitted automatically.");
+        }
+    }
+
+    /**
+     * NEEDS_REVIEW → RESOLVED_BY_USER: the user checked their broker account and dealt with the order
+     * there. Callers must have passed the step-up guard. Nothing is sent to the broker. The order keeps
+     * counting toward the daily limits (it may have executed).
+     */
+    public View resolve(long userId, String orderId, String authentication) {
+        String detail = tx.execute(s -> {
+            LiveOrder o = orders.findByIdAndUserId(orderId, userId).orElseThrow(() -> ApiException.notFound("Order " + orderId));
+            if (!LiveOrderStatus.NEEDS_REVIEW.equals(o.getStatus())) {
+                throw ApiException.conflict("NOT_UNDER_REVIEW", "Only orders that need your review can be resolved here");
+            }
+            String reason = o.getReviewReason();
+            o.resolvedByUser("You confirmed you checked this order in your broker account (" + reason + ").", clock.instant());
+            return orderId + " " + reason + " [" + authentication + "]";
+        });
+        audit.record(userId, "RESOLVE_ORDER", LiveAuditService.Outcome.ALLOWED, detail, userId);
+        return View.of(orders.findById(orderId).orElseThrow());
     }
 
     // ------------------------------------------------------------------ cancel / read
@@ -226,7 +284,7 @@ public class LiveOrderService {
 
     private Usage usage(long userId) {
         List<LiveOrder> today = orders.findByUserIdAndCreatedAtAfter(userId, limits.startOfTradingDay()).stream()
-                .filter(o -> !COUNTED.contains(o.getStatus())).toList();
+                .filter(o -> !NOT_COUNTED.contains(o.getStatus())).toList();
         return new Usage(today.size(), today.stream().map(LiveOrder::getOrderValue).reduce(BigDecimal.ZERO, BigDecimal::add));
     }
 
