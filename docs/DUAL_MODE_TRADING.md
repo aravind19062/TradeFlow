@@ -1,8 +1,9 @@
 # TradeFlow dual-mode trading: architecture and implementation plan
 
-> **Status: DRAFT for review.** Branch `feature/dual-mode-trading`, based on `feature/complete-tradeflow`
-> at `0545e1d`, the stable simulated version. Nothing in this document is implemented yet.
-> No broker has been chosen, and no broker-specific code will be written before that choice is approved.
+> **Status: approved 2026-10-31 (decisions D1–D8 below), implementation in progress.** Branch
+> `feature/dual-mode-trading`, based on `feature/complete-tradeflow` at `0545e1d`, the stable simulated
+> version. See [Implementation progress](#implementation-progress). No broker has been chosen, and no
+> broker-specific code will be written before that choice is approved.
 
 **TradeFlow: Learn. Practice. Trade responsibly.**
 
@@ -370,3 +371,35 @@ Every phase leaves the application working, adds tests, and keeps demo behaviour
 | D7 | PAN: encrypt at rest, or stop collecting it | **Stop collecting it** (the broker does KYC); otherwise encrypt |
 | D8 | Docker memory: raise the Docker VM to about 6 GiB, or run 1 market-data replica locally | Raise to 6 GiB (keeps the load-balancing demo) |
 | D9 | Broker (Phase 6) | **Your choice later.** Criteria: official retail API with redirect-based authorisation, sandbox or paper environment, postbacks, documented rate limits and exchange-compliance support, cost |
+
+---
+
+## Implementation progress
+
+| Phase | Commit | State |
+|---|---|---|
+| 1. Environment foundations | `99ea7b3` | Done: event environment check, `/api/demo/**`, `X-TradeFlow-Environment`, ArchUnit rules, DEMO UI |
+| 2. Security prerequisites | `ed5b14f` | Done: RS256 + public key ring, service client credentials, 15-min tokens + rotating refresh cookie, TOTP + recovery codes, step-up, audited admin MFA reset, PAN no longer collected. See [SECURITY.md](SECURITY.md) |
+| 3. Academy (+ D2) | phase 3 commit | Done: learning-service, 10 modules / 20 lessons / 80 module questions + 25 final-assessment questions, server-graded quizzes, versioned readiness policy v1; simulated bid/ask and SELL stop / stop-limit in the demo engine |
+| 4. Readiness | – | Next |
+| 5. Live skeleton (no broker) | – | Planned |
+| 6–7. Broker, live orders | – | **Blocked on your broker approval** |
+
+### Decisions as approved (2026-10-31)
+
+* **D1** New `learning-service` and `live-trading-service`; demo services keep their behaviour.
+* **D2** Minimal simulated spread and SELL stop / stop-limit. Spread: 10 bps by default
+  (`TRADEFLOW_MARKET_SPREAD_BPS`); MARKET buys fill at the ask and sells at the bid; LIMIT orders compare the
+  limit with the ask (buy) or bid (sell); portfolio valuation stays at the mid. **This is a deliberate change to
+  demo execution prices** (previously everything traded at the mid). Events and quotes from before the change
+  carry no bid/ask and are treated as bid = ask = mid; the existing order-service tests use such quotes, and
+  `SpreadAndStopOrderTest` covers the spread. Stops are SELL-only (the demo is long-only), must be placed below
+  the current bid, trigger on the bid, and expire like resting limit orders.
+* **D3** No alert events.
+* **D4** Policy v1: 80% modules, 85% final, 24 h final-assessment cooldown, review after 3 failed final attempts,
+  12-month validity, stored in `readiness_policies` (immutable versions; quiz attempts record the version).
+* **D5** Revocation blocks new live orders and notifies; existing broker orders are never auto-cancelled and stay
+  manageable.
+* **D6** TOTP with enrolment, recovery codes and an audited, non-bypass recovery procedure (SECURITY.md).
+* **D7** PAN no longer collected; existing values untouched pending [PAN_MIGRATION.md](PAN_MIGRATION.md).
+* **D8** See the resource section below.

@@ -26,10 +26,14 @@ public final class MarketDtos {
         }
     }
 
-    /** {@code source} is always SIMULATED: these are not live market prices. */
+    /**
+     * {@code source} is always SIMULATED: these are not live market prices. {@code price} is the mid;
+     * {@code bid}/{@code ask} are the simulated touch (market sells fill at the bid, buys at the ask).
+     */
     public record QuoteResponse(String symbol, String name, String sector, String assetClass, String currency,
                                 BigDecimal price, BigDecimal previousPrice, BigDecimal change, BigDecimal changeRatio,
-                                long tick, Instant asOf, String source) {
+                                long tick, Instant asOf, String source, BigDecimal bid, BigDecimal ask,
+                                BigDecimal spread) {
     }
 
     public record PricePoint(long tick, BigDecimal price, Instant asOf) {

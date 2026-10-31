@@ -79,6 +79,10 @@ export function InstrumentPage() {
                 <div>
                   <p className="text-3xl font-semibold tabular-nums tracking-tight" data-testid="instrument-price">{money(q.price)}</p>
                   <p className="mt-1 text-sm"><Change change={q.change} ratio={q.changeRatio} /> <span className="text-slate-400">since previous tick · {time(q.asOf)} · tick {q.tick}</span></p>
+                  <p className="mt-1 text-sm text-slate-600" data-testid="instrument-touch">
+                    Bid <span className="font-medium tabular-nums">{money(q.bid)}</span> · Ask <span className="font-medium tabular-nums">{money(q.ask)}</span>
+                    <span className="text-slate-400"> · spread {money(q.spread)}</span>
+                  </p>
                 </div>
                 <Segmented label="History range" value={range} onChange={setRange}
                   options={(Object.keys(RANGES) as Range[]).map((r) => ({ value: r, label: RANGES[r] }))} />
@@ -130,7 +134,7 @@ export function InstrumentPage() {
 
         <div className="space-y-6">
           <Card title="Trade">
-            {q ? <OrderTicket quote={q} heldQuantity={holding?.quantity ?? 0} reservedQuantity={holding?.reservedQuantity ?? 0}
+            {q ? <OrderTicket quote={q} heldQuantity={summary.data ? holding?.quantity ?? 0 : null} reservedQuantity={holding?.reservedQuantity ?? 0}
               availableCash={summary.data?.availableCash ?? null} /> : <Spinner />}
           </Card>
           <Card title="Price alerts">

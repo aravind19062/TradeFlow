@@ -85,9 +85,20 @@ public class OrderService {
         }
         // Network call deliberately outside the transaction: no DB connection is held while waiting.
         MarketDataClient.Quote quote = marketDataClient.quote(symbol);
-        BigDecimal reservationPrice = request.type() == OrderType.MARKET
-                ? Money.price(quote.price())
-                : Money.price(request.limitPrice());
+        BigDecimal reservationPrice = switch (request.type()) {
+            // A market buy pays the ask, a market sell receives the bid.
+            case MARKET -> Money.price(request.side() == OrderSide.BUY ? quote.askOrMid() : quote.bidOrMid());
+            case LIMIT, STOP_LIMIT -> Money.price(request.limitPrice());
+            case STOP -> Money.price(request.triggerPrice());
+        };
+        if (request.type() == OrderType.STOP || request.type() == OrderType.STOP_LIMIT) {
+            // A sell stop at or above the current bid would trigger at once: almost always a mistake.
+            if (request.triggerPrice().compareTo(quote.bidOrMid()) >= 0) {
+                throw ApiException.unprocessable("STOP_ALREADY_TRIGGERED", "The stop price "
+                        + Money.price(request.triggerPrice()) + " must be below the current bid " + quote.bidOrMid()
+                        + "; place a market or limit sell to exit now");
+            }
+        }
         BigDecimal notional = Money.amount(request.quantity(), reservationPrice);
         if (notional.compareTo(properties.maxNotional()) > 0) {
             throw ApiException.unprocessable("ORDER_TOO_LARGE",
@@ -97,6 +108,7 @@ public class OrderService {
             Order saved = transactionTemplate.execute(status -> {
                 Order order = Order.place(user.id(), request.clientOrderId(), symbol, request.side(), request.type(),
                         request.quantity(), request.limitPrice() == null ? null : Money.price(request.limitPrice()),
+                        request.triggerPrice() == null ? null : Money.price(request.triggerPrice()),
                         reservationPrice, clock.instant());
                 orderRepository.save(order);
                 sagaService.start(order);
@@ -175,11 +187,27 @@ public class OrderService {
     }
 
     private void validateShape(PlaceOrderRequest request) {
-        if (request.type() == OrderType.LIMIT && request.limitPrice() == null) {
-            throw ApiException.badRequest("LIMIT_PRICE_REQUIRED", "LIMIT orders require limitPrice");
+        boolean needsLimit = request.type() == OrderType.LIMIT || request.type() == OrderType.STOP_LIMIT;
+        boolean isStop = request.type() == OrderType.STOP || request.type() == OrderType.STOP_LIMIT;
+        if (needsLimit && request.limitPrice() == null) {
+            throw ApiException.badRequest("LIMIT_PRICE_REQUIRED", request.type() + " orders require limitPrice");
         }
-        if (request.type() == OrderType.MARKET && request.limitPrice() != null) {
-            throw ApiException.badRequest("LIMIT_PRICE_NOT_ALLOWED", "MARKET orders must not specify limitPrice");
+        if (!needsLimit && request.limitPrice() != null) {
+            throw ApiException.badRequest("LIMIT_PRICE_NOT_ALLOWED", request.type() + " orders must not specify limitPrice");
+        }
+        if (isStop && request.triggerPrice() == null) {
+            throw ApiException.badRequest("TRIGGER_PRICE_REQUIRED", request.type() + " orders require triggerPrice");
+        }
+        if (!isStop && request.triggerPrice() != null) {
+            throw ApiException.badRequest("TRIGGER_PRICE_NOT_ALLOWED", request.type() + " orders must not specify triggerPrice");
+        }
+        if (isStop && request.side() != OrderSide.SELL) {
+            // The demo is long-only: stops protect holdings. Buy stops (e.g. to close a short) do not apply.
+            throw ApiException.unprocessable("STOP_BUY_NOT_SUPPORTED", "Stop orders can only sell shares you hold");
+        }
+        if (request.type() == OrderType.STOP_LIMIT && request.limitPrice().compareTo(request.triggerPrice()) > 0) {
+            throw ApiException.badRequest("LIMIT_ABOVE_TRIGGER",
+                    "For a sell stop-limit, the limit price must be at or below the stop (trigger) price");
         }
         if (request.quantity() > properties.maxQuantity()) {
             throw ApiException.unprocessable("QUANTITY_TOO_LARGE",
@@ -188,7 +216,10 @@ public class OrderService {
     }
 
     private PlacementResult replay(Order existing, String symbol, PlaceOrderRequest request) {
-        boolean same = existing.getSymbol().equals(symbol)
+        boolean sameTrigger = existing.getTriggerPrice() == null
+                ? request.triggerPrice() == null
+                : request.triggerPrice() != null && existing.getTriggerPrice().compareTo(request.triggerPrice()) == 0;
+        boolean same = sameTrigger && existing.getSymbol().equals(symbol)
                 && existing.getSide() == request.side()
                 && existing.getType() == request.type()
                 && existing.getQuantity() == request.quantity()

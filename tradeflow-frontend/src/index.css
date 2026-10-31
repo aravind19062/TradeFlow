@@ -8,3 +8,21 @@
   html { -webkit-tap-highlight-color: transparent; }
   table { font-variant-numeric: tabular-nums; }
 }
+
+/* Academy lesson typography (Markdown rendered by react-markdown; no raw HTML is allowed). */
+@layer components {
+  .prose-lesson { @apply text-[15px] leading-7 text-slate-700; }
+  .prose-lesson h1 { @apply mb-4 text-2xl font-semibold tracking-tight text-slate-900; }
+  .prose-lesson h2 { @apply mt-8 mb-3 text-lg font-semibold text-slate-900; }
+  .prose-lesson p { @apply my-3; }
+  .prose-lesson ul { @apply my-3 list-disc space-y-1 pl-6; }
+  .prose-lesson ol { @apply my-3 list-decimal space-y-1 pl-6; }
+  .prose-lesson strong { @apply font-semibold text-slate-900; }
+  .prose-lesson code { @apply rounded bg-slate-100 px-1 py-0.5 font-mono text-[13px] text-slate-800; }
+  .prose-lesson pre { @apply my-4 overflow-x-auto rounded-lg bg-slate-900 p-4 text-[13px] text-slate-100; }
+  .prose-lesson pre code { @apply bg-transparent p-0 text-slate-100; }
+  .prose-lesson blockquote { @apply my-5 border-l-4 border-emerald-500 bg-emerald-50 px-4 py-2 text-slate-800; }
+  .prose-lesson table { @apply my-4 w-full border-collapse text-sm; }
+  .prose-lesson th { @apply border-b border-slate-300 px-3 py-2 text-left font-semibold text-slate-900; }
+  .prose-lesson td { @apply border-b border-slate-100 px-3 py-2 align-top; }
+}

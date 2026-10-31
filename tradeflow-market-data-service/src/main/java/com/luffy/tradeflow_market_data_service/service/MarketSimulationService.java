@@ -157,7 +157,9 @@ public class MarketSimulationService {
     }
 
     private void publish(String symbol, BigDecimal price, long tick, Instant asOf) {
-        outboxWriter.append(Topics.PRICES_UPDATED, symbol, new Events.PriceUpdated(symbol, price, tick, asOf, SOURCE));
+        var touch = com.luffy.tradeflow.common.money.SimulatedSpread.of(price, properties.spreadBps());
+        outboxWriter.append(Topics.PRICES_UPDATED, symbol,
+                new Events.PriceUpdated(symbol, price, tick, asOf, SOURCE, touch.bid(), touch.ask()));
     }
 
     private SimulationState lockState() {

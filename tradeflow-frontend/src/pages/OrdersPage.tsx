@@ -148,7 +148,10 @@ function OrderTable({ orders, showCancel }: { orders: OrderResponse[]; showCance
               <td className="px-3 py-3"><Link to={`/demo/market/${o.symbol}`} className="font-semibold hover:text-sky-700">{o.symbol}</Link></td>
               <td className="whitespace-nowrap px-3 py-3"><SideBadge side={o.side} /> <span className="text-xs text-slate-500">{o.type}</span></td>
               <td className="px-3 py-3 text-right">{quantity(o.quantity)}</td>
-              <td className="px-3 py-3 text-right">{o.limitPrice != null ? money(o.limitPrice) : <span className="text-slate-300">—</span>}</td>
+              <td className="px-3 py-3 text-right">
+                {o.limitPrice != null ? money(o.limitPrice) : <span className="text-slate-300">—</span>}
+                {o.triggerPrice != null && <p className="text-xs text-slate-500">stop {money(o.triggerPrice)}{o.triggeredAt ? ' · triggered' : ''}</p>}
+              </td>
               <td className="px-3 py-3 text-right">{o.averageFillPrice != null ? money(o.averageFillPrice) : <span className="text-slate-300">—</span>}</td>
               <td className="px-3 py-3">
                 <OrderStatusBadge status={o.status} />

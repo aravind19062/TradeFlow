@@ -78,6 +78,7 @@ export function MarketPage() {
                       <th className="px-3 py-2.5 font-medium">Instrument</th>
                       <th className="hidden px-3 py-2.5 font-medium md:table-cell">Sector</th>
                       <th className="px-3 py-2.5 text-right font-medium">Price</th>
+                      <th className="hidden px-3 py-2.5 text-right font-medium lg:table-cell">Bid / Ask</th>
                       <th className="px-3 py-2.5 text-right font-medium">Change</th>
                       <th className="hidden px-5 py-2.5 font-medium sm:table-cell">Trend</th>
                     </tr>
@@ -97,6 +98,7 @@ export function MarketPage() {
                           {q.sector} <span className="ml-1 rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-500">{q.assetClass}</span>
                         </td>
                         <td className="px-3 py-3 text-right font-medium">{money(q.price)}</td>
+                        <td className="hidden px-3 py-3 text-right text-xs text-slate-500 lg:table-cell">{money(q.bid)} / {money(q.ask)}</td>
                         <td className="px-3 py-3 text-right"><Change change={q.change} ratio={q.changeRatio} className="justify-end text-xs sm:text-sm" /></td>
                         <td className="hidden px-5 py-3 sm:table-cell">
                           <Sparkline values={history.data?.[q.symbol]?.points.map((p) => p.price) ?? []} />

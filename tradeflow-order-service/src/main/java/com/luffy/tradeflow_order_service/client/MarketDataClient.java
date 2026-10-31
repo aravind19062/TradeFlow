@@ -36,6 +36,21 @@ public class MarketDataClient {
         return quote;
     }
 
-    public record Quote(String symbol, BigDecimal price, long tick, Instant asOf, String source) {
+    /** {@code price} is the mid; {@code bid}/{@code ask} are the simulated touch (absent from old services). */
+    public record Quote(String symbol, BigDecimal price, long tick, Instant asOf, String source, BigDecimal bid,
+                        BigDecimal ask) {
+
+        /** A quote without a simulated spread (bid = ask = price). */
+        public Quote(String symbol, BigDecimal price, long tick, Instant asOf, String source) {
+            this(symbol, price, tick, asOf, source, null, null);
+        }
+
+        public BigDecimal bidOrMid() {
+            return bid == null ? price : bid;
+        }
+
+        public BigDecimal askOrMid() {
+            return ask == null ? price : ask;
+        }
     }
 }

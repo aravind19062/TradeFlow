@@ -29,21 +29,33 @@ public class LatestPrice {
     @Column(name = "as_of", nullable = false)
     private Instant asOf;
 
-    public LatestPrice(String symbol, BigDecimal price, long tick, Instant asOf) {
+    /** Simulated touch; null for ticks recorded before the spread existed (treated as the mid). */
+    private BigDecimal bid;
+    private BigDecimal ask;
+
+    public LatestPrice(String symbol, BigDecimal price, long tick, Instant asOf, BigDecimal bid, BigDecimal ask) {
         this.symbol = symbol;
         this.price = price;
         this.tick = tick;
         this.asOf = asOf;
+        this.bid = bid;
+        this.ask = ask;
     }
 
     /** Ignores out-of-order (older) ticks. @return true if the price changed */
-    public boolean update(BigDecimal newPrice, long newTick, Instant newAsOf) {
+    public boolean update(BigDecimal newPrice, long newTick, Instant newAsOf, BigDecimal newBid, BigDecimal newAsk) {
         if (newTick <= tick) {
             return false;
         }
         this.price = newPrice;
         this.tick = newTick;
         this.asOf = newAsOf;
+        this.bid = newBid;
+        this.ask = newAsk;
         return true;
+    }
+
+    public Touch touch() {
+        return new Touch(bid == null ? price : bid, ask == null ? price : ask);
     }
 }
