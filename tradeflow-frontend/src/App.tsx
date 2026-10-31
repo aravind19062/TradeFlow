@@ -2,6 +2,7 @@ import { lazy, type ComponentType, type ReactNode } from 'react';
 import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router';
 import { AuthProvider, useAuth } from './auth/AuthContext';
 import { AppLayout } from './components/Layout';
+import { DemoArea } from './components/environment';
 import { Spinner, ToastProvider } from './components/ui';
 import { LoginPage, RegisterPage } from './pages/AuthPages';
 import { NotFoundPage } from './pages/NotFoundPage';
@@ -33,6 +34,11 @@ function RequireAdmin({ children }: { children: ReactNode }) {
   return isAdmin ? <>{children}</> : <Navigate to="/" replace />;
 }
 
+function LegacyDemoRedirect() {
+  const location = useLocation();
+  return <Navigate to={`/demo${location.pathname}${location.search}`} replace />;
+}
+
 function GuestOnly({ children }: { children: ReactNode }) {
   const { status } = useAuth();
   if (status === 'authenticated') return <Navigate to="/" replace />;
@@ -45,14 +51,21 @@ export function AppRoutes() {
       <Route path="/login" element={<GuestOnly><LoginPage /></GuestOnly>} />
       <Route path="/register" element={<GuestOnly><RegisterPage /></GuestOnly>} />
       <Route element={<RequireAuth><AppLayout /></RequireAuth>}>
-        <Route index element={<DashboardPage />} />
-        <Route path="market" element={<MarketPage />} />
-        <Route path="market/:symbol" element={<InstrumentPage />} />
-        <Route path="orders" element={<OrdersPage />} />
-        <Route path="orders/:id" element={<OrderDetailPage />} />
-        <Route path="portfolio" element={<PortfolioPage />} />
-        <Route path="watchlist" element={<WatchlistPage />} />
-        <Route path="assistant" element={<AssistantPage />} />
+        <Route index element={<Navigate to="/demo" replace />} />
+        <Route path="demo" element={<DemoArea />}>
+          <Route index element={<DashboardPage />} />
+          <Route path="market" element={<MarketPage />} />
+          <Route path="market/:symbol" element={<InstrumentPage />} />
+          <Route path="orders" element={<OrdersPage />} />
+          <Route path="orders/:id" element={<OrderDetailPage />} />
+          <Route path="portfolio" element={<PortfolioPage />} />
+          <Route path="watchlist" element={<WatchlistPage />} />
+          <Route path="assistant" element={<AssistantPage />} />
+        </Route>
+        {/* Pre-dual-mode URLs keep working. */}
+        {['market', 'orders', 'portfolio', 'watchlist', 'assistant'].map((p) => (
+          <Route key={p} path={`${p}/*`} element={<LegacyDemoRedirect />} />
+        ))}
         <Route path="admin" element={<RequireAdmin><AdminPage /></RequireAdmin>} />
         <Route path="*" element={<NotFoundPage />} />
       </Route>

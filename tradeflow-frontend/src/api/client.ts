@@ -53,8 +53,28 @@ http.interceptors.request.use((config) => {
   return config;
 });
 
+/**
+ * Which trading environment a path belongs to, by its first segment. The gateway labels every
+ * DEMO and LIVE response with X-TradeFlow-Environment; a response that is missing the label or
+ * carries the other one is refused, so simulated data can never be rendered as live (or the reverse).
+ */
+export function expectedEnvironment(url: string | undefined): 'DEMO' | 'LIVE' | null {
+  if (!url) return null;
+  if (url.startsWith('/demo/')) return 'DEMO';
+  if (url.startsWith('/live/')) return 'LIVE';
+  return null;
+}
+
 http.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    const expected = expectedEnvironment(response.config.url);
+    const actual = response.headers?.['x-tradeflow-environment'];
+    if (expected && actual !== expected) {
+      return Promise.reject(new ApiError(response.status, 'ENVIRONMENT_MISMATCH',
+        `Refused a response labelled ${actual ?? 'with no environment'} for a ${expected} request.`));
+    }
+    return response;
+  },
   (error: AxiosError<ProblemDetail>) => {
     const apiError = toApiError(error);
     const path = error.config?.url ?? '';

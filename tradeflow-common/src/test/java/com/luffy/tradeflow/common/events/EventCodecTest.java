@@ -75,4 +75,69 @@ class EventCodecTest {
         assertThatThrownBy(() -> codec.decode("{not json", Topics.TRADES_EXECUTED, Events.TradeExecuted.class))
                 .isInstanceOf(InvalidEventException.class).hasMessageContaining("Malformed");
     }
+
+    // ------------------------------------------------------------- environment separation
+
+    private EventCodec codecFor(TradingEnvironment env, java.util.Set<TradingEnvironment> accepted) {
+        return new EventCodec(mapper, VALIDATION.getValidator(),
+                Clock.fixed(Instant.parse("2026-01-01T00:00:00Z"), ZoneOffset.UTC), "p-" + env, env, accepted);
+    }
+
+    @Test
+    void stampsTheProducersEnvironment() {
+        EventEnvelope envelope = codec.wrap(Topics.TRADES_EXECUTED, "7", trade(BigDecimal.TEN, BigDecimal.TEN));
+        assertThat(envelope.environment()).isEqualTo("DEMO");
+        assertThat(codec.encode(envelope)).contains("\"environment\":\"DEMO\"");
+    }
+
+    @Test
+    void demoServiceRejectsLiveEventsAndLiveServiceRejectsDemoEvents() {
+        EventCodec live = codecFor(TradingEnvironment.LIVE, null);
+        String liveJson = live.encode(live.wrap(Topics.TRADES_EXECUTED, "7", trade(BigDecimal.TEN, BigDecimal.TEN)));
+        assertThatThrownBy(() -> codec.decode(liveJson, Topics.TRADES_EXECUTED, Events.TradeExecuted.class))
+                .isInstanceOf(InvalidEventException.class).hasMessageContaining("Refusing LIVE event");
+
+        String demoJson = codec.encode(codec.wrap(Topics.TRADES_EXECUTED, "7", trade(BigDecimal.TEN, BigDecimal.TEN)));
+        assertThatThrownBy(() -> live.decode(demoJson, Topics.TRADES_EXECUTED, Events.TradeExecuted.class))
+                .isInstanceOf(InvalidEventException.class).hasMessageContaining("Refusing DEMO event");
+    }
+
+    @Test
+    void legacyEnvelopesWithoutEnvironmentAreDemoAndNeverReachLive() {
+        String legacy = codec.encode(codec.wrap(Topics.TRADES_EXECUTED, "7", trade(BigDecimal.TEN, BigDecimal.TEN)))
+                .replace(",\"environment\":\"DEMO\"", "");
+        assertThat(legacy).doesNotContain("environment");
+        assertThat(codec.decode(legacy, Topics.TRADES_EXECUTED, Events.TradeExecuted.class).payload()).isNotNull();
+        assertThatThrownBy(() -> codecFor(TradingEnvironment.LIVE, null)
+                .decode(legacy, Topics.TRADES_EXECUTED, Events.TradeExecuted.class))
+                .isInstanceOf(InvalidEventException.class).hasMessageContaining("Refusing DEMO event");
+    }
+
+    @Test
+    void platformEventsAreAcceptedByBothTradingEnvironments() {
+        EventCodec platform = codecFor(TradingEnvironment.PLATFORM, null);
+        String json = platform.encode(platform.wrap(Topics.USERS_REGISTERED, "1",
+                new Events.UserRegistered(1L, "a@b.dev", "A")));
+        assertThat(codec.decode(json, Topics.USERS_REGISTERED, Events.UserRegistered.class).payload().userId()).isEqualTo(1L);
+        assertThat(codecFor(TradingEnvironment.LIVE, null)
+                .decode(json, Topics.USERS_REGISTERED, Events.UserRegistered.class).payload().userId()).isEqualTo(1L);
+    }
+
+    @Test
+    void misconfigurationThatMixesEnvironmentsFailsAtStartup() {
+        assertThatThrownBy(() -> codecFor(TradingEnvironment.DEMO,
+                java.util.Set.of(TradingEnvironment.DEMO, TradingEnvironment.LIVE)))
+                .isInstanceOf(IllegalStateException.class).hasMessageContaining("must never accept");
+        assertThatThrownBy(() -> codecFor(TradingEnvironment.LIVE,
+                java.util.Set.of(TradingEnvironment.LIVE, TradingEnvironment.DEMO)))
+                .isInstanceOf(IllegalStateException.class);
+    }
+
+    @Test
+    void rejectsUnknownEnvironment() {
+        String json = codec.encode(codec.wrap(Topics.TRADES_EXECUTED, "7", trade(BigDecimal.TEN, BigDecimal.TEN)))
+                .replace("\"environment\":\"DEMO\"", "\"environment\":\"PAPER\"");
+        assertThatThrownBy(() -> codec.decode(json, Topics.TRADES_EXECUTED, Events.TradeExecuted.class))
+                .isInstanceOf(InvalidEventException.class).hasMessageContaining("Unknown environment");
+    }
 }

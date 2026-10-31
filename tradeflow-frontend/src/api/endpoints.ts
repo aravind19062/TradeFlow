@@ -7,7 +7,8 @@ import type {
 } from './types';
 
 // Every path below exists in a backend controller and is routed by the API gateway
-// (tradeflow-api-gateway/src/main/resources/application.properties).
+// (tradeflow-api-gateway/src/main/resources/application.properties). Simulated-trading calls
+// use the gateway's explicit /api/demo/** routes, whose responses are labelled DEMO.
 
 const enc = encodeURIComponent;
 
@@ -25,29 +26,29 @@ export const authApi = {
 
 // market-data-service: MarketDataController, SimulationController (public GETs)
 export const marketApi = {
-  instruments: () => get<InstrumentResponse[]>('/market/instruments'),
+  instruments: () => get<InstrumentResponse[]>('/demo/market/instruments'),
   quotes: (symbols?: string[]) =>
-    get<QuoteResponse[]>('/market/quotes', { params: params({ symbols: symbols?.join(',') }) }),
-  quote: (symbol: string) => get<QuoteResponse>(`/market/quotes/${enc(symbol)}`),
+    get<QuoteResponse[]>('/demo/market/quotes', { params: params({ symbols: symbols?.join(',') }) }),
+  quote: (symbol: string) => get<QuoteResponse>(`/demo/market/quotes/${enc(symbol)}`),
   history: (symbol: string, limit = 200) =>
-    get<HistoryResponse>(`/market/history/${enc(symbol)}`, { params: { limit } }),
-  simulation: () => get<SimulationResponse>('/market/simulation'),
+    get<HistoryResponse>(`/demo/market/history/${enc(symbol)}`, { params: { limit } }),
+  simulation: () => get<SimulationResponse>('/demo/market/simulation'),
   /** ADMIN only. */
-  advance: (ticks: number) => post<SimulationResponse>('/market/simulation/advance', undefined, { params: { ticks } }),
+  advance: (ticks: number) => post<SimulationResponse>('/demo/market/simulation/advance', undefined, { params: { ticks } }),
 };
 
 // market-data-service: WatchlistController
 export const watchlistApi = {
-  list: () => get<QuoteResponse[]>('/watchlist'),
-  add: (symbol: string) => put<QuoteResponse[]>(`/watchlist/${enc(symbol)}`),
-  remove: (symbol: string) => del<void>(`/watchlist/${enc(symbol)}`),
+  list: () => get<QuoteResponse[]>('/demo/watchlist'),
+  add: (symbol: string) => put<QuoteResponse[]>(`/demo/watchlist/${enc(symbol)}`),
+  remove: (symbol: string) => del<void>(`/demo/watchlist/${enc(symbol)}`),
 };
 
 // market-data-service: AlertController
 export const alertApi = {
-  list: (status?: AlertStatus) => get<AlertResponse[]>('/alerts', { params: params({ status }) }),
-  create: (body: AlertRequest) => post<AlertResponse>('/alerts', body),
-  cancel: (id: string) => del<AlertResponse>(`/alerts/${enc(id)}`),
+  list: (status?: AlertStatus) => get<AlertResponse[]>('/demo/alerts', { params: params({ status }) }),
+  create: (body: AlertRequest) => post<AlertResponse>('/demo/alerts', body),
+  cancel: (id: string) => del<AlertResponse>(`/demo/alerts/${enc(id)}`),
 };
 
 export interface OrderFilters {
@@ -60,29 +61,29 @@ export interface OrderFilters {
 
 // order-service: OrderController
 export const orderApi = {
-  place: (body: PlaceOrderRequest) => post<OrderResponse>('/orders', body),
-  get: (id: string) => get<OrderDetailResponse>(`/orders/${enc(id)}`),
+  place: (body: PlaceOrderRequest) => post<OrderResponse>('/demo/orders', body),
+  get: (id: string) => get<OrderDetailResponse>(`/demo/orders/${enc(id)}`),
   list: (f: OrderFilters = {}) =>
-    get<PageResponse<OrderResponse>>('/orders', { params: params({ ...f }) }),
-  cancel: (id: string) => post<OrderResponse>(`/orders/${enc(id)}/cancel`),
+    get<PageResponse<OrderResponse>>('/demo/orders', { params: params({ ...f }) }),
+  cancel: (id: string) => post<OrderResponse>(`/demo/orders/${enc(id)}/cancel`),
   trades: (f: { symbol?: string; page?: number; size?: number } = {}) =>
-    get<PageResponse<TradeResponse>>('/trades', { params: params({ ...f }) }),
+    get<PageResponse<TradeResponse>>('/demo/trades', { params: params({ ...f }) }),
 };
 
 // portfolio-service: PortfolioController
 export const portfolioApi = {
-  summary: () => get<PortfolioSummary>('/portfolio/summary'),
-  performance: () => get<PerformanceReport>('/portfolio/performance'),
-  risk: () => get<RiskReport>('/portfolio/risk'),
+  summary: () => get<PortfolioSummary>('/demo/portfolio/summary'),
+  performance: () => get<PerformanceReport>('/demo/portfolio/performance'),
+  risk: () => get<RiskReport>('/demo/portfolio/risk'),
   transactions: (f: { type?: LedgerType; page?: number; size?: number } = {}) =>
-    get<PageResponse<LedgerEntryView>>('/portfolio/transactions', { params: params({ ...f }) }),
-  reconciliation: () => get<ReconciliationReport>('/portfolio/reconciliation'),
+    get<PageResponse<LedgerEntryView>>('/demo/portfolio/transactions', { params: params({ ...f }) }),
+  reconciliation: () => get<ReconciliationReport>('/demo/portfolio/reconciliation'),
 };
 
 // portfolio-service: AssistantController
 export const assistantApi = {
-  ask: (question: string) => post<AskResponse>('/assistant/ask', { question }),
-  capabilities: () => get<AssistantCapabilities>('/assistant/capabilities'),
+  ask: (question: string) => post<AskResponse>('/demo/assistant/ask', { question }),
+  capabilities: () => get<AssistantCapabilities>('/demo/assistant/capabilities'),
 };
 
 // portfolio-service: AdminController (ADMIN only)

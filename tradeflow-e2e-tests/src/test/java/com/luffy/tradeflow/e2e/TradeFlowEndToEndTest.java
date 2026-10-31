@@ -170,6 +170,8 @@ class TradeFlowEndToEndTest {
         // Do not load any application.properties: all four jars share one classpath here.
         props.put("spring.config.name", "tradeflow-e2e-none");
         props.put("spring.application.name", name);
+        // Same environments as the services' application.properties: identity is PLATFORM, the rest DEMO.
+        props.put("tradeflow.environment", "user".equals(module) ? "PLATFORM" : "DEMO");
         props.put("spring.profiles.active", "local"); // demo users are seeded only in the local profile
         // No Eureka here: Feign clients resolve service names from fixed instance lists.
         props.put("eureka.client.enabled", "false");

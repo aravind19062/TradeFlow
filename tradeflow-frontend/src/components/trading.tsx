@@ -55,7 +55,7 @@ export function Change({ change, ratio, money = true, className }: {
 
 export function SymbolLink({ symbol, name }: { symbol: string; name?: string }) {
   return (
-    <Link to={`/market/${encodeURIComponent(symbol)}`} className="group block">
+    <Link to={`/demo/market/${encodeURIComponent(symbol)}`} className="group block">
       <span className="font-semibold text-slate-900 group-hover:text-sky-700">{symbol}</span>
       {name && <span className="block truncate text-xs text-slate-500">{name}</span>}
     </Link>

@@ -1,0 +1,226 @@
+[
+ {
+  "key": "order-execution-01",
+  "prompt": "A sell stop at ₹460 triggers when…",
+  "multi": false,
+  "options": [
+   {
+    "key": "a",
+    "text": "The bid falls to ₹460 or below",
+    "correct": true
+   },
+   {
+    "key": "b",
+    "text": "The ask rises to ₹460 or above",
+    "correct": false
+   },
+   {
+    "key": "c",
+    "text": "You manually confirm it",
+    "correct": false
+   },
+   {
+    "key": "d",
+    "text": "The market closes",
+    "correct": false
+   }
+  ],
+  "explanation": "A sell stop triggers on a fall to the trigger price."
+ },
+ {
+  "key": "order-execution-02",
+  "prompt": "After a stop (market) order triggers, it…",
+  "multi": false,
+  "options": [
+   {
+    "key": "a",
+    "text": "Becomes a market order and fills at the next available price",
+    "correct": true
+   },
+   {
+    "key": "b",
+    "text": "Is guaranteed to fill exactly at the trigger",
+    "correct": false
+   },
+   {
+    "key": "c",
+    "text": "Becomes a buy order",
+    "correct": false
+   },
+   {
+    "key": "d",
+    "text": "Is cancelled",
+    "correct": false
+   }
+  ],
+  "explanation": "Stop orders become market orders; the fill can be worse than the trigger."
+ },
+ {
+  "key": "order-execution-03",
+  "prompt": "A sell stop-limit with trigger ₹460 and limit ₹455. The price gaps from ₹470 to ₹440. What is the most likely outcome?",
+  "multi": false,
+  "options": [
+   {
+    "key": "a",
+    "text": "It triggers but may not fill, because the bid is below the ₹455 limit",
+    "correct": true
+   },
+   {
+    "key": "b",
+    "text": "It fills at ₹460",
+    "correct": false
+   },
+   {
+    "key": "c",
+    "text": "It fills at ₹455 guaranteed",
+    "correct": false
+   },
+   {
+    "key": "d",
+    "text": "It is converted to a buy",
+    "correct": false
+   }
+  ],
+  "explanation": "A stop-limit will not sell below its limit; in a gap it can remain unfilled."
+ },
+ {
+  "key": "order-execution-04",
+  "prompt": "While a buy order is open, what usually happens to the cash needed for it?",
+  "multi": false,
+  "options": [
+   {
+    "key": "a",
+    "text": "It is blocked (reserved) until the order fills or is cancelled",
+    "correct": true
+   },
+   {
+    "key": "b",
+    "text": "It is spent immediately",
+    "correct": false
+   },
+   {
+    "key": "c",
+    "text": "It earns interest from the exchange",
+    "correct": false
+   },
+   {
+    "key": "d",
+    "text": "Nothing; it stays freely available",
+    "correct": false
+   }
+  ],
+  "explanation": "Brokers block funds for open orders; cancelling releases them."
+ },
+ {
+  "key": "order-execution-05",
+  "prompt": "Your order is rejected with 'insufficient funds'. A good response is…",
+  "multi": false,
+  "options": [
+   {
+    "key": "a",
+    "text": "Read the reason and adjust the order or funds; don't retry blindly",
+    "correct": true
+   },
+   {
+    "key": "b",
+    "text": "Resubmit the same order repeatedly",
+    "correct": false
+   },
+   {
+    "key": "c",
+    "text": "Switch to a market order",
+    "correct": false
+   },
+   {
+    "key": "d",
+    "text": "Increase the quantity",
+    "correct": false
+   }
+  ],
+  "explanation": "Rejections carry information; repeating the same order won't change the outcome."
+ },
+ {
+  "key": "order-execution-06",
+  "prompt": "Which state means a trade has occurred?",
+  "multi": false,
+  "options": [
+   {
+    "key": "a",
+    "text": "Filled",
+    "correct": true
+   },
+   {
+    "key": "b",
+    "text": "Open",
+    "correct": false
+   },
+   {
+    "key": "c",
+    "text": "Pending",
+    "correct": false
+   },
+   {
+    "key": "d",
+    "text": "Cancelled",
+    "correct": false
+   }
+  ],
+  "explanation": "Only a fill creates a trade."
+ },
+ {
+  "key": "order-execution-07",
+  "prompt": "Which describes a stop order correctly?",
+  "multi": false,
+  "options": [
+   {
+    "key": "a",
+    "text": "It is dormant until a trigger price is reached",
+    "correct": true
+   },
+   {
+    "key": "b",
+    "text": "It executes immediately at market",
+    "correct": false
+   },
+   {
+    "key": "c",
+    "text": "It guarantees the exit price",
+    "correct": false
+   },
+   {
+    "key": "d",
+    "text": "It can only be used to buy",
+    "correct": false
+   }
+  ],
+  "explanation": "Stops wait for the trigger."
+ },
+ {
+  "key": "order-execution-08",
+  "prompt": "Why might placing a stop very close to the current price be a problem?",
+  "multi": false,
+  "options": [
+   {
+    "key": "a",
+    "text": "Normal price noise may trigger it",
+    "correct": true
+   },
+   {
+    "key": "b",
+    "text": "Exchanges forbid it",
+    "correct": false
+   },
+   {
+    "key": "c",
+    "text": "It will never trigger",
+    "correct": false
+   },
+   {
+    "key": "d",
+    "text": "It increases your leverage",
+    "correct": false
+   }
+  ],
+  "explanation": "Tight stops are frequently hit by ordinary fluctuation."
+ }
+]

@@ -1,0 +1,702 @@
+[
+ {
+  "key": "final-01",
+  "prompt": "Bid ₹149.80, ask ₹150.20. You place a market BUY for 50 shares. Approximately what do you pay before charges?",
+  "multi": false,
+  "options": [
+   {
+    "key": "a",
+    "text": "₹7,510",
+    "correct": true
+   },
+   {
+    "key": "b",
+    "text": "₹7,490",
+    "correct": false
+   },
+   {
+    "key": "c",
+    "text": "₹7,500",
+    "correct": false
+   },
+   {
+    "key": "d",
+    "text": "₹7,520",
+    "correct": false
+   }
+  ],
+  "explanation": "You pay the ask: 50 × 150.20 = 7,510."
+ },
+ {
+  "key": "final-02",
+  "prompt": "You want to buy only if you can pay ₹95 or less; the ask is ₹98. Which order expresses this?",
+  "multi": false,
+  "options": [
+   {
+    "key": "a",
+    "text": "A buy limit at ₹95",
+    "correct": true
+   },
+   {
+    "key": "b",
+    "text": "A market buy",
+    "correct": false
+   },
+   {
+    "key": "c",
+    "text": "A sell stop at ₹95",
+    "correct": false
+   },
+   {
+    "key": "d",
+    "text": "A buy limit at ₹98",
+    "correct": false
+   }
+  ],
+  "explanation": "A buy limit at 95 never pays more than 95."
+ },
+ {
+  "key": "final-03",
+  "prompt": "You hold shares bought at ₹600 and want to exit automatically if the price falls to ₹560, accepting the next available price. Which order?",
+  "multi": false,
+  "options": [
+   {
+    "key": "a",
+    "text": "Sell stop with trigger ₹560",
+    "correct": true
+   },
+   {
+    "key": "b",
+    "text": "Sell limit at ₹560",
+    "correct": false
+   },
+   {
+    "key": "c",
+    "text": "Buy stop at ₹560",
+    "correct": false
+   },
+   {
+    "key": "d",
+    "text": "Market sell now",
+    "correct": false
+   }
+  ],
+  "explanation": "A sell stop triggers on the fall and then sells at market. A sell limit at 560 would sell immediately while the bid is above 560."
+ },
+ {
+  "key": "final-04",
+  "prompt": "Your sell stop at ₹560 triggers, but bad news opens the share at ₹520. Your stop (market) order most likely fills…",
+  "multi": false,
+  "options": [
+   {
+    "key": "a",
+    "text": "Near ₹520",
+    "correct": true
+   },
+   {
+    "key": "b",
+    "text": "Exactly at ₹560",
+    "correct": false
+   },
+   {
+    "key": "c",
+    "text": "It does not fill",
+    "correct": false
+   },
+   {
+    "key": "d",
+    "text": "At ₹600",
+    "correct": false
+   }
+  ],
+  "explanation": "Stops become market orders; gaps cause fills beyond the trigger."
+ },
+ {
+  "key": "final-05",
+  "prompt": "Account ₹10,00,000; you risk 0.5% per trade. Entry ₹1,000, stop ₹950. Maximum shares?",
+  "multi": false,
+  "options": [
+   {
+    "key": "a",
+    "text": "100",
+    "correct": true
+   },
+   {
+    "key": "b",
+    "text": "50",
+    "correct": false
+   },
+   {
+    "key": "c",
+    "text": "200",
+    "correct": false
+   },
+   {
+    "key": "d",
+    "text": "500",
+    "correct": false
+   }
+  ],
+  "explanation": "₹5,000 / ₹50 = 100."
+ },
+ {
+  "key": "final-06",
+  "prompt": "Using the previous answer, what is the position's weight in the account at entry?",
+  "multi": false,
+  "options": [
+   {
+    "key": "a",
+    "text": "10%",
+    "correct": true
+   },
+   {
+    "key": "b",
+    "text": "5%",
+    "correct": false
+   },
+   {
+    "key": "c",
+    "text": "1%",
+    "correct": false
+   },
+   {
+    "key": "d",
+    "text": "50%",
+    "correct": false
+   }
+  ],
+  "explanation": "100 × 1,000 = ₹1,00,000 = 10% of ₹10,00,000."
+ },
+ {
+  "key": "final-07",
+  "prompt": "You hold 30 shares, average cost ₹200, price now ₹180. What is the unrealized P&L?",
+  "multi": false,
+  "options": [
+   {
+    "key": "a",
+    "text": "−₹600",
+    "correct": true
+   },
+   {
+    "key": "b",
+    "text": "−₹20",
+    "correct": false
+   },
+   {
+    "key": "c",
+    "text": "+₹600",
+    "correct": false
+   },
+   {
+    "key": "d",
+    "text": "−₹5,400",
+    "correct": false
+   }
+  ],
+  "explanation": "(180 − 200) × 30 = −600."
+ },
+ {
+  "key": "final-08",
+  "prompt": "You then sell 10 at ₹180. What is the realized P&L and the remaining average cost?",
+  "multi": false,
+  "options": [
+   {
+    "key": "a",
+    "text": "−₹200 realized; average cost stays ₹200",
+    "correct": true
+   },
+   {
+    "key": "b",
+    "text": "−₹600 realized; average cost becomes ₹180",
+    "correct": false
+   },
+   {
+    "key": "c",
+    "text": "₹0 realized; average cost ₹190",
+    "correct": false
+   },
+   {
+    "key": "d",
+    "text": "−₹200 realized; average cost becomes ₹180",
+    "correct": false
+   }
+  ],
+  "explanation": "(180 − 200) × 10 = −200; remaining shares keep ₹200 average cost."
+ },
+ {
+  "key": "final-09",
+  "prompt": "A portfolio falls from a peak of ₹12,00,000 to ₹9,00,000. What is the drawdown?",
+  "multi": false,
+  "options": [
+   {
+    "key": "a",
+    "text": "25%",
+    "correct": true
+   },
+   {
+    "key": "b",
+    "text": "33%",
+    "correct": false
+   },
+   {
+    "key": "c",
+    "text": "30%",
+    "correct": false
+   },
+   {
+    "key": "d",
+    "text": "75%",
+    "correct": false
+   }
+  ],
+  "explanation": "3,00,000 / 12,00,000 = 25%."
+ },
+ {
+  "key": "final-10",
+  "prompt": "To recover from that drawdown, the portfolio must gain about…",
+  "multi": false,
+  "options": [
+   {
+    "key": "a",
+    "text": "33.3%",
+    "correct": true
+   },
+   {
+    "key": "b",
+    "text": "25%",
+    "correct": false
+   },
+   {
+    "key": "c",
+    "text": "30%",
+    "correct": false
+   },
+   {
+    "key": "d",
+    "text": "75%",
+    "correct": false
+   }
+  ],
+  "explanation": "1 / 0.75 − 1 ≈ 33.3%."
+ },
+ {
+  "key": "final-11",
+  "prompt": "You have three losing trades in a row and feel urged to double your size. What does a sound risk plan say?",
+  "multi": false,
+  "options": [
+   {
+    "key": "a",
+    "text": "Keep size per your rules, or stop and review if a loss limit is hit",
+    "correct": true
+   },
+   {
+    "key": "b",
+    "text": "Double the size to recover faster",
+    "correct": false
+   },
+   {
+    "key": "c",
+    "text": "Switch to options for leverage",
+    "correct": false
+   },
+   {
+    "key": "d",
+    "text": "Remove your stop-losses",
+    "correct": false
+   }
+  ],
+  "explanation": "Sizing up after losses is revenge trading."
+ },
+ {
+  "key": "final-12",
+  "prompt": "Which of the following decides whether TradeFlow lets you trade live? (Select all that apply)",
+  "multi": true,
+  "options": [
+   {
+    "key": "a",
+    "text": "Completing mandatory modules and passing quizzes",
+    "correct": true
+   },
+   {
+    "key": "b",
+    "text": "Completing the practical demo exercises",
+    "correct": true
+   },
+   {
+    "key": "c",
+    "text": "Passing this assessment and signing the risk acknowledgement",
+    "correct": true
+   },
+   {
+    "key": "d",
+    "text": "Having a profitable demo portfolio",
+    "correct": false
+   }
+  ],
+  "explanation": "Demo profitability is never used for readiness."
+ },
+ {
+  "key": "final-13",
+  "prompt": "Passing this assessment means…",
+  "multi": false,
+  "options": [
+   {
+    "key": "a",
+    "text": "You have demonstrated knowledge of core concepts; it is not a guarantee of competence or a judgement of suitability",
+    "correct": true
+   },
+   {
+    "key": "b",
+    "text": "Trading is suitable for you",
+    "correct": false
+   },
+   {
+    "key": "c",
+    "text": "You will be profitable",
+    "correct": false
+   },
+   {
+    "key": "d",
+    "text": "Your broker must accept you",
+    "correct": false
+   }
+  ],
+  "explanation": "Broker KYC and eligibility, and your own circumstances, still apply."
+ },
+ {
+  "key": "final-14",
+  "prompt": "A share's order book shows few shares near the last price. A large market order may…",
+  "multi": false,
+  "options": [
+   {
+    "key": "a",
+    "text": "Fill at progressively worse prices",
+    "correct": true
+   },
+   {
+    "key": "b",
+    "text": "Always fill at the last price",
+    "correct": false
+   },
+   {
+    "key": "c",
+    "text": "Be guaranteed by the exchange",
+    "correct": false
+   },
+   {
+    "key": "d",
+    "text": "Reduce the spread",
+    "correct": false
+   }
+  ],
+  "explanation": "Thin books mean slippage for large market orders."
+ },
+ {
+  "key": "final-15",
+  "prompt": "You placed a limit buy yesterday with a long validity and forgot about it. What is the risk?",
+  "multi": false,
+  "options": [
+   {
+    "key": "a",
+    "text": "It may fill unexpectedly later when the price reaches it",
+    "correct": true
+   },
+   {
+    "key": "b",
+    "text": "None; limit orders cannot fill later",
+    "correct": false
+   },
+   {
+    "key": "c",
+    "text": "It turns into a sell order",
+    "correct": false
+   },
+   {
+    "key": "d",
+    "text": "It doubles in size",
+    "correct": false
+   }
+  ],
+  "explanation": "Review open orders regularly."
+ },
+ {
+  "key": "final-16",
+  "prompt": "With 4× leverage, the position falls 10%. Your own capital changes by about…",
+  "multi": false,
+  "options": [
+   {
+    "key": "a",
+    "text": "−40%",
+    "correct": true
+   },
+   {
+    "key": "b",
+    "text": "−10%",
+    "correct": false
+   },
+   {
+    "key": "c",
+    "text": "−2.5%",
+    "correct": false
+   },
+   {
+    "key": "d",
+    "text": "−4%",
+    "correct": false
+   }
+  ],
+  "explanation": "4 × 10% = 40%."
+ },
+ {
+  "key": "final-17",
+  "prompt": "Which is the BEST description of a stop-limit order's trade-off?",
+  "multi": false,
+  "options": [
+   {
+    "key": "a",
+    "text": "Protects against a bad fill price but may not execute in a fast move",
+    "correct": true
+   },
+   {
+    "key": "b",
+    "text": "Guarantees execution at the trigger",
+    "correct": false
+   },
+   {
+    "key": "c",
+    "text": "Removes all risk",
+    "correct": false
+   },
+   {
+    "key": "d",
+    "text": "Is the same as a market order",
+    "correct": false
+   }
+  ],
+  "explanation": "It is execution certainty traded for price certainty."
+ },
+ {
+  "key": "final-18",
+  "prompt": "Which costs apply even to a losing trade? (Select all that apply)",
+  "multi": true,
+  "options": [
+   {
+    "key": "a",
+    "text": "The spread",
+    "correct": true
+   },
+   {
+    "key": "b",
+    "text": "Brokerage and statutory charges",
+    "correct": true
+   },
+   {
+    "key": "c",
+    "text": "Slippage",
+    "correct": true
+   },
+   {
+    "key": "d",
+    "text": "Capital gains tax on the loss",
+    "correct": false
+   }
+  ],
+  "explanation": "Gains tax applies to gains; the other costs apply to every trade."
+ },
+ {
+  "key": "final-19",
+  "prompt": "Someone in a messaging group offers to 'manage your trading account' for a share of profits and asks for your login. You should…",
+  "multi": false,
+  "options": [
+   {
+    "key": "a",
+    "text": "Refuse and never share credentials; unregistered schemes are a scam risk",
+    "correct": true
+   },
+   {
+    "key": "b",
+    "text": "Agree if past screenshots look good",
+    "correct": false
+   },
+   {
+    "key": "c",
+    "text": "Share login but not the OTP",
+    "correct": false
+   },
+   {
+    "key": "d",
+    "text": "Try it with a small amount",
+    "correct": false
+   }
+  ],
+  "explanation": "Never share credentials; verify registration of any adviser."
+ },
+ {
+  "key": "final-20",
+  "prompt": "Why is 'I'll hold until it comes back to my buy price' a weak plan?",
+  "multi": false,
+  "options": [
+   {
+    "key": "a",
+    "text": "It anchors on the purchase price instead of judging the position on today's merits",
+    "correct": true
+   },
+   {
+    "key": "b",
+    "text": "Prices always come back",
+    "correct": false
+   },
+   {
+    "key": "c",
+    "text": "It reduces tax",
+    "correct": false
+   },
+   {
+    "key": "d",
+    "text": "It is required by brokers",
+    "correct": false
+   }
+  ],
+  "explanation": "The purchase price is irrelevant to the share's future."
+ },
+ {
+  "key": "final-21",
+  "prompt": "Two portfolios both returned 12% this year. Portfolio A had a 35% maximum drawdown, B had 8%. Which statement is fair?",
+  "multi": false,
+  "options": [
+   {
+    "key": "a",
+    "text": "B achieved the return with much smaller declines along the way",
+    "correct": true
+   },
+   {
+    "key": "b",
+    "text": "They were equally risky",
+    "correct": false
+   },
+   {
+    "key": "c",
+    "text": "A was safer",
+    "correct": false
+   },
+   {
+    "key": "d",
+    "text": "Drawdown doesn't matter if the return is equal",
+    "correct": false
+   }
+  ],
+  "explanation": "Path matters: deeper drawdowns are harder to sit through and more dangerous."
+ },
+ {
+  "key": "final-22",
+  "prompt": "Your order shows status 'REJECTED: insufficient funds'. What happened?",
+  "multi": false,
+  "options": [
+   {
+    "key": "a",
+    "text": "No trade occurred; no shares were bought",
+    "correct": true
+   },
+   {
+    "key": "b",
+    "text": "Shares were bought on credit",
+    "correct": false
+   },
+   {
+    "key": "c",
+    "text": "The order is waiting for funds",
+    "correct": false
+   },
+   {
+    "key": "d",
+    "text": "It will fill tomorrow",
+    "correct": false
+   }
+  ],
+  "explanation": "Rejected orders never execute."
+ },
+ {
+  "key": "final-23",
+  "prompt": "Which TradeFlow safeguard can you use if you want a break from live trading?",
+  "multi": false,
+  "options": [
+   {
+    "key": "a",
+    "text": "Voluntary self-exclusion for a chosen period",
+    "correct": true
+   },
+   {
+    "key": "b",
+    "text": "Deleting the app",
+    "correct": false
+   },
+   {
+    "key": "c",
+    "text": "Placing many small orders",
+    "correct": false
+   },
+   {
+    "key": "d",
+    "text": "Disabling two-factor authentication",
+    "correct": false
+   }
+  ],
+  "explanation": "Self-exclusion blocks live trading until it ends and cannot be shortened."
+ },
+ {
+  "key": "final-24",
+  "prompt": "You are unsure whether a live order went through after a network error. What should you do first?",
+  "multi": false,
+  "options": [
+   {
+    "key": "a",
+    "text": "Check the order status before placing anything else",
+    "correct": true
+   },
+   {
+    "key": "b",
+    "text": "Resubmit immediately",
+    "correct": false
+   },
+   {
+    "key": "c",
+    "text": "Place the opposite order",
+    "correct": false
+   },
+   {
+    "key": "d",
+    "text": "Disconnect the broker",
+    "correct": false
+   }
+  ],
+  "explanation": "Check before acting, to avoid duplicates."
+ },
+ {
+  "key": "final-25",
+  "prompt": "Before every live order, TradeFlow shows a review and asks for explicit confirmation. The main purpose is to…",
+  "multi": false,
+  "options": [
+   {
+    "key": "a",
+    "text": "Catch input errors such as wrong side, quantity or price before they reach the broker",
+    "correct": true
+   },
+   {
+    "key": "b",
+    "text": "Slow down the market",
+    "correct": false
+   },
+   {
+    "key": "c",
+    "text": "Guarantee a profitable fill",
+    "correct": false
+   },
+   {
+    "key": "d",
+    "text": "Collect fees",
+    "correct": false
+   }
+  ],
+  "explanation": "Confirmation steps prevent fat-finger and wrong-side errors."
+ }
+]

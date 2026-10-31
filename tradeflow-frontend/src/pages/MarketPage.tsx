@@ -16,9 +16,9 @@ export function MarketPage() {
   const quotes = useApi(() => marketApi.quotes(), [], { topics: ['market'], intervalMs: 15_000 });
   const watchlist = useApi(() => watchlistApi.list(), [], { topics: ['watchlist'] });
   const symbols = quotes.data?.map((q) => q.symbol).join(',') ?? '';
-  // GET /api/market/history?symbols=A,B&limit=N (MarketDataController.histories)
+  // GET /api/demo/market/history?symbols=A,B&limit=N (MarketDataController.histories)
   const history = useApi(
-    () => get<Record<string, HistoryResponse>>('/market/history', { params: { symbols, limit: 40 } }),
+    () => get<Record<string, HistoryResponse>>('/demo/market/history', { params: { symbols, limit: 40 } }),
     [symbols], { enabled: symbols !== '', topics: ['market'], intervalMs: 30_000 },
   );
   const [query, setQuery] = useState('');
@@ -84,7 +84,7 @@ export function MarketPage() {
                   </thead>
                   <tbody className="divide-y divide-slate-100">
                     {rows.map((q) => (
-                      <tr key={q.symbol} className="cursor-pointer hover:bg-slate-50" onClick={() => navigate(`/market/${q.symbol}`)}>
+                      <tr key={q.symbol} className="cursor-pointer hover:bg-slate-50" onClick={() => navigate(`/demo/market/${q.symbol}`)}>
                         <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
                           <button onClick={() => toggleWatch(q.symbol)} disabled={busy === q.symbol}
                             aria-label={watched.has(q.symbol) ? `Remove ${q.symbol} from watchlist` : `Add ${q.symbol} to watchlist`}

@@ -154,7 +154,7 @@ export function OrderTicket({ quote, heldQuantity, reservedQuantity, availableCa
               <OrderStatusBadge status={result.status} />
               <span>{result.statusReason ?? 'Awaiting reservation…'}</span>
             </div>
-            <Link to={`/orders/${result.id}`} className="mt-1 inline-block text-xs font-medium underline">View order details</Link>
+            <Link to={`/demo/orders/${result.id}`} className="mt-1 inline-block text-xs font-medium underline">View order details</Link>
           </Alert>
         </div>
       )}

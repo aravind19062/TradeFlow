@@ -67,7 +67,7 @@ public class GatewaySecurityConfig {
                         .requestMatchers("/actuator/health/**", "/actuator/info", "/fallback/**", "/error",
                                 "/swagger-ui/**", "/swagger-ui.html", "/v3/api-docs/**").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/auth/register", "/api/auth/login").permitAll()
-                        .requestMatchers(HttpMethod.GET, "/api/market/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/market/**", "/api/demo/market/**").permitAll()
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
                         .requestMatchers("/api/**").authenticated()
                         .anyRequest().denyAll())

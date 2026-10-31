@@ -1,0 +1,226 @@
+[
+ {
+  "key": "risk-management-01",
+  "prompt": "After a 50% loss, what gain is needed to get back to the starting value?",
+  "multi": false,
+  "options": [
+   {
+    "key": "a",
+    "text": "100%",
+    "correct": true
+   },
+   {
+    "key": "b",
+    "text": "50%",
+    "correct": false
+   },
+   {
+    "key": "c",
+    "text": "25%",
+    "correct": false
+   },
+   {
+    "key": "d",
+    "text": "75%",
+    "correct": false
+   }
+  ],
+  "explanation": "Half the capital must double to recover."
+ },
+ {
+  "key": "risk-management-02",
+  "prompt": "After a 25% loss, the gain needed to recover is about…",
+  "multi": false,
+  "options": [
+   {
+    "key": "a",
+    "text": "33.3%",
+    "correct": true
+   },
+   {
+    "key": "b",
+    "text": "25%",
+    "correct": false
+   },
+   {
+    "key": "c",
+    "text": "20%",
+    "correct": false
+   },
+   {
+    "key": "d",
+    "text": "50%",
+    "correct": false
+   }
+  ],
+  "explanation": "1 / 0.75 − 1 ≈ 33.3%."
+ },
+ {
+  "key": "risk-management-03",
+  "prompt": "Which money is appropriate for short-term trading?",
+  "multi": false,
+  "options": [
+   {
+    "key": "a",
+    "text": "Money you can afford to lose without affecting essentials or near-term goals",
+    "correct": true
+   },
+   {
+    "key": "b",
+    "text": "An emergency fund",
+    "correct": false
+   },
+   {
+    "key": "c",
+    "text": "Money for next month's rent",
+    "correct": false
+   },
+   {
+    "key": "d",
+    "text": "Borrowed money for a loan repayment",
+    "correct": false
+   }
+  ],
+  "explanation": "Never trade with money you need."
+ },
+ {
+  "key": "risk-management-04",
+  "prompt": "Gap risk means…",
+  "multi": false,
+  "options": [
+   {
+    "key": "a",
+    "text": "The price can jump past your exit level, e.g. overnight",
+    "correct": true
+   },
+   {
+    "key": "b",
+    "text": "The spread is zero",
+    "correct": false
+   },
+   {
+    "key": "c",
+    "text": "You cannot place orders",
+    "correct": false
+   },
+   {
+    "key": "d",
+    "text": "Dividends are delayed",
+    "correct": false
+   }
+  ],
+  "explanation": "Gaps make stop levels unreliable as exact exit prices."
+ },
+ {
+  "key": "risk-management-05",
+  "prompt": "Which should be decided BEFORE entering a trade? (Select all that apply)",
+  "multi": true,
+  "options": [
+   {
+    "key": "a",
+    "text": "Why you are entering and what would prove you wrong",
+    "correct": true
+   },
+   {
+    "key": "b",
+    "text": "Where you will exit if wrong",
+    "correct": true
+   },
+   {
+    "key": "c",
+    "text": "How much you are prepared to lose",
+    "correct": true
+   },
+   {
+    "key": "d",
+    "text": "How you will explain a loss afterwards",
+    "correct": false
+   }
+  ],
+  "explanation": "A plan is made in advance; post-hoc explanations are not a plan."
+ },
+ {
+  "key": "risk-management-06",
+  "prompt": "A daily loss limit is useful because it…",
+  "multi": false,
+  "options": [
+   {
+    "key": "a",
+    "text": "Stops you trading while emotional after losses",
+    "correct": true
+   },
+   {
+    "key": "b",
+    "text": "Guarantees profits",
+    "correct": false
+   },
+   {
+    "key": "c",
+    "text": "Lowers brokerage",
+    "correct": false
+   },
+   {
+    "key": "d",
+    "text": "Is required by exchanges for all retail traders",
+    "correct": false
+   }
+  ],
+  "explanation": "It interrupts revenge trading and forces review."
+ },
+ {
+  "key": "risk-management-07",
+  "prompt": "When reviewing a closed trade, the most useful question is…",
+  "multi": false,
+  "options": [
+   {
+    "key": "a",
+    "text": "Did I follow my plan?",
+    "correct": true
+   },
+   {
+    "key": "b",
+    "text": "Did it make money?",
+    "correct": false
+   },
+   {
+    "key": "c",
+    "text": "What did others do?",
+    "correct": false
+   },
+   {
+    "key": "d",
+    "text": "Could I have bought lower?",
+    "correct": false
+   }
+  ],
+  "explanation": "Outcome alone mixes skill with luck; process review is more informative."
+ },
+ {
+  "key": "risk-management-08",
+  "prompt": "Which is an example of operational risk?",
+  "multi": false,
+  "options": [
+   {
+    "key": "a",
+    "text": "Entering 1000 shares instead of 100",
+    "correct": true
+   },
+   {
+    "key": "b",
+    "text": "The market falling 5%",
+    "correct": false
+   },
+   {
+    "key": "c",
+    "text": "A company missing earnings",
+    "correct": false
+   },
+   {
+    "key": "d",
+    "text": "Interest rates rising",
+    "correct": false
+   }
+  ],
+  "explanation": "Operational risk comes from process and technology errors."
+ }
+]

@@ -26,7 +26,7 @@ export function DashboardPage() {
       <PageHeader
         title={`Welcome${isNewUser ? '' : ' back'}, ${user?.name?.split(' ')[0] ?? ''}`}
         subtitle={s?.pricesAsOf ? <>Valued at simulated prices as of {time(s.pricesAsOf)}</> : 'Your portfolio at a glance'}
-        actions={<Link to="/market" className="inline-flex items-center gap-1.5 rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800">Trade <ArrowRight className="size-4" /></Link>}
+        actions={<Link to="/demo/market" className="inline-flex items-center gap-1.5 rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800">Trade <ArrowRight className="size-4" /></Link>}
       />
 
       {summary.opening && (
@@ -87,19 +87,19 @@ export function DashboardPage() {
                     ))}
                   </ul>
                 )}
-                <Link to="/portfolio" className="mt-4 inline-block text-sm font-medium text-sky-700 hover:underline">Risk details</Link>
+                <Link to="/demo/portfolio" className="mt-4 inline-block text-sm font-medium text-sky-700 hover:underline">Risk details</Link>
               </>}
         </Card>
       </div>
 
       <div className="mt-6 grid gap-6 xl:grid-cols-3">
         <Card className="xl:col-span-2" title="Recent orders" bodyClassName="p-0"
-          action={<Link to="/orders" className="text-sm font-medium text-sky-700 hover:underline">
+          action={<Link to="/demo/orders" className="text-sm font-medium text-sky-700 hover:underline">
             All orders{open.data && open.data.totalElements > 0 ? ` · ${open.data.totalElements} open` : ''}
           </Link>}>
           {recent.error ? <ErrorState error={recent.error} onRetry={recent.reload} />
             : !recent.data ? <Spinner />
-              : recent.data.content.length === 0 ? <EmptyState title="No orders yet"><Link to="/market" className="text-sky-700 hover:underline">Browse the market</Link> to place your first trade.</EmptyState>
+              : recent.data.content.length === 0 ? <EmptyState title="No orders yet"><Link to="/demo/market" className="text-sky-700 hover:underline">Browse the market</Link> to place your first trade.</EmptyState>
                 : <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
@@ -108,7 +108,7 @@ export function DashboardPage() {
                     <tbody className="divide-y divide-slate-100">
                       {recent.data.content.map((o) => (
                         <tr key={o.id} className="hover:bg-slate-50">
-                          <td className="px-5 py-2.5"><Link to={`/orders/${o.id}`} className="font-semibold hover:text-sky-700">{o.symbol}</Link> <span className="text-xs text-slate-400">{o.type}</span></td>
+                          <td className="px-5 py-2.5"><Link to={`/demo/orders/${o.id}`} className="font-semibold hover:text-sky-700">{o.symbol}</Link> <span className="text-xs text-slate-400">{o.type}</span></td>
                           <td className="px-3 py-2.5"><SideBadge side={o.side} /></td>
                           <td className="px-3 py-2.5 text-right">{quantity(o.quantity)}</td>
                           <td className="px-3 py-2.5"><OrderStatusBadge status={o.status} /></td>
@@ -120,10 +120,10 @@ export function DashboardPage() {
                 </div>}
         </Card>
 
-        <Card title="Watchlist" bodyClassName="p-0" action={<Link to="/watchlist" className="text-sm font-medium text-sky-700 hover:underline">Manage</Link>}>
+        <Card title="Watchlist" bodyClassName="p-0" action={<Link to="/demo/watchlist" className="text-sm font-medium text-sky-700 hover:underline">Manage</Link>}>
           {watchlist.error ? <ErrorState error={watchlist.error} onRetry={watchlist.reload} />
             : !watchlist.data ? <Spinner />
-              : watchlist.data.length === 0 ? <EmptyState title="Your watchlist is empty">Star instruments in <Link to="/market" className="text-sky-700 hover:underline">Market watch</Link>.</EmptyState>
+              : watchlist.data.length === 0 ? <EmptyState title="Your watchlist is empty">Star instruments in <Link to="/demo/market" className="text-sky-700 hover:underline">Market watch</Link>.</EmptyState>
                 : <ul className="divide-y divide-slate-100">
                   {watchlist.data.slice(0, 6).map((q) => (
                     <li key={q.symbol} className="flex items-center justify-between gap-3 px-5 py-3">

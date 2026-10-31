@@ -70,7 +70,7 @@ test.describe.serial('TradeFlow user journey', () => {
   });
 
   test('4. place a MARKET BUY and verify it through the backend', async ({ request }) => {
-    await page.goto('/market/INFY');
+    await page.goto('/demo/market/INFY');
     await expect(page.getByTestId('instrument-price')).toContainText('₹');
     await page.getByLabel('Quantity (shares)').fill('2');
     await page.getByRole('button', { name: 'Review buy order' }).click();
@@ -99,17 +99,17 @@ test.describe.serial('TradeFlow user journey', () => {
   });
 
   test('6. order history and trades show the execution', async () => {
-    await page.goto('/orders?tab=history');
+    await page.goto('/demo/orders?tab=history');
     await expect(page.locator(`[data-order-id="${marketOrderId}"]`)).toContainText('FILLED');
     await page.getByRole('tab', { name: 'Trades' }).click();
     await expect(page.getByTestId('trades-table')).toContainText('INFY');
-    await page.goto(`/orders/${marketOrderId}`);
+    await page.goto(`/demo/orders/${marketOrderId}`);
     await expect(page.getByText('Status history')).toBeVisible();
     await expect(page.getByText(/Filled 2 @/).first()).toBeVisible();
   });
 
   test('7. LIMIT order rests OPEN with cash reserved, then is cancelled', async ({ request }) => {
-    await page.goto('/market/INFY');
+    await page.goto('/demo/market/INFY');
     await page.getByRole('radio', { name: 'Limit' }).click();
     await page.getByLabel('Quantity (shares)').fill('1');
     await page.getByLabel('Limit price (₹)').fill('1.00');
@@ -122,7 +122,7 @@ test.describe.serial('TradeFlow user journey', () => {
     const limitId = open.body.content[0].id;
     expect((await api<{ reservedCash: number }>(request, token, '/portfolio/summary')).body.reservedCash).toBe(1);
 
-    await page.goto('/orders');
+    await page.goto('/demo/orders');
     const row = page.locator(`[data-order-id="${limitId}"]`);
     await expect(row).toContainText('OPEN');
     await row.getByRole('button', { name: /Cancel order/ }).click();
@@ -149,7 +149,7 @@ test.describe.serial('TradeFlow user journey', () => {
   });
 
   test('9. watchlist and alerts round-trip through the API', async ({ request }) => {
-    await page.goto('/market/TCS');
+    await page.goto('/demo/market/TCS');
     await page.getByRole('button', { name: 'Watch', exact: true }).click();
     await expect(page.getByRole('button', { name: 'Watching' })).toBeVisible();
     await page.getByLabel('Price (₹)').fill('1.00');
@@ -163,18 +163,30 @@ test.describe.serial('TradeFlow user journey', () => {
     expect(alerts.body[0]).toMatchObject({ symbol: 'TCS', direction: 'BELOW', threshold: 1, status: 'ACTIVE' });
   });
 
+  test('10a. every demo page is labelled DEMO and demo API responses carry the gateway label', async ({ request }) => {
+    for (const path of ['/demo', '/demo/market', '/demo/orders', '/demo/portfolio', '/demo/watchlist', '/demo/assistant']) {
+      await page.goto(path);
+      await expect(page.getByTestId('demo-banner')).toContainText('Simulated prices and virtual money');
+    }
+    const res = await request.get('/api/demo/portfolio/summary', { headers: { Authorization: `Bearer ${token}` } });
+    expect(res.headers()['x-tradeflow-environment']).toBe('DEMO');
+    // Pre-dual-mode bookmarks redirect into the demo area.
+    await page.goto('/market/TCS');
+    await expect(page).toHaveURL(/\/demo\/market\/TCS$/);
+  });
+
   test('10. sign out discards the session', async () => {
     await page.getByRole('button', { name: 'Sign out' }).first().click();
     await expect(page).toHaveURL(/\/login$/);
     expect(await page.evaluate(() => sessionStorage.getItem('tradeflow.session'))).toBeNull();
-    await page.goto('/portfolio');
+    await page.goto('/demo/portfolio');
     await expect(page).toHaveURL(/\/login$/);
   });
 });
 
 test.describe('authentication and authorization', () => {
   test('protected pages redirect to sign-in without a session', async ({ page }) => {
-    await page.goto('/orders');
+    await page.goto('/demo/orders');
     await expect(page).toHaveURL(/\/login$/);
     await expect(page.getByRole('heading', { name: 'Sign in' })).toBeVisible();
   });
@@ -201,7 +213,7 @@ test.describe('authentication and authorization', () => {
       const forged = `${b64({ alg: 'HS256' })}.${b64({ sub: '1', roles: ['ADMIN'], exp: Math.floor(Date.now() / 1000) + 3600 })}.forged`;
       sessionStorage.setItem('tradeflow.session', JSON.stringify({ token: forged, expiresAt: Date.now() + 3_600_000 }));
     });
-    await page.goto('/portfolio');
+    await page.goto('/demo/portfolio');
     await expect(page).toHaveURL(/\/login$/);
     await expect(page.getByText('Your session has ended')).toBeVisible();
   });
@@ -211,7 +223,7 @@ test.describe('authentication and authorization', () => {
     await expect(page.getByTestId('current-user')).toBeVisible();
     await expect(page.getByRole('link', { name: 'Admin' })).toHaveCount(0);
     await page.goto('/admin');
-    await expect(page).toHaveURL(/\/$/);
+    await expect(page).toHaveURL(/\/demo$/);
     const token = await tokenOf(page);
     expect((await api(request, token, '/admin/reconciliation')).status).toBe(403);
     expect((await api(request, null, '/portfolio/summary')).status).toBe(401);

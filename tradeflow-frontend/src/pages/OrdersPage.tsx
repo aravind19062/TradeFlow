@@ -106,12 +106,12 @@ export function OrdersPage() {
                         {trades.data.content.map((t) => (
                           <tr key={t.id} className="hover:bg-slate-50">
                             <td className="whitespace-nowrap px-5 py-3 text-slate-500">{dateTime(t.executedAt)}</td>
-                            <td className="px-3 py-3"><Link to={`/market/${t.symbol}`} className="font-semibold hover:text-sky-700">{t.symbol}</Link></td>
+                            <td className="px-3 py-3"><Link to={`/demo/market/${t.symbol}`} className="font-semibold hover:text-sky-700">{t.symbol}</Link></td>
                             <td className="px-3 py-3"><SideBadge side={t.side} /></td>
                             <td className="px-3 py-3 text-right">{quantity(t.quantity)}</td>
                             <td className="px-3 py-3 text-right">{money(t.price)}</td>
                             <td className="px-3 py-3 text-right font-medium">{money(t.grossAmount)}</td>
-                            <td className="px-5 py-3"><Link to={`/orders/${t.orderId}`} className="font-mono text-xs text-sky-700 hover:underline">{shortId(t.orderId)}</Link></td>
+                            <td className="px-5 py-3"><Link to={`/demo/orders/${t.orderId}`} className="font-mono text-xs text-sky-700 hover:underline">{shortId(t.orderId)}</Link></td>
                           </tr>
                         ))}
                       </tbody>
@@ -144,8 +144,8 @@ function OrderTable({ orders, showCancel }: { orders: OrderResponse[]; showCance
         <tbody className="divide-y divide-slate-100">
           {orders.map((o) => (
             <tr key={o.id} className="hover:bg-slate-50" data-order-id={o.id}>
-              <td className="whitespace-nowrap px-5 py-3 text-slate-500"><Link to={`/orders/${o.id}`} className="hover:text-sky-700">{dateTime(o.createdAt)}</Link></td>
-              <td className="px-3 py-3"><Link to={`/market/${o.symbol}`} className="font-semibold hover:text-sky-700">{o.symbol}</Link></td>
+              <td className="whitespace-nowrap px-5 py-3 text-slate-500"><Link to={`/demo/orders/${o.id}`} className="hover:text-sky-700">{dateTime(o.createdAt)}</Link></td>
+              <td className="px-3 py-3"><Link to={`/demo/market/${o.symbol}`} className="font-semibold hover:text-sky-700">{o.symbol}</Link></td>
               <td className="whitespace-nowrap px-3 py-3"><SideBadge side={o.side} /> <span className="text-xs text-slate-500">{o.type}</span></td>
               <td className="px-3 py-3 text-right">{quantity(o.quantity)}</td>
               <td className="px-3 py-3 text-right">{o.limitPrice != null ? money(o.limitPrice) : <span className="text-slate-300">—</span>}</td>

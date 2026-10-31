@@ -8,15 +8,21 @@ import { marketApi } from '../api/endpoints';
 import { useApi } from '../lib/useApi';
 import { time } from '../lib/format';
 import { cx, Spinner } from './ui';
+import { EnvironmentBadge } from './environment';
 
-const NAV = [
-  { to: '/', label: 'Dashboard', icon: LayoutDashboard, end: true },
-  { to: '/market', label: 'Market watch', icon: ChartCandlestick },
-  { to: '/orders', label: 'Orders', icon: ListOrdered },
-  { to: '/portfolio', label: 'Portfolio', icon: Wallet },
-  { to: '/watchlist', label: 'Watchlist & alerts', icon: Bell },
-  { to: '/assistant', label: 'AI assistant', icon: Bot },
-];
+interface NavItem { to: string; label: string; icon: typeof LayoutDashboard; end?: boolean }
+interface NavSection { title: string; env?: 'DEMO' | 'LIVE'; items: NavItem[] }
+
+const DEMO_NAV: NavSection = {
+  title: 'Demo trading', env: 'DEMO', items: [
+    { to: '/demo', label: 'Dashboard', icon: LayoutDashboard, end: true },
+    { to: '/demo/market', label: 'Market watch', icon: ChartCandlestick },
+    { to: '/demo/orders', label: 'Orders', icon: ListOrdered },
+    { to: '/demo/portfolio', label: 'Portfolio', icon: Wallet },
+    { to: '/demo/watchlist', label: 'Watchlist & alerts', icon: Bell },
+    { to: '/demo/assistant', label: 'AI assistant', icon: Bot },
+  ],
+};
 
 export function Logo({ dark = true }: { dark?: boolean }) {
   return (
@@ -33,19 +39,29 @@ export function Logo({ dark = true }: { dark?: boolean }) {
 function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
   const { user, isAdmin, logout } = useAuth();
   const sim = useApi(() => marketApi.simulation(), [], { intervalMs: 30_000, topics: ['market'] });
-  const items = isAdmin ? [...NAV, { to: '/admin', label: 'Admin', icon: Shield }] : NAV;
+  const sections: NavSection[] = [DEMO_NAV];
+  if (isAdmin) sections.push({ title: 'Administration', items: [{ to: '/admin', label: 'Admin', icon: Shield }] });
   return (
     <div className="flex h-full flex-col bg-[#0b1220] text-slate-300">
       <div className="px-5 py-5"><Logo /></div>
-      <nav className="flex-1 space-y-0.5 px-3" aria-label="Main">
-        {items.map(({ to, label, icon: Icon, ...rest }) => (
-          <NavLink
-            key={to} to={to} end={'end' in rest} onClick={onNavigate}
-            className={({ isActive }) => cx('flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
-              isActive ? 'bg-slate-800 text-white' : 'text-slate-400 hover:bg-slate-800/60 hover:text-slate-100')}
-          >
-            <Icon className="size-4.5" aria-hidden /> {label}
-          </NavLink>
+      <nav className="flex-1 space-y-5 overflow-y-auto px-3" aria-label="Main">
+        {sections.map((section) => (
+          <div key={section.title}>
+            <p className="mb-1.5 flex items-center gap-2 px-3 text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+              {section.title} {section.env && <EnvironmentBadge env={section.env} size="xs" />}
+            </p>
+            <div className="space-y-0.5">
+              {section.items.map(({ to, label, icon: Icon, end }) => (
+                <NavLink
+                  key={to} to={to} end={end} onClick={onNavigate}
+                  className={({ isActive }) => cx('flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
+                    isActive ? 'bg-slate-800 text-white' : 'text-slate-400 hover:bg-slate-800/60 hover:text-slate-100')}
+                >
+                  <Icon className="size-4.5" aria-hidden /> {label}
+                </NavLink>
+              ))}
+            </div>
+          </div>
         ))}
       </nav>
       <div className="mx-3 mb-3 rounded-lg bg-slate-800/50 px-3 py-2.5 text-xs text-slate-400">

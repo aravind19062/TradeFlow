@@ -1,0 +1,253 @@
+{
+ "contentVersion": 1,
+ "modules": [
+  {
+   "slug": "stock-market-fundamentals",
+   "title": "Stock market fundamentals",
+   "summary": "What shares are, how exchanges, brokers and settlement work, and who you trade against.",
+   "position": 1,
+   "mandatory": true,
+   "lessons": [
+    {
+     "slug": "what-is-a-stock",
+     "title": "What a stock is"
+    },
+    {
+     "slug": "exchanges-and-participants",
+     "title": "Exchanges, brokers and market participants"
+    }
+   ],
+   "quiz": {
+    "questionsServed": 5,
+    "timeLimitMinutes": 15
+   }
+  },
+  {
+   "slug": "market-and-limit-orders",
+   "title": "Market and limit orders",
+   "summary": "The two basic order types and the trade-off between price and execution certainty.",
+   "position": 2,
+   "mandatory": true,
+   "lessons": [
+    {
+     "slug": "market-orders",
+     "title": "Market orders"
+    },
+    {
+     "slug": "limit-orders",
+     "title": "Limit orders"
+    }
+   ],
+   "quiz": {
+    "questionsServed": 5,
+    "timeLimitMinutes": 15
+   }
+  },
+  {
+   "slug": "bid-ask-spread",
+   "title": "Bid, ask and the spread",
+   "summary": "Why there are two prices, what the spread costs you, and the real cost of a trade.",
+   "position": 3,
+   "mandatory": true,
+   "lessons": [
+    {
+     "slug": "bid-and-ask",
+     "title": "Bid, ask and the spread"
+    },
+    {
+     "slug": "liquidity-and-costs",
+     "title": "Liquidity and the real cost of a trade"
+    }
+   ],
+   "quiz": {
+    "questionsServed": 5,
+    "timeLimitMinutes": 15
+   }
+  },
+  {
+   "slug": "order-execution",
+   "title": "Order execution",
+   "summary": "The life of an order, reservations, rejections, and stop and stop-limit orders.",
+   "position": 4,
+   "mandatory": true,
+   "lessons": [
+    {
+     "slug": "order-lifecycle",
+     "title": "The life of an order"
+    },
+    {
+     "slug": "stop-orders",
+     "title": "Stop and stop-limit orders"
+    }
+   ],
+   "quiz": {
+    "questionsServed": 5,
+    "timeLimitMinutes": 15
+   }
+  },
+  {
+   "slug": "holdings-and-positions",
+   "title": "Holdings and positions",
+   "summary": "Average cost, long and short, and realized versus unrealized P&L.",
+   "position": 5,
+   "mandatory": true,
+   "lessons": [
+    {
+     "slug": "holdings-vs-positions",
+     "title": "Holdings and positions"
+    },
+    {
+     "slug": "realized-and-unrealized-pnl",
+     "title": "Realized and unrealized profit and loss"
+    }
+   ],
+   "quiz": {
+    "questionsServed": 5,
+    "timeLimitMinutes": 15
+   }
+  },
+  {
+   "slug": "portfolio-management",
+   "title": "Portfolio management",
+   "summary": "Concentration, diversification, allocation and measuring performance honestly.",
+   "position": 6,
+   "mandatory": true,
+   "lessons": [
+    {
+     "slug": "diversification",
+     "title": "Diversification and allocation"
+    },
+    {
+     "slug": "measuring-performance",
+     "title": "Measuring performance honestly"
+    }
+   ],
+   "quiz": {
+    "questionsServed": 5,
+    "timeLimitMinutes": 15
+   }
+  },
+  {
+   "slug": "risk-management",
+   "title": "Risk management",
+   "summary": "The arithmetic of losses, kinds of risk, and making a plan before you trade.",
+   "position": 7,
+   "mandatory": true,
+   "lessons": [
+    {
+     "slug": "understanding-risk",
+     "title": "Understanding risk"
+    },
+    {
+     "slug": "trading-plan",
+     "title": "Making a trading plan before you trade"
+    }
+   ],
+   "quiz": {
+    "questionsServed": 5,
+    "timeLimitMinutes": 15
+   }
+  },
+  {
+   "slug": "stop-loss-and-position-sizing",
+   "title": "Stop-loss and position sizing",
+   "summary": "Where to put a stop, why it is not a guarantee, and how many shares to buy.",
+   "position": 8,
+   "mandatory": true,
+   "lessons": [
+    {
+     "slug": "setting-a-stop-loss",
+     "title": "Setting a stop-loss"
+    },
+    {
+     "slug": "position-sizing",
+     "title": "Position sizing"
+    }
+   ],
+   "quiz": {
+    "questionsServed": 5,
+    "timeLimitMinutes": 15
+   }
+  },
+  {
+   "slug": "leverage-and-margin",
+   "title": "Leverage and margin risks",
+   "summary": "How leverage magnifies losses, margin calls, and the evidence on derivatives.",
+   "position": 9,
+   "mandatory": true,
+   "lessons": [
+    {
+     "slug": "how-leverage-works",
+     "title": "How leverage and margin work"
+    },
+    {
+     "slug": "derivatives-risk",
+     "title": "Derivatives and leverage: the evidence"
+    }
+   ],
+   "quiz": {
+    "questionsServed": 5,
+    "timeLimitMinutes": 15
+   }
+  },
+  {
+   "slug": "common-mistakes",
+   "title": "Common trading mistakes",
+   "summary": "Behavioural traps, scams and operational errors, and how to defend against them.",
+   "position": 10,
+   "mandatory": true,
+   "lessons": [
+    {
+     "slug": "behavioural-traps",
+     "title": "Behavioural traps"
+    },
+    {
+     "slug": "operational-mistakes",
+     "title": "Operational mistakes"
+    }
+   ],
+   "quiz": {
+    "questionsServed": 5,
+    "timeLimitMinutes": 15
+   }
+  }
+ ],
+ "finalAssessment": {
+  "questionsServed": 20,
+  "timeLimitMinutes": 40
+ },
+ "exercises": [
+  {
+   "slug": "market-order",
+   "title": "Place and review a market order",
+   "module": "market-and-limit-orders",
+   "position": 1,
+   "description": "Place a demo MARKET BUY for any instrument and open its order details. Notice that it filled at the ask, not at the mid price.",
+   "rule": "MARKET_BUY_FILLED"
+  },
+  {
+   "slug": "limit-order-cancel",
+   "title": "Rest and cancel a limit order",
+   "module": "market-and-limit-orders",
+   "position": 2,
+   "description": "Place a demo LIMIT BUY well below the current ask so that it rests OPEN, then cancel it and check that the reserved cash is released.",
+   "rule": "LIMIT_ORDER_CANCELLED"
+  },
+  {
+   "slug": "stop-loss",
+   "title": "Protect a holding with a stop",
+   "module": "stop-loss-and-position-sizing",
+   "position": 3,
+   "description": "On a demo holding, place a SELL STOP or SELL STOP-LIMIT below the current bid. It counts once the order is accepted (shares reserved); it does not need to trigger.",
+   "rule": "SELL_STOP_ACCEPTED"
+  },
+  {
+   "slug": "position-sizing",
+   "title": "Size a position from a risk budget",
+   "module": "stop-loss-and-position-sizing",
+   "position": 4,
+   "description": "Get a scenario, calculate the quantity that risks the stated amount, then place a demo BUY for exactly that quantity of the scenario's instrument within 7 days. Profit or loss is irrelevant.",
+   "rule": "POSITION_SIZE_MATCHED"
+  }
+ ]
+}

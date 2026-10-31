@@ -1,0 +1,226 @@
+[
+ {
+  "key": "holdings-and-positions-01",
+  "prompt": "You buy 10 shares at ₹100 and 10 at ₹120. What is your average cost?",
+  "multi": false,
+  "options": [
+   {
+    "key": "a",
+    "text": "₹110",
+    "correct": true
+   },
+   {
+    "key": "b",
+    "text": "₹100",
+    "correct": false
+   },
+   {
+    "key": "c",
+    "text": "₹120",
+    "correct": false
+   },
+   {
+    "key": "d",
+    "text": "₹220",
+    "correct": false
+   }
+  ],
+  "explanation": "(10×100 + 10×120) / 20 = 110."
+ },
+ {
+  "key": "holdings-and-positions-02",
+  "prompt": "You hold 20 shares at an average cost of ₹110 and sell 5 at ₹130. What is the realized P&L (before costs)?",
+  "multi": false,
+  "options": [
+   {
+    "key": "a",
+    "text": "₹100",
+    "correct": true
+   },
+   {
+    "key": "b",
+    "text": "₹400",
+    "correct": false
+   },
+   {
+    "key": "c",
+    "text": "₹650",
+    "correct": false
+   },
+   {
+    "key": "d",
+    "text": "₹20",
+    "correct": false
+   }
+  ],
+  "explanation": "(130 − 110) × 5 = 100."
+ },
+ {
+  "key": "holdings-and-positions-03",
+  "prompt": "After selling part of a holding, the average cost of the remaining shares…",
+  "multi": false,
+  "options": [
+   {
+    "key": "a",
+    "text": "Stays the same",
+    "correct": true
+   },
+   {
+    "key": "b",
+    "text": "Is reset to the sale price",
+    "correct": false
+   },
+   {
+    "key": "c",
+    "text": "Becomes zero",
+    "correct": false
+   },
+   {
+    "key": "d",
+    "text": "Doubles",
+    "correct": false
+   }
+  ],
+  "explanation": "Selling realizes P&L on the sold shares; it does not change the remaining shares' average cost."
+ },
+ {
+  "key": "holdings-and-positions-04",
+  "prompt": "Unrealized P&L is…",
+  "multi": false,
+  "options": [
+   {
+    "key": "a",
+    "text": "A paper gain or loss on shares you still hold",
+    "correct": true
+   },
+   {
+    "key": "b",
+    "text": "Profit already credited from a sale",
+    "correct": false
+   },
+   {
+    "key": "c",
+    "text": "A tax",
+    "correct": false
+   },
+   {
+    "key": "d",
+    "text": "A brokerage fee",
+    "correct": false
+   }
+  ],
+  "explanation": "It becomes realized only when you sell."
+ },
+ {
+  "key": "holdings-and-positions-05",
+  "prompt": "Which statement about losses is correct?",
+  "multi": false,
+  "options": [
+   {
+    "key": "a",
+    "text": "An unrealized loss is still an economic loss",
+    "correct": true
+   },
+   {
+    "key": "b",
+    "text": "A loss doesn't exist until you sell",
+    "correct": false
+   },
+   {
+    "key": "c",
+    "text": "Holding a loser always recovers it",
+    "correct": false
+   },
+   {
+    "key": "d",
+    "text": "Unrealized losses can be ignored",
+    "correct": false
+   }
+  ],
+  "explanation": "Not selling doesn't undo the fall in value."
+ },
+ {
+  "key": "holdings-and-positions-06",
+  "prompt": "A 'long' position means…",
+  "multi": false,
+  "options": [
+   {
+    "key": "a",
+    "text": "You own the asset and gain if its price rises",
+    "correct": true
+   },
+   {
+    "key": "b",
+    "text": "You sold shares you don't own",
+    "correct": false
+   },
+   {
+    "key": "c",
+    "text": "You hold it for over a year",
+    "correct": false
+   },
+   {
+    "key": "d",
+    "text": "You used leverage",
+    "correct": false
+   }
+  ],
+  "explanation": "Short positions profit from falls; long positions from rises."
+ },
+ {
+  "key": "holdings-and-positions-07",
+  "prompt": "Why can short selling be especially risky?",
+  "multi": false,
+  "options": [
+   {
+    "key": "a",
+    "text": "Losses are theoretically unlimited because prices can rise without limit",
+    "correct": true
+   },
+   {
+    "key": "b",
+    "text": "Shares can't fall",
+    "correct": false
+   },
+   {
+    "key": "c",
+    "text": "It is always illegal",
+    "correct": false
+   },
+   {
+    "key": "d",
+    "text": "Short sellers receive dividends",
+    "correct": false
+   }
+  ],
+  "explanation": "A rising price increases the short seller's loss without a cap."
+ },
+ {
+  "key": "holdings-and-positions-08",
+  "prompt": "Shares bought today usually appear first under…",
+  "multi": false,
+  "options": [
+   {
+    "key": "a",
+    "text": "Positions, until settlement moves them into holdings",
+    "correct": true
+   },
+   {
+    "key": "b",
+    "text": "Holdings immediately",
+    "correct": false
+   },
+   {
+    "key": "c",
+    "text": "Neither until month-end",
+    "correct": false
+   },
+   {
+    "key": "d",
+    "text": "The exchange's account",
+    "correct": false
+   }
+  ],
+  "explanation": "Holdings are settled shares; today's trades show as positions first."
+ }
+]

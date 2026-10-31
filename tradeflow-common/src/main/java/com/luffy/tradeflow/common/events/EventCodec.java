@@ -2,6 +2,7 @@ package com.luffy.tradeflow.common.events;
 
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.Validator;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import tools.jackson.core.JacksonException;
@@ -10,6 +11,7 @@ import tools.jackson.databind.ObjectReader;
 import tools.jackson.databind.json.JsonMapper;
 
 import java.time.Clock;
+import java.util.EnumSet;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -19,6 +21,10 @@ import java.util.stream.Collectors;
  * wrong event type, unsupported schema version or a payload that fails bean
  * validation raises {@link InvalidEventException}, which the Kafka error handler
  * sends to the dead-letter topic without retrying.
+ *
+ * <p>Every envelope is stamped with the producer's {@link TradingEnvironment}, and decoding
+ * rejects events from an environment this service does not accept. That is the
+ * service-boundary guarantee that a LIVE event never drives the DEMO engine and the reverse.
  */
 @Component
 public class EventCodec {
@@ -30,9 +36,19 @@ public class EventCodec {
     private final Validator validator;
     private final Clock clock;
     private final String producer;
+    private final TradingEnvironment environment;
+    private final Set<TradingEnvironment> accepted;
 
+    /** DEMO producer accepting DEMO and PLATFORM events (unit tests and the demo services' defaults). */
+    public EventCodec(JsonMapper jsonMapper, Validator validator, Clock clock, String producer) {
+        this(jsonMapper, validator, clock, producer, TradingEnvironment.DEMO, null);
+    }
+
+    @Autowired
     public EventCodec(JsonMapper jsonMapper, Validator validator, Clock clock,
-                      @Value("${spring.application.name}") String producer) {
+                      @Value("${spring.application.name}") String producer,
+                      @Value("${tradeflow.environment}") TradingEnvironment environment,
+                      @Value("${tradeflow.events.accepted-environments:}") Set<TradingEnvironment> accepted) {
         this.jsonMapper = jsonMapper;
         // Read decimals as BigDecimal so money never passes through a double.
         this.envelopeReader = jsonMapper.readerFor(EventEnvelope.class)
@@ -40,11 +56,24 @@ public class EventCodec {
         this.validator = validator;
         this.clock = clock;
         this.producer = producer;
+        this.environment = environment;
+        this.accepted = accepted == null || accepted.isEmpty()
+                ? EnumSet.of(environment, TradingEnvironment.PLATFORM)
+                : EnumSet.copyOf(accepted);
+        if ((environment == TradingEnvironment.DEMO && this.accepted.contains(TradingEnvironment.LIVE))
+                || (environment == TradingEnvironment.LIVE && this.accepted.contains(TradingEnvironment.DEMO))) {
+            throw new IllegalStateException("Refusing to start: a " + environment + " service must never accept "
+                    + "events from the other trading environment (accepted: " + this.accepted + ")");
+        }
+    }
+
+    public TradingEnvironment environment() {
+        return environment;
     }
 
     public EventEnvelope wrap(String eventType, String aggregateId, Object payload) {
         return new EventEnvelope(UUID.randomUUID(), eventType, SCHEMA_VERSION, clock.instant(),
-                producer, aggregateId, jsonMapper.valueToTree(payload));
+                producer, aggregateId, jsonMapper.valueToTree(payload), environment.name());
     }
 
     public String encode(EventEnvelope envelope) {
@@ -64,6 +93,16 @@ public class EventCodec {
         }
         if (!expectedType.equals(envelope.eventType())) {
             throw new InvalidEventException("Expected event type " + expectedType + " but got " + envelope.eventType());
+        }
+        TradingEnvironment from;
+        try {
+            from = TradingEnvironment.ofEnvelope(envelope.environment());
+        } catch (IllegalArgumentException e) {
+            throw new InvalidEventException("Unknown environment " + envelope.environment());
+        }
+        if (!accepted.contains(from)) {
+            throw new InvalidEventException("Refusing " + from + " event " + envelope.eventId() + " (" + expectedType
+                    + "): this " + environment + " service accepts only " + accepted);
         }
         if (envelope.schemaVersion() != SCHEMA_VERSION) {
             throw new InvalidEventException("Unsupported schema version " + envelope.schemaVersion()
