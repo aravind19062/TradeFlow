@@ -17,15 +17,16 @@ analytics, and a read-only **AI portfolio assistant**.
 2. [The order saga](#the-order-saga)
 3. [Key engineering decisions](#key-engineering-decisions)
 4. [Quick start](#quick-start)
-5. [Demo walkthrough](#demo-walkthrough)
-6. [API overview](#api-overview)
-7. [Configuration and security](#configuration-and-security)
-8. [Databases: H2 vs PostgreSQL](#databases-h2-vs-postgresql)
-9. [Kafka, delivery guarantees and dead letters](#kafka-delivery-guarantees-and-dead-letters)
-10. [AI portfolio assistant](#ai-portfolio-assistant)
-11. [Testing](#testing)
-12. [Operations and troubleshooting](#operations-and-troubleshooting)
-13. [Features, limitations, future work](#features-limitations-future-work)
+5. [Web frontend](#web-frontend)
+6. [Demo walkthrough](#demo-walkthrough)
+7. [API overview](#api-overview)
+8. [Configuration and security](#configuration-and-security)
+9. [Databases: H2 vs PostgreSQL](#databases-h2-vs-postgresql)
+10. [Kafka, delivery guarantees and dead letters](#kafka-delivery-guarantees-and-dead-letters)
+11. [AI portfolio assistant](#ai-portfolio-assistant)
+12. [Testing](#testing)
+13. [Operations and troubleshooting](#operations-and-troubleshooting)
+14. [Features, limitations, future work](#features-limitations-future-work)
 
 ---
 
@@ -33,6 +34,7 @@ analytics, and a read-only **AI portfolio assistant**.
 
 | Component | Port | Responsibility |
 |---|---|---|
+| `tradeflow-frontend` | **3000** | React + TypeScript web app served by nginx, which also proxies `/api/**` to the gateway (same origin, so no CORS). See [Web frontend](#web-frontend). |
 | `tradeflow-api-gateway` | **8000** | Single external entry point (Spring Cloud Gateway, servlet). Checks JWTs and roles at the edge, routes via Eureka with load balancing, has a circuit breaker per route, serves the aggregated Swagger UI. Blocks `/internal/**`. |
 | `tradeflow-discovery-server` | 8761 | Eureka registry; services register and find each other by name. |
 | `tradeflow-user-service` | internal | Registration, login with throttling, JWT issuing, demo users (local profile only) |
@@ -43,7 +45,9 @@ analytics, and a read-only **AI portfolio assistant**.
 
 ```mermaid
 flowchart LR
-    client([Client / Swagger UI / demo.sh]) -- "REST + JWT" --> GW[API gateway :8000]
+    web([Browser]) -- "same origin" --> FE[frontend nginx :3000]
+    FE -- "/api/** + JWT" --> GW[API gateway :8000]
+    client([curl / demo.sh]) -- "REST + JWT" --> GW
     GW -. "lookup" .-> EU[(Eureka :8761)]
     GW -- "lb://" --> U[user-service]
     GW -- "lb://" --> M1[market-data #1]
@@ -136,23 +140,26 @@ transaction. Details: [docs/EVENTS.md](docs/EVENTS.md).
 ### Prerequisites
 
 * JDK 17, Maven 3.9+
-* Docker (Docker Desktop, OrbStack or Colima). The full stack (9 containers) uses about **2.8 GiB**;
+* Docker (Docker Desktop, OrbStack or Colima). The full stack (10 containers) uses about **2.8 GiB**;
   each container has a memory limit.
 * `curl` and `jq` for the demo script
+* Node.js 22 only for frontend development outside Docker (`tradeflow-frontend/.nvmrc`)
 
 ### Option A: everything in Docker (recommended)
 
 ```bash
 cp .env.example .env     # optional; every value has a safe LOCAL default
-make up                  # builds images, starts PostgreSQL, Kafka, Eureka, gateway, services (2 market-data replicas)
+make up                  # builds images, starts PostgreSQL, Kafka, Eureka, gateway, services (2 market-data replicas), web app
 make ps                  # wait until everything is "healthy"
 make demo                # scripted walkthrough through the gateway
 ```
 
 | URL | What |
 |---|---|
+| **http://localhost:3000** | **TradeFlow web app** (sign in as `demo@tradeflow.dev` / `Demo@12345`) |
 | http://localhost:8000 | API gateway (all `/api/**` routes) |
-| http://localhost:8000/swagger-ui.html | Aggregated Swagger UI for all four services |
+| http://localhost:8000/v3/api-docs/{user,market-data,order,portfolio} | OpenAPI documents per service |
+| http://localhost:8000/swagger-ui.html | Aggregated Swagger UI. **Currently returns 404**: the gateway sets `springdoc.api-docs.enabled=false`, which also disables the UI. |
 | http://localhost:8761 | Eureka dashboard (registered instances) |
 | http://localhost:8085 | Kafka UI, after `make tools` |
 
@@ -177,6 +184,45 @@ GATEWAY_URL= USER_URL=http://localhost:8081 ORDER_URL=http://localhost:8080 \
 
 **Demo users** (local profile only): `demo@tradeflow.dev` / `admin@tradeflow.dev`, password
 `Demo@12345`. New accounts receive ₹10,00,000 of simulated cash.
+
+## Web frontend
+
+`tradeflow-frontend/` is a React 19 + TypeScript + Vite app (Tailwind CSS, React Router, Axios, Recharts,
+Lucide icons). Every figure on screen comes from the backend through the gateway; there is no mock data.
+
+| Screen | Backend endpoints |
+|---|---|
+| Sign in / register | `POST /api/auth/login`, `POST /api/auth/register`, `GET /api/users/me` |
+| Dashboard | `GET /api/portfolio/summary`, `/performance`, `/risk`; `GET /api/orders`; `GET /api/watchlist` |
+| Market watch, instrument | `GET /api/market/quotes`, `/quotes/{symbol}`, `/history`, `/simulation` |
+| Order ticket (market/limit), cancel | `POST /api/orders` (with a `clientOrderId` idempotency key), `GET /api/orders/{id}`, `POST /api/orders/{id}/cancel` |
+| Orders: open, history, trades | `GET /api/orders?status=…`, `GET /api/trades` |
+| Portfolio: holdings, performance, risk, transactions | `GET /api/portfolio/summary`, `/performance`, `/risk`, `/transactions`, `/reconciliation` |
+| Watchlist & alerts | `GET/PUT/DELETE /api/watchlist/{symbol}`, `GET/POST /api/alerts`, `DELETE /api/alerts/{id}` |
+| AI assistant | `POST /api/assistant/ask`, `GET /api/assistant/capabilities` |
+| Admin (ADMIN role only) | `POST /api/market/simulation/advance`, `GET /api/admin/reconciliation` |
+
+**Connectivity.** The browser only talks to its own origin: nginx (Docker, port 3000) or the Vite dev server
+(port 5173) proxies `/api/**` to the gateway. The gateway has no CORS configuration and the services publish
+no ports, so nothing else is reachable.
+
+**Sessions.** The JWT from login/registration is kept in `sessionStorage` (cleared when the tab closes) and
+sent as `Authorization: Bearer`. The client signs out at the token's `exp` (8 h; there is no refresh token)
+and on any 401. Sign-out is local because the backend has no revocation endpoint. nginx sends a strict
+Content-Security-Policy to limit XSS exposure of the token.
+
+**Develop and test**
+
+```bash
+make web-dev     # hot reload on http://localhost:5173 against the gateway on :8000 (needs Node 22)
+make web-test    # typecheck + unit tests (Vitest)
+make web-e2e     # Playwright journey against the RUNNING stack; E2E_BASE_URL=http://localhost:3000 for Docker
+```
+
+The end-to-end journey registers a new user, checks dashboard figures against the API, places a market buy and
+verifies it through the backend, rests and cancels a limit order (checking reserved cash), uses the
+assistant, watchlist and alerts, and checks authentication and authorization (forged token, USER vs ADMIN).
+It writes real data: one new user per run plus orders on the shared demo instruments.
 
 ## Demo walkthrough
 
@@ -367,7 +413,8 @@ make test-postgres    # also PostgreSQL compatibility tests (Testcontainers or e
 | End-to-end | All four services in one JVM with Feign over simple discovery and an embedded broker: register → buy → rejections → limit + cancel → sell → analytics → reconciliation → assistant order lookup → isolation |
 
 CI (`.github/workflows/ci.yml`) runs `mvn verify -Ppostgres-tests`, validates Compose and builds every
-image.
+image. The `frontend` job typechecks, unit-tests and builds the web app. The browser end-to-end suite
+(`make web-e2e`) needs the full stack and is run locally.
 
 ## Operations and troubleshooting
 
@@ -399,6 +446,7 @@ make psql DB=tradeflow_order | make topics | make dlt T=trades.executed
 * Settlement with weighted-average cost and realized/unrealized P&L; ledger replay.
 * Risk analytics; per-account and cross-service reconciliation.
 * AI assistant with an honest fallback.
+* React web frontend covering every user-facing endpoint, with browser end-to-end tests.
 * Docker Compose with health checks and memory limits; CI.
 
 **Known limitations (deliberate scope):**
@@ -420,6 +468,7 @@ tradeflow-discovery-server/     Eureka
 tradeflow-api-gateway/          Spring Cloud Gateway (servlet)
 tradeflow-*-service/            the four services (Flyway: src/main/resources/db/migration/<service>/)
 tradeflow-e2e-tests/            in-JVM end-to-end test
+tradeflow-frontend/             React web app (src/), Playwright journey (e2e/), nginx image
 docker-compose.yml, docker/     local environment and the shared service Dockerfile
 Makefile, scripts/demo.sh       developer commands and the scripted demo
 docs/EVENTS.md                  event contract and saga
