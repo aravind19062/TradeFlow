@@ -15,6 +15,8 @@ import java.util.UUID;
  * @param producer      spring.application.name of the producer
  * @param aggregateId   id of the entity the event is about (also the Kafka key)
  * @param payload       event-specific body, see the records in this package
+ * @param environment   {@link TradingEnvironment} of the producer; absent on events written before
+ *                      environments existed, which are all DEMO
  */
 public record EventEnvelope(
         UUID eventId,
@@ -23,5 +25,6 @@ public record EventEnvelope(
         Instant occurredAt,
         String producer,
         String aggregateId,
-        JsonNode payload) {
+        JsonNode payload,
+        String environment) {
 }

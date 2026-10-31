@@ -1,0 +1,226 @@
+[
+ {
+  "key": "bid-ask-spread-01",
+  "prompt": "If you want to SELL immediately, which price do you receive?",
+  "multi": false,
+  "options": [
+   {
+    "key": "a",
+    "text": "The bid",
+    "correct": true
+   },
+   {
+    "key": "b",
+    "text": "The ask",
+    "correct": false
+   },
+   {
+    "key": "c",
+    "text": "The last traded price exactly",
+    "correct": false
+   },
+   {
+    "key": "d",
+    "text": "The day's high",
+    "correct": false
+   }
+  ],
+  "explanation": "Selling immediately means accepting the best buyer's bid."
+ },
+ {
+  "key": "bid-ask-spread-02",
+  "prompt": "Bid ₹49.90, ask ₹50.10. What is the spread?",
+  "multi": false,
+  "options": [
+   {
+    "key": "a",
+    "text": "₹0.20",
+    "correct": true
+   },
+   {
+    "key": "b",
+    "text": "₹0.10",
+    "correct": false
+   },
+   {
+    "key": "c",
+    "text": "₹50.00",
+    "correct": false
+   },
+   {
+    "key": "d",
+    "text": "₹100.00",
+    "correct": false
+   }
+  ],
+  "explanation": "Spread = ask − bid = 0.20."
+ },
+ {
+  "key": "bid-ask-spread-03",
+  "prompt": "Bid ₹99.90, ask ₹100.10. You buy 100 at market and sell immediately at market. Ignoring charges, the result is about…",
+  "multi": false,
+  "options": [
+   {
+    "key": "a",
+    "text": "−₹20",
+    "correct": true
+   },
+   {
+    "key": "b",
+    "text": "₹0",
+    "correct": false
+   },
+   {
+    "key": "c",
+    "text": "+₹20",
+    "correct": false
+   },
+   {
+    "key": "d",
+    "text": "−₹200",
+    "correct": false
+   }
+  ],
+  "explanation": "You pay the ask and receive the bid: 100 × 0.20 = ₹20 lost to the spread."
+ },
+ {
+  "key": "bid-ask-spread-04",
+  "prompt": "What is the mid price when bid is ₹200 and ask is ₹202?",
+  "multi": false,
+  "options": [
+   {
+    "key": "a",
+    "text": "₹201",
+    "correct": true
+   },
+   {
+    "key": "b",
+    "text": "₹200",
+    "correct": false
+   },
+   {
+    "key": "c",
+    "text": "₹202",
+    "correct": false
+   },
+   {
+    "key": "d",
+    "text": "₹2",
+    "correct": false
+   }
+  ],
+  "explanation": "Mid = (bid + ask) / 2."
+ },
+ {
+  "key": "bid-ask-spread-05",
+  "prompt": "When do spreads typically widen? (Select all that apply)",
+  "multi": true,
+  "options": [
+   {
+    "key": "a",
+    "text": "Around the market open and close",
+    "correct": true
+   },
+   {
+    "key": "b",
+    "text": "During major news",
+    "correct": true
+   },
+   {
+    "key": "c",
+    "text": "In market stress",
+    "correct": true
+   },
+   {
+    "key": "d",
+    "text": "Never; spreads are fixed",
+    "correct": false
+   }
+  ],
+  "explanation": "Spreads widen when liquidity is scarce or uncertainty is high."
+ },
+ {
+  "key": "bid-ask-spread-06",
+  "prompt": "Which are real costs of a round trip? (Select all that apply)",
+  "multi": true,
+  "options": [
+   {
+    "key": "a",
+    "text": "The spread",
+    "correct": true
+   },
+   {
+    "key": "b",
+    "text": "Brokerage and statutory charges such as STT",
+    "correct": true
+   },
+   {
+    "key": "c",
+    "text": "Slippage",
+    "correct": true
+   },
+   {
+    "key": "d",
+    "text": "Unrealized gains",
+    "correct": false
+   }
+  ],
+  "explanation": "Unrealized gains are not a cost; the others are."
+ },
+ {
+  "key": "bid-ask-spread-07",
+  "prompt": "A liquid share generally has…",
+  "multi": false,
+  "options": [
+   {
+    "key": "a",
+    "text": "Narrow spreads and a deep order book",
+    "correct": true
+   },
+   {
+    "key": "b",
+    "text": "Wide spreads and few orders",
+    "correct": false
+   },
+   {
+    "key": "c",
+    "text": "No bid",
+    "correct": false
+   },
+   {
+    "key": "d",
+    "text": "A fixed price",
+    "correct": false
+   }
+  ],
+  "explanation": "Liquidity means many orders near the current price."
+ },
+ {
+  "key": "bid-ask-spread-08",
+  "prompt": "Why does frequent trading hurt returns, all else equal?",
+  "multi": false,
+  "options": [
+   {
+    "key": "a",
+    "text": "Costs such as spreads and charges are paid on every trade",
+    "correct": true
+   },
+   {
+    "key": "b",
+    "text": "Exchanges penalise active traders",
+    "correct": false
+   },
+   {
+    "key": "c",
+    "text": "Brokers reverse profitable trades",
+    "correct": false
+   },
+   {
+    "key": "d",
+    "text": "It doesn't; costs are only paid on winners",
+    "correct": false
+   }
+  ],
+  "explanation": "Costs accumulate per trade regardless of outcome."
+ }
+]

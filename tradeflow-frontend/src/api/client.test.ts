@@ -70,3 +70,25 @@ describe('interceptors', () => {
     expect(sessionStorage.length).toBe(0);
   });
 });
+
+describe('environment guard', () => {
+  const respond = (header?: string) => async (config: InternalAxiosRequestConfig) => ({
+    data: { ok: true }, status: 200, statusText: 'OK', config,
+    headers: header ? { 'x-tradeflow-environment': header } : {},
+  });
+
+  it('accepts demo data only when the gateway labels it DEMO', async () => {
+    await expect(http.get('/demo/orders', { adapter: respond('DEMO') })).resolves.toMatchObject({ data: { ok: true } });
+    await expect(http.get('/demo/orders', { adapter: respond('LIVE') })).rejects.toMatchObject({ code: 'ENVIRONMENT_MISMATCH' });
+    await expect(http.get('/demo/orders', { adapter: respond() })).rejects.toMatchObject({ code: 'ENVIRONMENT_MISMATCH' });
+  });
+
+  it('accepts live data only when labelled LIVE', async () => {
+    await expect(http.get('/live/funds', { adapter: respond('DEMO') })).rejects.toMatchObject({ code: 'ENVIRONMENT_MISMATCH' });
+    await expect(http.get('/live/funds', { adapter: respond('LIVE') })).resolves.toBeTruthy();
+  });
+
+  it('does not require a label on environment-neutral paths', async () => {
+    await expect(http.get('/users/me', { adapter: respond() })).resolves.toBeTruthy();
+  });
+});

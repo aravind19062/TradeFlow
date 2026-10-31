@@ -1,0 +1,226 @@
+[
+ {
+  "key": "stock-market-fundamentals-01",
+  "prompt": "Owning a company's share means you…",
+  "multi": false,
+  "options": [
+   {
+    "key": "a",
+    "text": "Own a small part of the business and share its risks and rewards",
+    "correct": true
+   },
+   {
+    "key": "b",
+    "text": "Have lent money to the company at a fixed interest rate",
+    "correct": false
+   },
+   {
+    "key": "c",
+    "text": "Are guaranteed a dividend every year",
+    "correct": false
+   },
+   {
+    "key": "d",
+    "text": "Can withdraw your money from the company at any time",
+    "correct": false
+   }
+  ],
+  "explanation": "A share is ownership. Fixed interest is a feature of bonds, dividends are never guaranteed, and the company does not repay shareholders on demand."
+ },
+ {
+  "key": "stock-market-fundamentals-02",
+  "prompt": "When you buy a listed share on the exchange from another investor, who receives your money?",
+  "multi": false,
+  "options": [
+   {
+    "key": "a",
+    "text": "The selling investor",
+    "correct": true
+   },
+   {
+    "key": "b",
+    "text": "The company that issued the share",
+    "correct": false
+   },
+   {
+    "key": "c",
+    "text": "The stock exchange",
+    "correct": false
+   },
+   {
+    "key": "d",
+    "text": "SEBI",
+    "correct": false
+   }
+  ],
+  "explanation": "Secondary-market trades are between investors. The company only receives money when it issues new shares, for example in an IPO."
+ },
+ {
+  "key": "stock-market-fundamentals-03",
+  "prompt": "If a company becomes insolvent, shareholders are typically…",
+  "multi": false,
+  "options": [
+   {
+    "key": "a",
+    "text": "Paid after lenders and other creditors",
+    "correct": true
+   },
+   {
+    "key": "b",
+    "text": "Paid before lenders",
+    "correct": false
+   },
+   {
+    "key": "c",
+    "text": "Refunded their purchase price by the exchange",
+    "correct": false
+   },
+   {
+    "key": "d",
+    "text": "Protected by SEBI against loss",
+    "correct": false
+   }
+  ],
+  "explanation": "Equity holders rank last. Shares can become worthless; neither the exchange nor the regulator refunds investment losses."
+ },
+ {
+  "key": "stock-market-fundamentals-04",
+  "prompt": "What is the role of a stockbroker for a retail investor?",
+  "multi": false,
+  "options": [
+   {
+    "key": "a",
+    "text": "Accepts orders, performs KYC and routes orders to the exchange",
+    "correct": true
+   },
+   {
+    "key": "b",
+    "text": "Guarantees that your trades will be profitable",
+    "correct": false
+   },
+   {
+    "key": "c",
+    "text": "Sets the market price of shares",
+    "correct": false
+   },
+   {
+    "key": "d",
+    "text": "Regulates listed companies",
+    "correct": false
+   }
+  ],
+  "explanation": "Brokers are exchange members who handle client orders and KYC. Prices are set by trading; regulation is SEBI's role."
+ },
+ {
+  "key": "stock-market-fundamentals-05",
+  "prompt": "Where are shares held after you buy them in India?",
+  "multi": false,
+  "options": [
+   {
+    "key": "a",
+    "text": "Electronically in a demat account at a depository",
+    "correct": true
+   },
+   {
+    "key": "b",
+    "text": "As paper certificates at the exchange",
+    "correct": false
+   },
+   {
+    "key": "c",
+    "text": "In the company's bank account",
+    "correct": false
+   },
+   {
+    "key": "d",
+    "text": "In the broker's trading account permanently",
+    "correct": false
+   }
+  ],
+  "explanation": "Shares are held in dematerialised form in a demat account."
+ },
+ {
+  "key": "stock-market-fundamentals-06",
+  "prompt": "Which statement about settlement is correct?",
+  "multi": false,
+  "options": [
+   {
+    "key": "a",
+    "text": "Indian equity trades currently settle one business day after the trade (T+1), and settlement cycles are set by regulators",
+    "correct": true
+   },
+   {
+    "key": "b",
+    "text": "Trades settle instantly and can never fail",
+    "correct": false
+   },
+   {
+    "key": "c",
+    "text": "Settlement happens one month later",
+    "correct": false
+   },
+   {
+    "key": "d",
+    "text": "Settlement is optional",
+    "correct": false
+   }
+  ],
+  "explanation": "Indian equities moved to T+1 settlement; the cycle is a regulatory choice and can change."
+ },
+ {
+  "key": "stock-market-fundamentals-07",
+  "prompt": "Which of these does market regulation NOT do?",
+  "multi": false,
+  "options": [
+   {
+    "key": "a",
+    "text": "Protect you from losing money on trades you chose to make",
+    "correct": true
+   },
+   {
+    "key": "b",
+    "text": "Set rules for brokers and exchanges",
+    "correct": false
+   },
+   {
+    "key": "c",
+    "text": "Require disclosures from listed companies",
+    "correct": false
+   },
+   {
+    "key": "d",
+    "text": "Supervise market intermediaries",
+    "correct": false
+   }
+  ],
+  "explanation": "Regulation sets rules and supervises participants; it does not prevent investment losses."
+ },
+ {
+  "key": "stock-market-fundamentals-08",
+  "prompt": "Why is short-term trading difficult for individuals?",
+  "multi": false,
+  "options": [
+   {
+    "key": "a",
+    "text": "Many counterparties are professionals with more information, technology and capital",
+    "correct": true
+   },
+   {
+    "key": "b",
+    "text": "Exchanges forbid individuals from making profits",
+    "correct": false
+   },
+   {
+    "key": "c",
+    "text": "Prices never change during the day",
+    "correct": false
+   },
+   {
+    "key": "d",
+    "text": "Brokers decide whether your trade wins",
+    "correct": false
+   }
+  ],
+  "explanation": "You trade in the same market as institutions and professionals who often have structural advantages."
+ }
+]

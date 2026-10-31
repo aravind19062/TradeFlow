@@ -1,0 +1,226 @@
+[
+ {
+  "key": "market-and-limit-orders-01",
+  "prompt": "A market order prioritises…",
+  "multi": false,
+  "options": [
+   {
+    "key": "a",
+    "text": "Certainty of execution over certainty of price",
+    "correct": true
+   },
+   {
+    "key": "b",
+    "text": "Certainty of price over certainty of execution",
+    "correct": false
+   },
+   {
+    "key": "c",
+    "text": "Both price and execution certainty",
+    "correct": false
+   },
+   {
+    "key": "d",
+    "text": "Neither",
+    "correct": false
+   }
+  ],
+  "explanation": "A market order executes at the best available price, whatever it is."
+ },
+ {
+  "key": "market-and-limit-orders-02",
+  "prompt": "You place a BUY LIMIT at ₹100. Which fill is possible?",
+  "multi": false,
+  "options": [
+   {
+    "key": "a",
+    "text": "₹99.50",
+    "correct": true
+   },
+   {
+    "key": "b",
+    "text": "₹100.50",
+    "correct": false
+   },
+   {
+    "key": "c",
+    "text": "₹101",
+    "correct": false
+   },
+   {
+    "key": "d",
+    "text": "Any price the market offers",
+    "correct": false
+   }
+  ],
+  "explanation": "A buy limit never pays more than the limit."
+ },
+ {
+  "key": "market-and-limit-orders-03",
+  "prompt": "You place a SELL LIMIT at ₹120 while the bid is ₹110. What happens immediately?",
+  "multi": false,
+  "options": [
+   {
+    "key": "a",
+    "text": "The order rests until the bid reaches ₹120 or higher",
+    "correct": true
+   },
+   {
+    "key": "b",
+    "text": "It sells immediately at ₹110",
+    "correct": false
+   },
+   {
+    "key": "c",
+    "text": "It is rejected",
+    "correct": false
+   },
+   {
+    "key": "d",
+    "text": "It sells at ₹120 immediately",
+    "correct": false
+   }
+  ],
+  "explanation": "A sell limit above the bid rests in the book."
+ },
+ {
+  "key": "market-and-limit-orders-04",
+  "prompt": "A market buy order is normally filled at…",
+  "multi": false,
+  "options": [
+   {
+    "key": "a",
+    "text": "The best available ask",
+    "correct": true
+   },
+   {
+    "key": "b",
+    "text": "The best available bid",
+    "correct": false
+   },
+   {
+    "key": "c",
+    "text": "The previous day's close",
+    "correct": false
+   },
+   {
+    "key": "d",
+    "text": "The mid price exactly",
+    "correct": false
+   }
+  ],
+  "explanation": "Buying immediately means taking a seller's offer: the ask."
+ },
+ {
+  "key": "market-and-limit-orders-05",
+  "prompt": "Which can make a market order fill at a surprisingly bad price? (Select all that apply)",
+  "multi": true,
+  "options": [
+   {
+    "key": "a",
+    "text": "Thin liquidity in the share",
+    "correct": true
+   },
+   {
+    "key": "b",
+    "text": "A fast-moving market around news",
+    "correct": true
+   },
+   {
+    "key": "c",
+    "text": "A price gap at the open",
+    "correct": true
+   },
+   {
+    "key": "d",
+    "text": "Using a limit order instead",
+    "correct": false
+   }
+  ],
+  "explanation": "Thin books, fast markets and gaps all cause slippage; limit orders are how you cap it."
+ },
+ {
+  "key": "market-and-limit-orders-06",
+  "prompt": "A resting limit order that never reaches its price…",
+  "multi": false,
+  "options": [
+   {
+    "key": "a",
+    "text": "Does not fill, and stays open until cancelled or expired",
+    "correct": true
+   },
+   {
+    "key": "b",
+    "text": "Fills at the end of the day at market",
+    "correct": false
+   },
+   {
+    "key": "c",
+    "text": "Is converted into a market order automatically",
+    "correct": false
+   },
+   {
+    "key": "d",
+    "text": "Is always filled by the broker",
+    "correct": false
+   }
+  ],
+  "explanation": "A limit order has no execution guarantee."
+ },
+ {
+  "key": "market-and-limit-orders-07",
+  "prompt": "Can you cancel an order that has already been filled?",
+  "multi": false,
+  "options": [
+   {
+    "key": "a",
+    "text": "No; it is a trade, and you would need an opposite order",
+    "correct": true
+   },
+   {
+    "key": "b",
+    "text": "Yes, at any time that day",
+    "correct": false
+   },
+   {
+    "key": "c",
+    "text": "Yes, within 24 hours",
+    "correct": false
+   },
+   {
+    "key": "d",
+    "text": "Only if it lost money",
+    "correct": false
+   }
+  ],
+  "explanation": "Cancellation applies only to unfilled orders."
+ },
+ {
+  "key": "market-and-limit-orders-08",
+  "prompt": "A buy limit placed ABOVE the current ask is…",
+  "multi": false,
+  "options": [
+   {
+    "key": "a",
+    "text": "Marketable: it can execute immediately up to the limit",
+    "correct": true
+   },
+   {
+    "key": "b",
+    "text": "Always rejected",
+    "correct": false
+   },
+   {
+    "key": "c",
+    "text": "A stop order",
+    "correct": false
+   },
+   {
+    "key": "d",
+    "text": "Guaranteed to fill exactly at the limit",
+    "correct": false
+   }
+  ],
+  "explanation": "A limit above the ask can match the current offer at once."
+ }
+]

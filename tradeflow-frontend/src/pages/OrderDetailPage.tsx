@@ -18,7 +18,7 @@ export function OrderDetailPage() {
   if (isTerminal !== settled) setSettled(isTerminal);
 
   const back = (
-    <Link to="/orders" className="mb-4 inline-flex items-center gap-1 text-sm text-slate-500 hover:text-slate-800">
+    <Link to="/demo/orders" className="mb-4 inline-flex items-center gap-1 text-sm text-slate-500 hover:text-slate-800">
       <ChevronLeft className="size-4" /> Orders
     </Link>
   );
@@ -42,7 +42,7 @@ export function OrderDetailPage() {
       <div className="grid gap-6 lg:grid-cols-3">
         <Card title="Order" className="lg:col-span-1">
           <dl className="space-y-2.5 text-sm">
-            <Row label="Instrument" value={<Link to={`/market/${o.symbol}`} className="text-sky-700 hover:underline">{o.symbol}</Link>} />
+            <Row label="Instrument" value={<Link to={`/demo/market/${o.symbol}`} className="text-sky-700 hover:underline">{o.symbol}</Link>} />
             <Row label="Side" value={<SideBadge side={o.side} />} />
             <Row label="Type" value={o.type} />
             <Row label="Quantity" value={quantity(o.quantity)} />

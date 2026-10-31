@@ -1,0 +1,226 @@
+[
+ {
+  "key": "stop-loss-and-position-sizing-01",
+  "prompt": "Account ₹5,00,000, risk 1% per trade, entry ₹250, stop ₹235. How many shares (rounded down)?",
+  "multi": false,
+  "options": [
+   {
+    "key": "a",
+    "text": "333",
+    "correct": true
+   },
+   {
+    "key": "b",
+    "text": "200",
+    "correct": false
+   },
+   {
+    "key": "c",
+    "text": "500",
+    "correct": false
+   },
+   {
+    "key": "d",
+    "text": "2,000",
+    "correct": false
+   }
+  ],
+  "explanation": "Risk ₹5,000 / ₹15 per share = 333."
+ },
+ {
+  "key": "stop-loss-and-position-sizing-02",
+  "prompt": "Account ₹2,00,000, risk 2%, entry ₹400, stop ₹380. How many shares?",
+  "multi": false,
+  "options": [
+   {
+    "key": "a",
+    "text": "200",
+    "correct": true
+   },
+   {
+    "key": "b",
+    "text": "100",
+    "correct": false
+   },
+   {
+    "key": "c",
+    "text": "400",
+    "correct": false
+   },
+   {
+    "key": "d",
+    "text": "20",
+    "correct": false
+   }
+  ],
+  "explanation": "Risk ₹4,000 / ₹20 = 200."
+ },
+ {
+  "key": "stop-loss-and-position-sizing-03",
+  "prompt": "Where should a stop-loss ideally be placed?",
+  "multi": false,
+  "options": [
+   {
+    "key": "a",
+    "text": "Where your reason for the trade is invalidated",
+    "correct": true
+   },
+   {
+    "key": "b",
+    "text": "At a random 1% below entry",
+    "correct": false
+   },
+   {
+    "key": "c",
+    "text": "Wherever feels comfortable after the price drops",
+    "correct": false
+   },
+   {
+    "key": "d",
+    "text": "There is no need for one",
+    "correct": false
+   }
+  ],
+  "explanation": "Stops should reflect the trade thesis, not arbitrary numbers."
+ },
+ {
+  "key": "stop-loss-and-position-sizing-04",
+  "prompt": "The price moves against you and approaches your stop. Moving the stop further away…",
+  "multi": false,
+  "options": [
+   {
+    "key": "a",
+    "text": "Turns a planned small loss into a potentially larger, unplanned one",
+    "correct": true
+   },
+   {
+    "key": "b",
+    "text": "Is the recommended practice",
+    "correct": false
+   },
+   {
+    "key": "c",
+    "text": "Reduces risk",
+    "correct": false
+   },
+   {
+    "key": "d",
+    "text": "Has no effect",
+    "correct": false
+   }
+  ],
+  "explanation": "Widening stops defeats the purpose of the plan."
+ },
+ {
+  "key": "stop-loss-and-position-sizing-05",
+  "prompt": "Why should you also cap the position's weight in the portfolio, beyond stop-based sizing?",
+  "multi": false,
+  "options": [
+   {
+    "key": "a",
+    "text": "A gap can bypass the stop and cause a loss far beyond the planned amount",
+    "correct": true
+   },
+   {
+    "key": "b",
+    "text": "Exchanges require it",
+    "correct": false
+   },
+   {
+    "key": "c",
+    "text": "It increases returns",
+    "correct": false
+   },
+   {
+    "key": "d",
+    "text": "Stops always fill exactly",
+    "correct": false
+   }
+  ],
+  "explanation": "Sizing limits the loss at the stop, not in a gap."
+ },
+ {
+  "key": "stop-loss-and-position-sizing-06",
+  "prompt": "Increasing position size after losses to 'win it back' tends to…",
+  "multi": false,
+  "options": [
+   {
+    "key": "a",
+    "text": "Increase the chance of a large, damaging loss",
+    "correct": true
+   },
+   {
+    "key": "b",
+    "text": "Reduce risk",
+    "correct": false
+   },
+   {
+    "key": "c",
+    "text": "Guarantee recovery",
+    "correct": false
+   },
+   {
+    "key": "d",
+    "text": "Lower costs",
+    "correct": false
+   }
+  ],
+  "explanation": "Sizing up after losses is a common path to ruin."
+ },
+ {
+  "key": "stop-loss-and-position-sizing-07",
+  "prompt": "In the formula, 'risk per share' equals…",
+  "multi": false,
+  "options": [
+   {
+    "key": "a",
+    "text": "Entry price − stop price (for a long position)",
+    "correct": true
+   },
+   {
+    "key": "b",
+    "text": "Entry price × quantity",
+    "correct": false
+   },
+   {
+    "key": "c",
+    "text": "Account value × risk fraction",
+    "correct": false
+   },
+   {
+    "key": "d",
+    "text": "Stop price + spread",
+    "correct": false
+   }
+  ],
+  "explanation": "It is the per-share loss if the stop fills at its level."
+ },
+ {
+  "key": "stop-loss-and-position-sizing-08",
+  "prompt": "A stop-limit order rather than a stop (market) order…",
+  "multi": false,
+  "options": [
+   {
+    "key": "a",
+    "text": "Caps the exit price but may leave you unfilled in a fast fall",
+    "correct": true
+   },
+   {
+    "key": "b",
+    "text": "Guarantees execution",
+    "correct": false
+   },
+   {
+    "key": "c",
+    "text": "Removes gap risk",
+    "correct": false
+   },
+   {
+    "key": "d",
+    "text": "Is identical",
+    "correct": false
+   }
+  ],
+  "explanation": "The limit prevents bad fills at the cost of execution certainty."
+ }
+]

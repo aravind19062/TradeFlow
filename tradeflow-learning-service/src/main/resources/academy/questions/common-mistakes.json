@@ -1,0 +1,226 @@
+[
+ {
+  "key": "common-mistakes-01",
+  "prompt": "Trading immediately after a loss to win the money back is called…",
+  "multi": false,
+  "options": [
+   {
+    "key": "a",
+    "text": "Revenge trading",
+    "correct": true
+   },
+   {
+    "key": "b",
+    "text": "Rebalancing",
+    "correct": false
+   },
+   {
+    "key": "c",
+    "text": "Hedging",
+    "correct": false
+   },
+   {
+    "key": "d",
+    "text": "Position sizing",
+    "correct": false
+   }
+  ],
+  "explanation": "Revenge trading is driven by emotion, not by a plan."
+ },
+ {
+  "key": "common-mistakes-02",
+  "prompt": "Buying a share mainly because it has rallied and everyone is talking about it reflects…",
+  "multi": false,
+  "options": [
+   {
+    "key": "a",
+    "text": "FOMO (fear of missing out)",
+    "correct": true
+   },
+   {
+    "key": "b",
+    "text": "Diversification",
+    "correct": false
+   },
+   {
+    "key": "c",
+    "text": "Anchoring on value",
+    "correct": false
+   },
+   {
+    "key": "d",
+    "text": "Loss aversion",
+    "correct": false
+   }
+  ],
+  "explanation": "FOMO leads to chasing moves late."
+ },
+ {
+  "key": "common-mistakes-03",
+  "prompt": "'It was ₹800 last month, so ₹500 must be cheap' is an example of…",
+  "multi": false,
+  "options": [
+   {
+    "key": "a",
+    "text": "Anchoring",
+    "correct": true
+   },
+   {
+    "key": "b",
+    "text": "Diversification",
+    "correct": false
+   },
+   {
+    "key": "c",
+    "text": "Liquidity",
+    "correct": false
+   },
+   {
+    "key": "d",
+    "text": "Settlement",
+    "correct": false
+   }
+  ],
+  "explanation": "The old price is not evidence of today's value."
+ },
+ {
+  "key": "common-mistakes-04",
+  "prompt": "A message promising 'guaranteed returns' from sure-shot tips is…",
+  "multi": false,
+  "options": [
+   {
+    "key": "a",
+    "text": "A red flag for a possible scam",
+    "correct": true
+   },
+   {
+    "key": "b",
+    "text": "A safe way to learn",
+    "correct": false
+   },
+   {
+    "key": "c",
+    "text": "Regulated advice by default",
+    "correct": false
+   },
+   {
+    "key": "d",
+    "text": "Required reading",
+    "correct": false
+   }
+  ],
+  "explanation": "No legitimate adviser guarantees returns."
+ },
+ {
+  "key": "common-mistakes-05",
+  "prompt": "A support agent asks for your broker OTP to 'verify your account'. You should…",
+  "multi": false,
+  "options": [
+   {
+    "key": "a",
+    "text": "Refuse; never share passwords, PINs or one-time codes",
+    "correct": true
+   },
+   {
+    "key": "b",
+    "text": "Share it if they sound official",
+    "correct": false
+   },
+   {
+    "key": "c",
+    "text": "Share only the first half",
+    "correct": false
+   },
+   {
+    "key": "d",
+    "text": "Post it in a group to check",
+    "correct": false
+   }
+  ],
+  "explanation": "Legitimate staff never need your OTP."
+ },
+ {
+  "key": "common-mistakes-06",
+  "prompt": "Why does TradeFlow avoid streaks and leaderboards for trading?",
+  "multi": false,
+  "options": [
+   {
+    "key": "a",
+    "text": "They encourage trading more often rather than better",
+    "correct": true
+   },
+   {
+    "key": "b",
+    "text": "They are illegal",
+    "correct": false
+   },
+   {
+    "key": "c",
+    "text": "They slow down the app",
+    "correct": false
+   },
+   {
+    "key": "d",
+    "text": "Users dislike charts",
+    "correct": false
+   }
+  ],
+  "explanation": "Gamification promotes overtrading."
+ },
+ {
+  "key": "common-mistakes-07",
+  "prompt": "Before placing another order because you are unsure if the first one executed, you should…",
+  "multi": false,
+  "options": [
+   {
+    "key": "a",
+    "text": "Check the first order's status with your broker",
+    "correct": true
+   },
+   {
+    "key": "b",
+    "text": "Place the order again immediately",
+    "correct": false
+   },
+   {
+    "key": "c",
+    "text": "Place two more to be safe",
+    "correct": false
+   },
+   {
+    "key": "d",
+    "text": "Switch to a different broker",
+    "correct": false
+   }
+  ],
+  "explanation": "Duplicate orders are a common way to double a mistake."
+ },
+ {
+  "key": "common-mistakes-08",
+  "prompt": "Which habit best protects against confirmation bias?",
+  "multi": false,
+  "options": [
+   {
+    "key": "a",
+    "text": "Writing down in advance what would prove your idea wrong",
+    "correct": true
+   },
+   {
+    "key": "b",
+    "text": "Reading only sources that agree with you",
+    "correct": false
+   },
+   {
+    "key": "c",
+    "text": "Following popular opinion",
+    "correct": false
+   },
+   {
+    "key": "d",
+    "text": "Ignoring losses",
+    "correct": false
+   }
+  ],
+  "explanation": "Pre-committing to disconfirming evidence counters bias."
+ }
+]

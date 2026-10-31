@@ -1,0 +1,226 @@
+[
+ {
+  "key": "portfolio-management-01",
+  "prompt": "One holding is 40% of your portfolio and falls 25%. Ignoring everything else, the portfolio falls about…",
+  "multi": false,
+  "options": [
+   {
+    "key": "a",
+    "text": "10%",
+    "correct": true
+   },
+   {
+    "key": "b",
+    "text": "25%",
+    "correct": false
+   },
+   {
+    "key": "c",
+    "text": "40%",
+    "correct": false
+   },
+   {
+    "key": "d",
+    "text": "1%",
+    "correct": false
+   }
+  ],
+  "explanation": "0.40 × 25% = 10%."
+ },
+ {
+  "key": "portfolio-management-02",
+  "prompt": "Diversification across many shares…",
+  "multi": false,
+  "options": [
+   {
+    "key": "a",
+    "text": "Reduces company-specific risk but not overall market risk",
+    "correct": true
+   },
+   {
+    "key": "b",
+    "text": "Removes all risk",
+    "correct": false
+   },
+   {
+    "key": "c",
+    "text": "Guarantees positive returns",
+    "correct": false
+   },
+   {
+    "key": "d",
+    "text": "Increases concentration",
+    "correct": false
+   }
+  ],
+  "explanation": "In a broad sell-off most shares fall together."
+ },
+ {
+  "key": "portfolio-management-03",
+  "prompt": "A portfolio's Herfindahl index (HHI) of 1.0 means…",
+  "multi": false,
+  "options": [
+   {
+    "key": "a",
+    "text": "All value is in a single position",
+    "correct": true
+   },
+   {
+    "key": "b",
+    "text": "Perfect diversification",
+    "correct": false
+   },
+   {
+    "key": "c",
+    "text": "No holdings",
+    "correct": false
+   },
+   {
+    "key": "d",
+    "text": "A 100% return",
+    "correct": false
+   }
+  ],
+  "explanation": "HHI is the sum of squared weights; 1.0 means one position."
+ },
+ {
+  "key": "portfolio-management-04",
+  "prompt": "Four equal-weight holdings give an HHI of…",
+  "multi": false,
+  "options": [
+   {
+    "key": "a",
+    "text": "0.25",
+    "correct": true
+   },
+   {
+    "key": "b",
+    "text": "1.0",
+    "correct": false
+   },
+   {
+    "key": "c",
+    "text": "4.0",
+    "correct": false
+   },
+   {
+    "key": "d",
+    "text": "0.5",
+    "correct": false
+   }
+  ],
+  "explanation": "4 × 0.25² = 0.25 = 1/N."
+ },
+ {
+  "key": "portfolio-management-05",
+  "prompt": "Maximum drawdown measures…",
+  "multi": false,
+  "options": [
+   {
+    "key": "a",
+    "text": "The largest fall from a peak over a period",
+    "correct": true
+   },
+   {
+    "key": "b",
+    "text": "The average daily return",
+    "correct": false
+   },
+   {
+    "key": "c",
+    "text": "Total brokerage paid",
+    "correct": false
+   },
+   {
+    "key": "d",
+    "text": "The highest price reached",
+    "correct": false
+   }
+  ],
+  "explanation": "Drawdown captures how deep the worst decline was."
+ },
+ {
+  "key": "portfolio-management-06",
+  "prompt": "What does rebalancing involve?",
+  "multi": false,
+  "options": [
+   {
+    "key": "a",
+    "text": "Trimming holdings that grew too large and adding to those that shrank, to restore target weights",
+    "correct": true
+   },
+   {
+    "key": "b",
+    "text": "Selling everything once a year",
+    "correct": false
+   },
+   {
+    "key": "c",
+    "text": "Buying more of the best performer",
+    "correct": false
+   },
+   {
+    "key": "d",
+    "text": "Moving to cash permanently",
+    "correct": false
+   }
+  ],
+  "explanation": "Rebalancing returns the portfolio to its intended allocation."
+ },
+ {
+  "key": "portfolio-management-07",
+  "prompt": "Does passing this course mean a particular allocation or trading is suitable for you?",
+  "multi": false,
+  "options": [
+   {
+    "key": "a",
+    "text": "No; suitability depends on personal circumstances this course does not assess",
+    "correct": true
+   },
+   {
+    "key": "b",
+    "text": "Yes, it certifies suitability",
+    "correct": false
+   },
+   {
+    "key": "c",
+    "text": "Yes, if you scored above 90%",
+    "correct": false
+   },
+   {
+    "key": "d",
+    "text": "Only for live trading",
+    "correct": false
+   }
+  ],
+  "explanation": "The Academy teaches concepts; it does not assess your financial situation or suitability."
+ },
+ {
+  "key": "portfolio-management-08",
+  "prompt": "Why are a few weeks of demo profits weak evidence of skill?",
+  "multi": false,
+  "options": [
+   {
+    "key": "a",
+    "text": "Short periods mostly reflect luck, and demo trading uses virtual money and simulated prices",
+    "correct": true
+   },
+   {
+    "key": "b",
+    "text": "Demo profits are always fake",
+    "correct": false
+   },
+   {
+    "key": "c",
+    "text": "The demo is rigged to lose",
+    "correct": false
+   },
+   {
+    "key": "d",
+    "text": "They are strong evidence",
+    "correct": false
+   }
+  ],
+  "explanation": "Short samples are noisy and the demo omits real costs, emotions and real prices."
+ }
+]

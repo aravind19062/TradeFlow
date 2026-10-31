@@ -1,0 +1,35 @@
+import { Outlet } from 'react-router';
+import { FlaskConical, Radio } from 'lucide-react';
+import { cx } from './ui';
+
+export type Env = 'DEMO' | 'LIVE';
+
+/** Every surface that shows trading data carries one of these, so DEMO and LIVE are never confused. */
+export function EnvironmentBadge({ env, size = 'sm' }: { env: Env; size?: 'xs' | 'sm' }) {
+  const live = env === 'LIVE';
+  return (
+    <span
+      data-testid={`env-badge-${env}`}
+      className={cx('inline-flex items-center gap-1 rounded font-bold tracking-wider',
+        size === 'xs' ? 'px-1.5 py-px text-[9px]' : 'px-2 py-0.5 text-[11px]',
+        live ? 'bg-rose-600 text-white' : 'bg-sky-500/15 text-sky-600 ring-1 ring-sky-500/40')}
+    >
+      {live ? <Radio className={size === 'xs' ? 'size-2.5' : 'size-3'} /> : <FlaskConical className={size === 'xs' ? 'size-2.5' : 'size-3'} />}
+      {env}
+    </span>
+  );
+}
+
+/** Layout for every simulated-trading page: a persistent DEMO banner above the content. */
+export function DemoArea() {
+  return (
+    <>
+      <div className="mb-6 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border border-sky-200 bg-sky-50 px-4 py-2.5 text-sm text-sky-900"
+        role="note" data-testid="demo-banner">
+        <EnvironmentBadge env="DEMO" />
+        <span><strong>Demo trading.</strong> Simulated prices and virtual money. Nothing here reaches a real broker or market.</span>
+      </div>
+      <Outlet />
+    </>
+  );
+}

@@ -1,0 +1,226 @@
+[
+ {
+  "key": "leverage-and-margin-01",
+  "prompt": "With 5× leverage, a 20% fall in the position's value results in roughly what loss of your own capital?",
+  "multi": false,
+  "options": [
+   {
+    "key": "a",
+    "text": "100%",
+    "correct": true
+   },
+   {
+    "key": "b",
+    "text": "20%",
+    "correct": false
+   },
+   {
+    "key": "c",
+    "text": "4%",
+    "correct": false
+   },
+   {
+    "key": "d",
+    "text": "5%",
+    "correct": false
+   }
+  ],
+  "explanation": "5 × 20% = 100%."
+ },
+ {
+  "key": "leverage-and-margin-02",
+  "prompt": "Leverage magnifies…",
+  "multi": false,
+  "options": [
+   {
+    "key": "a",
+    "text": "Both gains and losses",
+    "correct": true
+   },
+   {
+    "key": "b",
+    "text": "Only gains",
+    "correct": false
+   },
+   {
+    "key": "c",
+    "text": "Only losses",
+    "correct": false
+   },
+   {
+    "key": "d",
+    "text": "Neither",
+    "correct": false
+   }
+  ],
+  "explanation": "It scales outcomes in both directions."
+ },
+ {
+  "key": "leverage-and-margin-03",
+  "prompt": "What can happen if losses reduce your margin below the requirement? (Select all that apply)",
+  "multi": true,
+  "options": [
+   {
+    "key": "a",
+    "text": "A margin call asking for more funds",
+    "correct": true
+   },
+   {
+    "key": "b",
+    "text": "Forced closure of positions without your consent",
+    "correct": true
+   },
+   {
+    "key": "c",
+    "text": "Losses exceeding the money you deposited",
+    "correct": true
+   },
+   {
+    "key": "d",
+    "text": "Automatic refund of losses",
+    "correct": false
+   }
+  ],
+  "explanation": "Brokers can demand funds or liquidate; losses can exceed deposits."
+ },
+ {
+  "key": "leverage-and-margin-04",
+  "prompt": "SEBI studies of individual equity F&O traders have found that…",
+  "multi": false,
+  "options": [
+   {
+    "key": "a",
+    "text": "A large majority made net losses",
+    "correct": true
+   },
+   {
+    "key": "b",
+    "text": "Most individuals made large profits",
+    "correct": false
+   },
+   {
+    "key": "c",
+    "text": "Costs were negligible",
+    "correct": false
+   },
+   {
+    "key": "d",
+    "text": "Losses were rare",
+    "correct": false
+   }
+  ],
+  "explanation": "Studies in recent years found roughly nine in ten individual F&O traders made net losses."
+ },
+ {
+  "key": "leverage-and-margin-05",
+  "prompt": "Time decay in options means…",
+  "multi": false,
+  "options": [
+   {
+    "key": "a",
+    "text": "An option tends to lose value as expiry approaches, all else equal",
+    "correct": true
+   },
+   {
+    "key": "b",
+    "text": "Options gain value every day",
+    "correct": false
+   },
+   {
+    "key": "c",
+    "text": "Options never expire",
+    "correct": false
+   },
+   {
+    "key": "d",
+    "text": "Prices are fixed until expiry",
+    "correct": false
+   }
+  ],
+  "explanation": "Time value erodes as expiry nears."
+ },
+ {
+  "key": "leverage-and-margin-06",
+  "prompt": "Does TradeFlow offer margin, leverage or derivatives?",
+  "multi": false,
+  "options": [
+   {
+    "key": "a",
+    "text": "No, neither in demo nor in live trading",
+    "correct": true
+   },
+   {
+    "key": "b",
+    "text": "Yes, in live trading only",
+    "correct": false
+   },
+   {
+    "key": "c",
+    "text": "Yes, in both",
+    "correct": false
+   },
+   {
+    "key": "d",
+    "text": "Only for qualified users",
+    "correct": false
+   }
+  ],
+  "explanation": "These products are outside TradeFlow's scope."
+ },
+ {
+  "key": "leverage-and-margin-07",
+  "prompt": "Selling (writing) options can…",
+  "multi": false,
+  "options": [
+   {
+    "key": "a",
+    "text": "Expose you to losses far larger than the premium received",
+    "correct": true
+   },
+   {
+    "key": "b",
+    "text": "Never lose more than the premium",
+    "correct": false
+   },
+   {
+    "key": "c",
+    "text": "Only lose the brokerage",
+    "correct": false
+   },
+   {
+    "key": "d",
+    "text": "Remove market risk",
+    "correct": false
+   }
+  ],
+  "explanation": "Option writers can face very large losses."
+ },
+ {
+  "key": "leverage-and-margin-08",
+  "prompt": "Does leverage make a good trade idea more likely to be right?",
+  "multi": false,
+  "options": [
+   {
+    "key": "a",
+    "text": "No; it only changes how much you gain or lose",
+    "correct": true
+   },
+   {
+    "key": "b",
+    "text": "Yes",
+    "correct": false
+   },
+   {
+    "key": "c",
+    "text": "Only for options",
+    "correct": false
+   },
+   {
+    "key": "d",
+    "text": "Only intraday",
+    "correct": false
+   }
+  ],
+  "explanation": "Leverage affects magnitude, not the probability of being right."
+ }
+]

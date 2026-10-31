@@ -31,7 +31,7 @@ export function InstrumentPage() {
       <>
         <BackLink />
         <Card>{quote.error.status === 404
-          ? <EmptyState title={`Unknown instrument "${symbol}"`}><Link to="/market" className="text-sky-700 hover:underline">Back to market watch</Link></EmptyState>
+          ? <EmptyState title={`Unknown instrument "${symbol}"`}><Link to="/demo/market" className="text-sky-700 hover:underline">Back to market watch</Link></EmptyState>
           : <ErrorState error={quote.error} onRetry={quote.reload} />}</Card>
       </>
     );
@@ -111,14 +111,14 @@ export function InstrumentPage() {
           </Card>
 
           <Card title={`Your ${symbol.toUpperCase()} orders`} bodyClassName="p-0"
-            action={<Link to={`/orders?symbol=${encodeURIComponent(symbol)}`} className="text-sm font-medium text-sky-700 hover:underline">All</Link>}>
+            action={<Link to={`/demo/orders?symbol=${encodeURIComponent(symbol)}`} className="text-sm font-medium text-sky-700 hover:underline">All</Link>}>
             {orders.error ? <ErrorState error={orders.error} onRetry={orders.reload} />
               : !orders.data ? <Spinner />
                 : orders.data.content.length === 0 ? <EmptyState title="No orders for this instrument" />
                   : <ul className="divide-y divide-slate-100 text-sm">
                     {orders.data.content.map((o) => (
                       <li key={o.id}>
-                        <Link to={`/orders/${o.id}`} className="flex items-center justify-between gap-3 px-5 py-3 hover:bg-slate-50">
+                        <Link to={`/demo/orders/${o.id}`} className="flex items-center justify-between gap-3 px-5 py-3 hover:bg-slate-50">
                           <span><SideBadge side={o.side} /> {quantity(o.quantity)} · {o.type}{o.limitPrice != null && ` @ ${money(o.limitPrice)}`}</span>
                           <span className="flex items-center gap-3 text-slate-500"><span className="hidden sm:inline">{dateTime(o.createdAt)}</span><OrderStatusBadge status={o.status} /></span>
                         </Link>
@@ -145,7 +145,7 @@ export function InstrumentPage() {
                 ))}
               </ul>
             )}
-            <Link to="/watchlist" className="mt-3 inline-block text-xs font-medium text-sky-700 hover:underline">Manage all alerts</Link>
+            <Link to="/demo/watchlist" className="mt-3 inline-block text-xs font-medium text-sky-700 hover:underline">Manage all alerts</Link>
           </Card>
         </div>
       </div>
@@ -156,7 +156,7 @@ export function InstrumentPage() {
 
 function BackLink() {
   return (
-    <Link to="/market" className="mb-4 inline-flex items-center gap-1 text-sm text-slate-500 hover:text-slate-800">
+    <Link to="/demo/market" className="mb-4 inline-flex items-center gap-1 text-sm text-slate-500 hover:text-slate-800">
       <ChevronLeft className="size-4" /> Market watch
     </Link>
   );

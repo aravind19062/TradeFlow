@@ -55,7 +55,7 @@ export function PortfolioPage() {
 function HoldingsTab({ summary }: { summary: ReturnType<typeof usePortfolioSummary>['data'] }) {
   if (!summary) return <Spinner />;
   if (summary.holdings.length === 0) {
-    return <Card><EmptyState title="No holdings yet"><Link to="/market" className="text-sky-700 hover:underline">Buy your first instrument</Link> from Market watch.</EmptyState></Card>;
+    return <Card><EmptyState title="No holdings yet"><Link to="/demo/market" className="text-sky-700 hover:underline">Buy your first instrument</Link> from Market watch.</EmptyState></Card>;
   }
   return (
     <Card bodyClassName="p-0">
