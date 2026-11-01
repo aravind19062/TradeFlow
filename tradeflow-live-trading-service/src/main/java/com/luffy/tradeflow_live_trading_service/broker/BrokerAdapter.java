@@ -17,6 +17,15 @@ public interface BrokerAdapter {
 
     boolean enabled();
 
+    /**
+     * Whether TradeFlow may place and cancel real orders through this broker. False while an
+     * integration is read-only (phase 6): previews and orders are then refused before any limit
+     * check or broker call.
+     */
+    default boolean ordersEnabled() {
+        return enabled();
+    }
+
     /** The broker's login/consent URL for this user; {@code state} protects against CSRF. */
     String authorizationUrl(String state, String codeChallenge);
 

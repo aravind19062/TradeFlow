@@ -1,5 +1,6 @@
 import { del, get, post, put } from './client';
 import type {
+  BrokerFunds, BrokerHolding, BrokerOrder, BrokerPosition,
   AdminUserLive, KillSwitchView, LiveLimits, LiveLimitsView, LiveNotification, LiveOrderParams, LiveOrderPreview,
   LiveOrderView, LiveStatus, BrokerConnectionView, ReconcileResult,
   AcknowledgementView, AdminUserReadiness, ReadinessHistoryItem, ReadinessStatusView, ReviewCase, SizingScenario,
@@ -177,6 +178,11 @@ export const liveApi = {
   // Read-only at the broker: looks the user's open and unresolved orders up in the broker's order book.
   reconcile: () => post<ReconcileResult[]>('/live/reconciliation'),
   orders: () => get<LiveOrderView[]>('/live/orders'),
+  // The linked broker account, read-only (ordinary access token; always allowed while linked).
+  brokerFunds: () => get<BrokerFunds>('/live/broker/funds'),
+  brokerHoldings: () => get<BrokerHolding[]>('/live/broker/holdings'),
+  brokerPositions: () => get<BrokerPosition[]>('/live/broker/positions'),
+  brokerOrders: () => get<BrokerOrder[]>('/live/broker/orders'),
   limits: () => get<LiveLimitsView>('/live/limits'),
   /** Tightening needs only the access token; raising a limit needs step-up (pass it). */
   setLimits: (limits: LiveLimits, t?: string) => put<LiveLimitsView>('/live/limits', limits, t ? withStepUp(t) : undefined),

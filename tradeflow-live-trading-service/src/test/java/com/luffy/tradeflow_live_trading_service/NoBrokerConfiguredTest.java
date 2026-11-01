@@ -61,7 +61,14 @@ class NoBrokerConfiguredTest {
     @Test
     void refusesToStartWithAnUnapprovedBroker() {
         LiveProperties props = new LiveProperties("somebroker", null, null, null, null, null, null, null);
-        assertThatThrownBy(() -> new LiveConfig().brokerAdapter(props)).hasMessageContaining("not integrated");
+        var fyers = new com.luffy.tradeflow_live_trading_service.broker.fyers.FyersProperties(null, null, null, null, null, null, null);
+        var json = tools.jackson.databind.json.JsonMapper.builder().build();
+        assertThatThrownBy(() -> new LiveConfig().brokerAdapter(props, fyers, json, java.time.Clock.systemUTC()))
+                .hasMessageContaining("not integrated");
+        // Fyers is approved, but never starts without its app credentials.
+        LiveProperties fyersSelected = new LiveProperties("fyers", null, null, null, null, null, null, null);
+        assertThatThrownBy(() -> new LiveConfig().brokerAdapter(fyersSelected, fyers, json, java.time.Clock.systemUTC()))
+                .hasMessageContaining("TRADEFLOW_FYERS_APP_ID");
         assertThatThrownBy(() -> new LiveProperties(null, null, null, null, null, java.time.Duration.ofMinutes(30), null, null))
                 .hasMessageContaining("at most 15 minutes");
     }

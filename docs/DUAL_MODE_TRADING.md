@@ -370,7 +370,7 @@ Every phase leaves the application working, adds tests, and keeps demo behaviour
 | D6 | MFA (TOTP) for live step-up before going live | **Yes**, before Phase 7 |
 | D7 | PAN: encrypt at rest, or stop collecting it | **Stop collecting it** (the broker does KYC); otherwise encrypt |
 | D8 | Docker memory: raise the Docker VM to about 6 GiB, or run 1 market-data replica locally | Raise to 6 GiB (keeps the load-balancing demo) |
-| D9 | Broker (Phase 6) | **Your choice later.** Criteria: official retail API with redirect-based authorisation, sandbox or paper environment, postbacks, documented rate limits and exchange-compliance support, cost |
+| D9 | Broker (Phase 6) | **Fyers** (approved 2026-11-01). Criteria were: official retail API with redirect-based authorisation, sandbox or paper environment, postbacks, documented rate limits and exchange-compliance support, cost |
 
 ---
 
@@ -383,7 +383,8 @@ Every phase leaves the application working, adds tests, and keeps demo behaviour
 | 3. Academy (+ D2) | phase 3 commit | Done: learning-service, 10 modules / 20 lessons / 80 module questions + 25 final-assessment questions, server-graded quizzes, versioned readiness policy v1; simulated bid/ask and SELL stop / stop-limit in the demo engine |
 | 4. Readiness | phase 4 commit | Done: state machine (incl. REVIEW_REQUIRED), hash-chained audit (append-only trigger on PostgreSQL), exercises verified from DEMO events, final assessment with cooldown/attempt limit, authorised reviewer, versioned risk acknowledgement, self-exclusion, admin revoke/reinstate, policy publishing, fail-closed internal eligibility API |
 | 5. Live skeleton (no broker) | phase 5 commit | Done: live-trading-service with only `DisabledBrokerAdapter`, fail-closed `LiveAccessGuard`, encrypted credential vault, parameter-bound one-time confirmations, limits, kill switches, hash-chained live audit, readiness notifications, gateway LIVE route, LIVE UI. See below |
-| 6–7. Broker, live orders | – | **Blocked on your broker approval** |
+| 6. Broker integration (Fyers, read-only) | phase 6 commit | Built and tested against Fyers' documented API shapes; **awaiting your verification with your own account** ([FYERS_SETUP.md](FYERS_SETUP.md)). See "Phase 6" below |
+| 7. Live orders | – | **Needs your explicit go-ahead** |
 
 ### Decisions as approved (2026-10-31)
 
@@ -546,3 +547,52 @@ Implemented and tested against the test-only fake broker; dormant in production 
 5. **Which errors are definite.** The adapter decides which broker errors are definite rejections (4xx →
    REJECTED) and which are uncertain (UNKNOWN).
 6. **Real-money end-to-end test** with your account and minimal limits (phase 7).
+
+### Phase 6: Fyers, read-only (2026-11-01)
+
+Broker approved by you: **Fyers** (API v3). Built from Fyers' API v3 documentation; tested against a
+local stand-in serving the documented response shapes (`FakeFyersServer`). Not yet run against a live
+Fyers account: that is the phase 6 gate (checklist in [FYERS_SETUP.md](FYERS_SETUP.md)).
+
+* **Selection.** `TRADEFLOW_LIVE_BROKER=fyers` plus `TRADEFLOW_FYERS_APP_ID`, `..._SECRET_KEY` and
+  `..._REDIRECT_URI` (environment / git-ignored `.env` only). Missing values, or a non-https redirect
+  other than localhost, refuse startup. The default is still `none`.
+* **Linking.** Fyers' own login page (`generate-authcode`, `response_type=code`, `state`), then
+  `validate-authcode` with `appIdHash = SHA-256(app_id:secret)`. Fyers has no PKCE; the existing state
+  handling (random, single use, stored hashed, bound to the user, 10-minute expiry) protects the
+  redirect. The callback page accepts Fyers' `auth_code` parameter and shows Fyers' `s=error` refusal.
+* **Tokens.** Access token encrypted at rest in the existing vault; expiry = next 06:30 IST (Fyers'
+  daily cut-off). **No refresh token is stored**: Fyers' refresh needs the user's PIN, which TradeFlow
+  must never handle. Sent only as `Authorization: app_id:access_token`; never logged or returned.
+  The profile call is used only for the Fyers client id (`fy_id`); name, e-mail, PAN and mobile in that
+  response are ignored and never stored (consistent with D7).
+* **Read-only data.** Funds ("Available Balance", "Utilized Amount" rows, looked up by title), holdings,
+  net positions, order book, quotes. Reads need an ordinary access token and stay available after a
+  readiness revocation or a halt (D5).
+* **Orders refused, twice in TradeFlow and once at Fyers.** `FyersBrokerAdapter.placeOrder/cancelOrder`
+  always throw `LIVE_ORDERS_NOT_ENABLED` without a network call (code, not configuration);
+  `BrokerAdapter.ordersEnabled()` is false, so previews and placements are refused before limits or
+  confirmations; and the Fyers app should be created without order permission.
+* **Errors.** Fyers codes -8/-15/-16/-17 → `409 BROKER_SESSION_EXPIRED`; -429 → `429 BROKER_RATE_LIMITED`;
+  others → `502 BROKER_ERROR` with Fyers' code and message; unreachable → `503 BROKER_UNAVAILABLE`.
+* **Rate limits.** Fyers (standard plan): data 5/s, 50/min; account/transactions 10/s, 200/min; more
+  than three per-minute overruns in a day block the app for the day. TradeFlow refuses locally at
+  4/s, 40/min (data) and 8/s, 150/min (account). The UI does not poll broker data.
+
+**Order-status mapping, prepared for phase 7** (used by reconciliation; no TradeFlow orders exist yet):
+Fyers status 1 → CANCELLED, 2 → FILLED, 4 (transit) and 6 (pending) → OPEN, or PARTIALLY_FILLED when
+0 < filledQty < qty, 5 → REJECTED, 7 → EXPIRED; 3 (unused) is passed through as `FYERS_STATUS_3`, which
+reconciliation never applies. User order tags come back as `1:<tag>` and become `clientOrderId`;
+Fyers' own `2:` tags are ignored. `orderDateTime` (IST) is the only timestamp in the order book, so it
+is used as `updatedAt`; it is the placement time, so monotonic ordering of snapshots for one order
+relies on the other guards (terminal states stay terminal, fills never decrease).
+
+**Still open for phase 7 (Fyers-specific):**
+1. Order placement and cancel endpoints, product type (CNC vs INTRADAY), validity, and the orderTag
+   format and length limits (TradeFlow's clientOrderId may need a shorter deterministic tag).
+2. Which Fyers order-placement errors are definite rejections and which are uncertain (UNKNOWN).
+3. SEBI 2026 algo framework: static, whitelisted IP for order APIs (a laptop on home broadband will
+   not have one), and the algo-ID tagging the broker applies.
+4. Optional order updates via Fyers' order WebSocket instead of polling.
+5. An individual Fyers app allows only its creator to log in. TradeFlow for other users needs a Fyers
+   third-party app (Fyers approval) before any user other than you can link.

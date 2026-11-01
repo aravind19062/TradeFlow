@@ -287,6 +287,8 @@ Errors use RFC 9457 `ProblemDetail` with a stable `code`, e.g. `VALIDATION_FAILE
 | `KAFKA_BOOTSTRAP_SERVERS` | `localhost:9094` | `kafka:29092` inside Compose |
 | `EUREKA_URL` | `http://localhost:8761/eureka` | |
 | `TRADEFLOW_AI_PROVIDER`, `ANTHROPIC_API_KEY`, `TRADEFLOW_AI_MODEL` | `none`, unset, `claude-opus-5-5` | see the AI section |
+| `TRADEFLOW_LIVE_BROKER` | `none` | `fyers` = read-only Fyers link (phase 6; no real orders). Needs the three values below; see [docs/FYERS_SETUP.md](docs/FYERS_SETUP.md) |
+| `TRADEFLOW_FYERS_APP_ID`, `TRADEFLOW_FYERS_SECRET_KEY`, `TRADEFLOW_FYERS_REDIRECT_URI` | unset, unset, `http://localhost:3000/live/broker/callback` | From your Fyers API app (created without order permission). The secret belongs in `.env` only |
 
 **Security model**
 

@@ -42,7 +42,7 @@ import java.util.function.Function;
 @Tag(name = "Live trading")
 public class LiveController {
 
-    public record Status(boolean brokerConfigured, String broker, EligibilityView eligibility,
+    public record Status(boolean brokerConfigured, boolean ordersEnabled, String broker, EligibilityView eligibility,
                          BrokerConnectionService.View connection, boolean halted, String haltReason,
                          RiskLimitService.View limits, String notice) {
     }
@@ -107,10 +107,15 @@ public class LiveController {
             eligibility = new EligibilityView(false, false, null, List.of("Readiness could not be checked right now"), null);
         }
         String halt = killSwitches.haltReason(userId);
-        return new Status(connections.brokerConfigured(), connections.brokerCode(), eligibility,
+        boolean ordersEnabled = connections.brokerConfigured() && broker.ordersEnabled();
+        return new Status(connections.brokerConfigured(), ordersEnabled, connections.brokerCode(), eligibility,
                 connections.current(userId).orElse(null), halt != null, halt, limits.view(userId),
-                connections.brokerConfigured() ? null
-                        : "No broker is integrated yet. Live trading will open once a broker has been approved.");
+                !connections.brokerConfigured()
+                        ? "No broker is integrated yet. Live trading will open once a broker has been approved."
+                        : !ordersEnabled
+                        ? "Read-only: you can link your account and view funds, holdings, positions and orders. "
+                          + "Placing real orders from TradeFlow is not enabled yet."
+                        : null);
     }
 
     // ------------------------------------------------------------------ broker connection

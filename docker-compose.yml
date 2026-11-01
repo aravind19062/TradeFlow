@@ -383,8 +383,9 @@ services:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/tradeflow_learning
     healthcheck: *app-health
 
-  # LIVE trading (real money). Own database and own encryption keys. No broker is integrated:
-  # TRADEFLOW_LIVE_BROKER must stay "none" (any other value refuses to start).
+  # LIVE trading (real money). Own database and own encryption keys. Broker: "none" by default;
+  # "fyers" (read-only, phase 6) when TRADEFLOW_LIVE_BROKER=fyers and the Fyers app credentials are
+  # set in the git-ignored .env (see docs/FYERS_SETUP.md). Without them the service refuses to start.
   live-trading-service:
     profiles: ["apps"]
     # Come back after a Docker Desktop restart, and give Spring time to finish in-flight
@@ -407,7 +408,10 @@ services:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/tradeflow_live
       TRADEFLOW_LIVE_DATA_KEYRING: file:/run/tradeflow/data-keys/data-keys.properties
       TRADEFLOW_SERVICE_SECRET_LIVE: ${TRADEFLOW_SERVICE_SECRET_LIVE:-local-dev-only-live-trading-client-secret}
-      TRADEFLOW_LIVE_BROKER: none
+      TRADEFLOW_LIVE_BROKER: ${TRADEFLOW_LIVE_BROKER:-none}
+      TRADEFLOW_FYERS_APP_ID: ${TRADEFLOW_FYERS_APP_ID:-}
+      TRADEFLOW_FYERS_SECRET_KEY: ${TRADEFLOW_FYERS_SECRET_KEY:-}
+      TRADEFLOW_FYERS_REDIRECT_URI: ${TRADEFLOW_FYERS_REDIRECT_URI:-http://localhost:3000/live/broker/callback}
     healthcheck: *app-health
 
 volumes:

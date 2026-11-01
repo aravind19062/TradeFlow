@@ -4,6 +4,7 @@ import { Ban, CheckCircle2, Circle, Link2, Link2Off, PlugZap, Radio } from 'luci
 import { ApiError } from '../api/client';
 import { liveApi, mfaApi } from '../api/endpoints';
 import type { LiveOrderParams, LiveOrderPreview, LiveOrderType, LiveOrderView, LiveStatus } from '../api/types';
+import { BrokerAccountCard } from './BrokerAccount';
 import { StepUpCancelled, useStepUp } from '../components/StepUp';
 import { Alert, Badge, Button, Card, ConfirmDialog, EmptyState, ErrorState, PageHeader, Segmented, SelectInput, Spinner, TextInput, useToast } from '../components/ui';
 import { dateTime, money } from '../lib/format';
@@ -31,7 +32,7 @@ export function LiveDashboardPage() {
   if (status.error) return <Card><ErrorState error={status.error} onRetry={status.reload} /></Card>;
   if (!status.data) return <Spinner />;
   const s = status.data;
-  const canTrade = s.brokerConfigured && s.eligibility.eligible && !!s.connection && !s.halted && !!mfa.data?.enabled;
+  const canTrade = s.brokerConfigured && s.ordersEnabled && s.eligibility.eligible && !!s.connection && !s.halted && !!mfa.data?.enabled;
   return (
     <>
       <PageHeader title="Live trading" subtitle="Your real broker account. TradeFlow does not give investment advice." />
@@ -40,6 +41,13 @@ export function LiveDashboardPage() {
           <Alert tone="warning" title="No broker configured">
             {s.notice ?? 'No broker is integrated yet.'} Nothing on this page can place a real order until then. You can
             keep practising in <Link className="font-medium underline" to="/demo">demo trading</Link>.
+          </Alert>
+        </div>
+      )}
+      {s.brokerConfigured && !s.ordersEnabled && (
+        <div className="mb-6" data-testid="read-only-broker">
+          <Alert tone="info" title="Read-only broker link">
+            {s.notice} Manage orders directly with your broker until order placement is enabled.
           </Alert>
         </div>
       )}
@@ -56,7 +64,7 @@ export function LiveDashboardPage() {
               {mfa.data?.enabled ? 'Enabled.' : <><Link className="font-medium underline" to="/settings/security">Set up an authenticator app</Link>; every live action asks for a code.</>}
             </Check>
             <Check ok={s.brokerConfigured} title="Broker integration">
-              {s.brokerConfigured ? `Broker: ${s.broker}` : 'Not available yet.'}
+              {s.brokerConfigured ? `Broker: ${s.broker}${s.ordersEnabled ? '' : ' (read-only)'}` : 'Not available yet.'}
             </Check>
             <Check ok={!!s.connection} title="Your broker account linked">
               {s.connection ? `Account ${s.connection.accountRef ?? ''} linked ${dateTime(s.connection.connectedAt)}.` : 'Not linked.'}
@@ -67,6 +75,7 @@ export function LiveDashboardPage() {
         </Card>
         <BrokerConnectionCard status={s} />
       </div>
+      {s.connection && <BrokerAccountCard />}
       {canTrade && <LiveOrderTicket />}
       <div className="mt-6 grid gap-6 lg:grid-cols-2">
         <LimitsCard />
@@ -376,7 +385,9 @@ export function BrokerCallbackPage() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const state = params.get('state') ?? '';
-  const code = params.get('code') ?? '';
+  // Fyers returns the one-time code as `auth_code` (and `s=error` when the user declines).
+  const code = params.get('auth_code') ?? params.get('code') ?? '';
+  const declined = params.get('s') === 'error';
   async function finish() {
     setBusy(true); setError(null);
     try {
@@ -393,7 +404,8 @@ export function BrokerCallbackPage() {
     <>
       <PageHeader title="Finish linking your broker" />
       <Card>
-        {!state || !code ? <Alert tone="error">This page was opened without a broker authorisation. Start again from Live trading.</Alert> : (
+        {declined ? <Alert tone="error">The broker did not authorise the link{params.get('message') ? `: ${params.get('message')}` : ''}. Start again from Live trading.</Alert>
+          : !state || !code ? <Alert tone="error">This page was opened without a broker authorisation. Start again from Live trading.</Alert> : (
           <div className="space-y-3 text-sm">
             <p>Your broker sent you back to TradeFlow. Confirm to finish linking the account.</p>
             {error && <Alert tone="error">{error}</Alert>}

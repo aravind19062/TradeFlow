@@ -580,8 +580,50 @@ export interface LiveLimitsView {
   customised: boolean;
 }
 
+/** Read-only views of the linked broker account (live-trading-service BrokerAdapter records). */
+export interface BrokerFunds {
+  available: number | null;
+  used: number | null;
+  currency: string;
+  asOf: string;
+}
+
+export interface BrokerHolding {
+  exchange: string;
+  symbol: string;
+  quantity: number;
+  averagePrice: number | null;
+  lastPrice: number | null;
+}
+
+export interface BrokerPosition {
+  exchange: string;
+  symbol: string;
+  quantity: number;
+  averagePrice: number | null;
+  pnl: number | null;
+}
+
+export interface BrokerOrder {
+  brokerOrderId: string;
+  clientOrderId: string | null;
+  exchange: string;
+  symbol: string;
+  side: string;
+  type: string;
+  quantity: number;
+  filledQuantity: number;
+  price: number | null;
+  averagePrice: number | null;
+  status: string;
+  message: string | null;
+  updatedAt: string | null;
+}
+
 export interface LiveStatus {
   brokerConfigured: boolean;
+  /** False while the broker integration is read-only: no previews or orders. */
+  ordersEnabled: boolean;
   broker: string;
   eligibility: LiveEligibility;
   connection: BrokerConnectionView | null;
