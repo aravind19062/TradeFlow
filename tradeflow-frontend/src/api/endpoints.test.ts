@@ -42,3 +42,16 @@ describe('calls that need a step-up token', () => {
     ]);
   });
 });
+
+describe('the linked broker account', () => {
+  it('is read with the ordinary access token, GET only', async () => {
+    setSession({ token: 'access', expiresAt: Date.now() + 3_600_000 });
+    const seen = record();
+    await liveApi.brokerFunds();
+    await liveApi.brokerHoldings();
+    await liveApi.brokerPositions();
+    await liveApi.brokerOrders();
+    expect(seen).toEqual(['funds', 'holdings', 'positions', 'orders'].map((what) => (
+      { method: 'get', url: `/live/broker/${what}`, auth: 'Bearer access', stepUp: undefined })));
+  });
+});

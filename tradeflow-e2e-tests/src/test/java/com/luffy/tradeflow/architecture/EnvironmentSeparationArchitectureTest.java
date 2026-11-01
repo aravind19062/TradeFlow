@@ -52,13 +52,24 @@ class EnvironmentSeparationArchitectureTest {
     }
 
     @Test
-    void onlyTheLiveServiceTalksToBrokersAndNoBrokerIsIntegratedYet() {
-        // Until a broker is approved, DisabledBrokerAdapter is the only production implementation.
+    void onlyApprovedBrokerAdaptersExist() {
+        // DisabledBrokerAdapter (no broker) and FyersBrokerAdapter (approved 2026-11-01) are the only
+        // production implementations; any other broker needs a new approval and a change here.
         noClasses().that().implement(com.luffy.tradeflow_live_trading_service.broker.BrokerAdapter.class)
-                .and().doNotHaveSimpleName("DisabledBrokerAdapter")
+                .and().doNotHaveFullyQualifiedName("com.luffy.tradeflow_live_trading_service.broker.DisabledBrokerAdapter")
+                .and().doNotHaveFullyQualifiedName("com.luffy.tradeflow_live_trading_service.broker.fyers.FyersBrokerAdapter")
                 .should().bePublic().orShould().notBePublic()
-                .because("no broker adapter may exist before a broker is approved")
+                .because("only approved brokers may be integrated")
                 .allowEmptyShould(true)
+                .check(CLASSES);
+    }
+
+    @Test
+    void fyersSpecificCodeStaysBehindTheBrokerAdapter() {
+        // Everything else uses the BrokerAdapter interface; only the configuration chooses Fyers.
+        noClasses().that().resideOutsideOfPackages("com.luffy.tradeflow_live_trading_service.broker.fyers..",
+                        "com.luffy.tradeflow_live_trading_service.config..")
+                .should().dependOnClassesThat().resideInAPackage("com.luffy.tradeflow_live_trading_service.broker.fyers..")
                 .check(CLASSES);
     }
 

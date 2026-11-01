@@ -84,9 +84,21 @@ public class LiveOrderService {
         this.clock = clock;
     }
 
+    /**
+     * A read-only broker integration (phase 6) refuses order previews and placements up front: no
+     * confirmation is issued and no limit is consumed for an order that could never be sent.
+     */
+    private void requireOrdersEnabled() {
+        if (broker.enabled() && !broker.ordersEnabled()) {
+            throw new ApiException(HttpStatus.SERVICE_UNAVAILABLE, "LIVE_ORDERS_NOT_ENABLED",
+                    "Your broker account can be linked read-only. Placing real orders from TradeFlow is not enabled yet.");
+        }
+    }
+
     // ------------------------------------------------------------------ preview
 
     public Preview preview(long userId, OrderParams raw) {
+        requireOrdersEnabled();
         OrderParams p = normalise(raw);
         requireNoUnresolvedOrder(userId);
         BrokerConnection c = connections.requireActive(userId);
@@ -109,6 +121,7 @@ public class LiveOrderService {
     // ------------------------------------------------------------------ place
 
     public View place(long userId, UUID confirmationId, String clientOrderId, OrderParams raw) {
+        requireOrdersEnabled();
         OrderParams p = normalise(raw);
         if (clientOrderId == null || !CLIENT_ID.matcher(clientOrderId).matches()) {
             throw ApiException.badRequest("INVALID_CLIENT_ORDER_ID", "clientOrderId must be 8-64 letters, digits or '-'");

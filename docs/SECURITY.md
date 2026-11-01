@@ -86,6 +86,7 @@ There is **no self-service bypass** of the second factor. Recovery is an audited
 | Data-encryption key ring (AES-256) | user-service only (TOTP seeds) | volume `user_data_keys` | secret manager |
 | Live data-encryption key ring (AES-256) | live-trading-service only (broker tokens) | volume `live_data_keys` | secret manager |
 | Service client secrets | user-service and the client service | `.env` / local placeholders | secret manager |
+| Fyers app secret key | live-trading-service only (computes `appIdHash`; never sent as is) | git-ignored `.env` | secret manager |
 
 Nothing secret is committed. `make keys` creates the same material under `.secrets/` (git-ignored) for
 running services outside Docker. Services refuse to start without their keys.
@@ -103,6 +104,9 @@ by their key id and can be re-encrypted (`DataEncryptor.needsRotation`).
 * **Broker tokens** are encrypted at rest with a key ring only live-trading-service holds, bound to the
   connection, decrypted only at call time, never returned by an API, never logged (`toString` redacts).
   The frontend never sees them: the browser only ever holds TradeFlow's own tokens.
+  With Fyers (phase 6, read-only) only the daily access token is stored; no refresh token, since Fyers'
+  refresh needs the user's PIN. Of the Fyers profile only the client id is kept (no name, e-mail, PAN
+  or mobile). Order placement and cancellation are refused in code; see DUAL_MODE_TRADING.md, phase 6.
 * **Every live action is independently authorised and audited** (allowed and refused) in a hash-chained,
   append-only log. Administrators can halt new orders but have no endpoint that places or cancels orders for a user.
 * **Kill-switch changes need the administrator's own step-up** (password + authenticator code, at most 10 minutes
