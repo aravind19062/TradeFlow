@@ -5,8 +5,8 @@ import { alertApi, marketApi, orderApi, watchlistApi } from '../api/endpoints';
 import { PriceChart } from '../components/charts';
 import { OrderTicket } from '../components/OrderTicket';
 import { AlertForm } from '../components/AlertForm';
-import { AlertStatusBadge, Change, OrderStatusBadge, SideBadge, SimulatedNote } from '../components/trading';
-import { Button, Card, cx, EmptyState, ErrorState, PageHeader, Segmented, Skeleton, Spinner, useToast } from '../components/ui';
+import { AlertStatusBadge, Change, OrderStatusBadge, SideBadge, SimulatedNote, SymbolAvatar } from '../components/trading';
+import { Button, Card, cx, EmptyState, ErrorState, Flash, PageHeader, Segmented, Skeleton, Spinner, useToast } from '../components/ui';
 import { dateTime, money, percent, quantity, signedMoney, time, trendClass } from '../lib/format';
 import { invalidate, useApi } from '../lib/useApi';
 import { usePortfolioSummary } from '../lib/usePortfolio';
@@ -76,13 +76,22 @@ export function InstrumentPage() {
           <Card>
             {q ? (
               <div className="mb-4 flex flex-wrap items-end justify-between gap-4">
+                <div className="flex items-start gap-4">
+                <SymbolAvatar symbol={q.symbol} className="mt-1 size-12 rounded-2xl text-sm" />
                 <div>
-                  <p className="text-3xl font-semibold tabular-nums tracking-tight" data-testid="instrument-price">{money(q.price)}</p>
+                  <p className="flex items-center gap-3 text-3xl font-semibold tabular-nums tracking-tight" data-testid="instrument-price">
+                    <Flash value={q.price}>{money(q.price)}</Flash>
+                    <span className="relative flex size-2" aria-hidden title="Refreshes with the simulator">
+                      <span className="absolute inline-flex size-full animate-ping rounded-full bg-emerald-400 opacity-60" />
+                      <span className="relative inline-flex size-2 rounded-full bg-emerald-500" />
+                    </span>
+                  </p>
                   <p className="mt-1 text-sm"><Change change={q.change} ratio={q.changeRatio} /> <span className="text-slate-400">since previous tick · {time(q.asOf)} · tick {q.tick}</span></p>
                   <p className="mt-1 text-sm text-slate-600" data-testid="instrument-touch">
                     Bid <span className="font-medium tabular-nums">{money(q.bid)}</span> · Ask <span className="font-medium tabular-nums">{money(q.ask)}</span>
                     <span className="text-slate-400"> · spread {money(q.spread)}</span>
                   </p>
+                </div>
                 </div>
                 <Segmented label="History range" value={range} onChange={setRange}
                   options={(Object.keys(RANGES) as Range[]).map((r) => ({ value: r, label: RANGES[r] }))} />

@@ -2,11 +2,90 @@
 
 @theme {
   --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+
+  --color-ink: #070b16;
+  --color-brand-300: #6ee7b7;
+  --color-brand-400: #34d399;
+  --color-brand-500: #10b981;
+  --color-brand-600: #059669;
+
+  --shadow-soft: 0 1px 2px rgb(15 23 42 / 0.04), 0 4px 16px -4px rgb(15 23 42 / 0.08);
+  --shadow-lift: 0 2px 4px rgb(15 23 42 / 0.04), 0 16px 32px -12px rgb(15 23 42 / 0.18);
+  --shadow-glow: 0 0 0 1px rgb(16 185 129 / 0.25), 0 8px 24px -6px rgb(16 185 129 / 0.45);
+
+  --animate-enter: enter 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
+  --animate-pop: pop 0.22s cubic-bezier(0.22, 1, 0.36, 1) both;
+  --animate-fade: fade 0.2s ease-out both;
+  --animate-toast: toast-in 0.35s cubic-bezier(0.22, 1, 0.36, 1) both;
+  --animate-flash-up: flash-up 1.2s ease-out;
+  --animate-flash-down: flash-down 1.2s ease-out;
+  --animate-flash: flash 1.2s ease-out;
+  --animate-shimmer: shimmer 1.6s linear infinite;
+  --animate-marquee: marquee var(--marquee-duration, 60s) linear infinite;
+  --animate-float: float 14s ease-in-out infinite;
+  --animate-draw: draw 2.4s cubic-bezier(0.65, 0, 0.35, 1) both;
+
+  @keyframes enter { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+  @keyframes pop { from { opacity: 0; transform: translateY(8px) scale(0.97); } to { opacity: 1; transform: none; } }
+  @keyframes fade { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes toast-in { from { opacity: 0; transform: translateX(24px) scale(0.98); } to { opacity: 1; transform: none; } }
+  @keyframes flash-up { 0% { background-color: rgb(16 185 129 / 0.22); } 100% { background-color: transparent; } }
+  @keyframes flash-down { 0% { background-color: rgb(244 63 94 / 0.2); } 100% { background-color: transparent; } }
+  @keyframes flash { 0% { background-color: rgb(14 165 233 / 0.14); } 100% { background-color: transparent; } }
+  @keyframes shimmer { from { background-position: 200% 0; } to { background-position: -200% 0; } }
+  @keyframes marquee { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+  @keyframes float { 0%, 100% { transform: translate(0, 0) scale(1); } 50% { transform: translate(30px, -40px) scale(1.08); } }
+  @keyframes draw { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }
 }
 
 @layer base {
   html { -webkit-tap-highlight-color: transparent; }
+  body {
+    background-color: #f6f8fb;
+    background-image:
+      radial-gradient(60rem 30rem at 100% -10%, rgb(16 185 129 / 0.07), transparent 60%),
+      radial-gradient(50rem 30rem at 0% 0%, rgb(14 165 233 / 0.06), transparent 60%);
+    background-attachment: fixed;
+  }
   table { font-variant-numeric: tabular-nums; }
+  ::selection { background: rgb(16 185 129 / 0.25); }
+}
+
+@layer components {
+  /* Cards whose surface follows the pointer (see useSpotlight in ui.tsx). */
+  .spotlight { position: relative; isolation: isolate; }
+  .spotlight::before {
+    content: ""; position: absolute; inset: 0; z-index: -1; border-radius: inherit; pointer-events: none;
+    opacity: 0; transition: opacity 0.3s;
+    background: radial-gradient(420px circle at var(--mx, 50%) var(--my, 50%), rgb(16 185 129 / 0.09), transparent 45%);
+  }
+  .spotlight:hover::before { opacity: 1; }
+
+  .text-gradient {
+    background: linear-gradient(100deg, #34d399 0%, #22d3ee 55%, #818cf8 100%);
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
+
+  .bg-grid {
+    background-image:
+      linear-gradient(rgb(148 163 184 / 0.07) 1px, transparent 1px),
+      linear-gradient(90deg, rgb(148 163 184 / 0.07) 1px, transparent 1px);
+    background-size: 44px 44px;
+    mask-image: radial-gradient(ellipse at 40% 40%, black 30%, transparent 75%);
+  }
+
+  .skeleton-shimmer {
+    background: linear-gradient(90deg, rgb(226 232 240 / 0.7) 25%, rgb(241 245 249) 37%, rgb(226 232 240 / 0.7) 63%);
+    background-size: 400% 100%;
+  }
+
+  /* Staggered entrance for direct children (grids of cards). */
+  .stagger > * { animation: var(--animate-enter); }
+  .stagger > *:nth-child(2) { animation-delay: 60ms; }
+  .stagger > *:nth-child(3) { animation-delay: 120ms; }
+  .stagger > *:nth-child(4) { animation-delay: 180ms; }
+  .stagger > *:nth-child(5) { animation-delay: 240ms; }
+  .stagger > *:nth-child(n+6) { animation-delay: 300ms; }
 }
 
 /* Academy lesson typography (Markdown rendered by react-markdown; no raw HTML is allowed). */
@@ -21,8 +100,15 @@
   .prose-lesson code { @apply rounded bg-slate-100 px-1 py-0.5 font-mono text-[13px] text-slate-800; }
   .prose-lesson pre { @apply my-4 overflow-x-auto rounded-lg bg-slate-900 p-4 text-[13px] text-slate-100; }
   .prose-lesson pre code { @apply bg-transparent p-0 text-slate-100; }
-  .prose-lesson blockquote { @apply my-5 border-l-4 border-emerald-500 bg-emerald-50 px-4 py-2 text-slate-800; }
+  .prose-lesson blockquote { @apply my-5 rounded-r-lg border-l-4 border-emerald-500 bg-emerald-50 px-4 py-2 text-slate-800; }
   .prose-lesson table { @apply my-4 w-full border-collapse text-sm; }
   .prose-lesson th { @apply border-b border-slate-300 px-3 py-2 text-left font-semibold text-slate-900; }
   .prose-lesson td { @apply border-b border-slate-100 px-3 py-2 align-top; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important; animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important; scroll-behavior: auto !important;
+  }
 }

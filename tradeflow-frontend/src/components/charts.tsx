@@ -1,8 +1,21 @@
+import { useState } from 'react';
 import {
   Area, AreaChart, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from 'recharts';
 import type { AllocationSlice, PerformancePoint, PricePoint } from '../api/types';
+import { cx } from './ui';
 import { money, moneyCompact, percent, shortDate, time } from '../lib/format';
+
+/** Shared tooltip look: a dark glass card. */
+const tooltipStyle = {
+  contentStyle: {
+    borderRadius: 12, border: '1px solid rgba(148,163,184,0.2)', fontSize: 12,
+    background: 'rgba(15,23,42,0.92)', color: '#e2e8f0', boxShadow: '0 12px 32px -8px rgba(15,23,42,0.45)', padding: '8px 12px',
+  },
+  labelStyle: { color: '#94a3b8', marginBottom: 2 },
+  itemStyle: { color: '#f8fafc', fontWeight: 600 },
+};
+const cursor = { stroke: '#94a3b8', strokeWidth: 1, strokeDasharray: '4 4' };
 
 const UP = '#059669';
 const DOWN = '#e11d48';
@@ -20,7 +33,7 @@ export function PerformanceChart({ points, height = 260 }: { points: Performance
         <AreaChart data={data} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
           <defs>
             <linearGradient id="perfFill" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor={color} stopOpacity={0.25} />
+              <stop offset="0%" stopColor={color} stopOpacity={0.3} />
               <stop offset="100%" stopColor={color} stopOpacity={0} />
             </linearGradient>
           </defs>
@@ -32,9 +45,11 @@ export function PerformanceChart({ points, height = 260 }: { points: Performance
           <Tooltip
             labelFormatter={(t) => new Date(Number(t)).toLocaleString('en-IN')}
             formatter={(v, name) => [money(Number(v)), name === 'value' ? 'Total value' : String(name)]}
-            contentStyle={{ borderRadius: 8, border: '1px solid #e2e8f0', fontSize: 12 }}
+            {...tooltipStyle} cursor={cursor}
           />
-          <Area type="monotone" dataKey="value" stroke={color} strokeWidth={2} fill="url(#perfFill)" isAnimationActive={false} />
+          <Area type="monotone" dataKey="value" stroke={color} strokeWidth={2.25} fill="url(#perfFill)"
+            animationDuration={900} animationEasing="ease-out"
+            activeDot={{ r: 5, strokeWidth: 3, stroke: '#fff', fill: color }} />
         </AreaChart>
       </ResponsiveContainer>
     </div>
@@ -50,7 +65,7 @@ export function PriceChart({ points, height = 280 }: { points: PricePoint[]; hei
         <AreaChart data={data} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
           <defs>
             <linearGradient id="priceFill" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor={color} stopOpacity={0.2} />
+              <stop offset="0%" stopColor={color} stopOpacity={0.28} />
               <stop offset="100%" stopColor={color} stopOpacity={0} />
             </linearGradient>
           </defs>
@@ -62,34 +77,42 @@ export function PriceChart({ points, height = 280 }: { points: PricePoint[]; hei
           <Tooltip
             labelFormatter={(t) => new Date(Number(t)).toLocaleString('en-IN')}
             formatter={(v) => [money(Number(v)), 'Price']}
-            contentStyle={{ borderRadius: 8, border: '1px solid #e2e8f0', fontSize: 12 }}
+            {...tooltipStyle} cursor={cursor}
           />
-          <Area type="linear" dataKey="price" stroke={color} strokeWidth={2} fill="url(#priceFill)" isAnimationActive={false} />
+          <Area type="linear" dataKey="price" stroke={color} strokeWidth={2} fill="url(#priceFill)" isAnimationActive={false}
+            activeDot={{ r: 5, strokeWidth: 3, stroke: '#fff', fill: color }} />
         </AreaChart>
       </ResponsiveContainer>
     </div>
   );
 }
 
-const PALETTE = ['#0f172a', '#0284c7', '#059669', '#d97706', '#7c3aed', '#db2777', '#0891b2', '#65a30d', '#94a3b8'];
+const PALETTE = ['#0f172a', '#0ea5e9', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899', '#06b6d4', '#84cc16', '#94a3b8'];
 
 export function AllocationChart({ slices, height = 220 }: { slices: AllocationSlice[]; height?: number }) {
   const data = slices.filter((s) => s.value > 0);
+  const [active, setActive] = useState<number | null>(null);
   return (
     <div className="flex flex-col items-center gap-4 sm:flex-row">
       <div style={{ height, width: height }} className="shrink-0">
         <ResponsiveContainer width="100%" height="100%">
           <PieChart>
-            <Pie data={data} dataKey="value" nameKey="name" innerRadius="58%" outerRadius="95%" paddingAngle={1} isAnimationActive={false}>
-              {data.map((s, i) => <Cell key={s.name} fill={PALETTE[i % PALETTE.length]} />)}
+            <Pie data={data} dataKey="value" nameKey="name" innerRadius="60%" outerRadius="94%" paddingAngle={2} cornerRadius={4}
+              stroke="none" animationDuration={800} onMouseLeave={() => setActive(null)}>
+              {data.map((s, i) => (
+                <Cell key={s.name} fill={PALETTE[i % PALETTE.length]} onMouseEnter={() => setActive(i)}
+                  style={{ transition: 'opacity 0.2s', opacity: active == null || active === i ? 1 : 0.35, outline: 'none' }} />
+              ))}
             </Pie>
-            <Tooltip formatter={(v, n) => [money(Number(v)), String(n)]} contentStyle={{ borderRadius: 8, fontSize: 12 }} />
+            <Tooltip formatter={(v, n) => [money(Number(v)), String(n)]} {...tooltipStyle} />
           </PieChart>
         </ResponsiveContainer>
       </div>
       <ul className="w-full space-y-1.5 text-sm">
         {data.map((s, i) => (
-          <li key={s.name} className="flex items-center justify-between gap-3">
+          <li key={s.name} onMouseEnter={() => setActive(i)} onMouseLeave={() => setActive(null)}
+            className={cx('flex cursor-default items-center justify-between gap-3 rounded-md px-1.5 py-0.5 transition-all',
+              active === i ? 'bg-slate-100' : active != null && 'opacity-50')}>
             <span className="flex min-w-0 items-center gap-2">
               <span className="size-2.5 shrink-0 rounded-sm" style={{ background: PALETTE[i % PALETTE.length] }} />
               <span className="truncate text-slate-700">{s.name}</span>
@@ -111,8 +134,9 @@ export function Sparkline({ values, width = 96, height = 28 }: { values: number[
   const step = width / (values.length - 1);
   const d = values.map((v, i) => `${i === 0 ? 'M' : 'L'}${(i * step).toFixed(1)},${(height - ((v - min) / span) * (height - 2) - 1).toFixed(1)}`).join(' ');
   return (
-    <svg width={width} height={height} aria-hidden>
-      <path d={d} fill="none" stroke={trendColor(values[0], values.at(-1))} strokeWidth={1.5} />
+    <svg width={width} height={height} aria-hidden className="overflow-visible">
+      <path d={`${d} L${width},${height} L0,${height} Z`} fill={trendColor(values[0], values.at(-1))} opacity={0.08} />
+      <path d={d} fill="none" stroke={trendColor(values[0], values.at(-1))} strokeWidth={1.5} strokeLinejoin="round" strokeLinecap="round" />
     </svg>
   );
 }

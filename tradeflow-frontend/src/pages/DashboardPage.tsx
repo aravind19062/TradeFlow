@@ -1,10 +1,10 @@
 import { Link } from 'react-router';
-import { ArrowRight, LoaderCircle, TriangleAlert } from 'lucide-react';
+import { ArrowRight, Banknote, LoaderCircle, PiggyBank, TrendingUp, TriangleAlert, Wallet } from 'lucide-react';
 import { orderApi, portfolioApi, watchlistApi } from '../api/endpoints';
 import { useAuth } from '../auth/AuthContext';
 import { AllocationChart, PerformanceChart } from '../components/charts';
 import { Change, OrderStatusBadge, SideBadge, SimulatedNote, SymbolLink } from '../components/trading';
-import { Alert, Card, EmptyState, ErrorState, PageHeader, Skeleton, Spinner, Stat } from '../components/ui';
+import { Alert, Card, EmptyState, ErrorState, Flash, PageHeader, Skeleton, Spinner, Stat } from '../components/ui';
 import { dateTime, money, percent, quantity, signedMoney, signedPercent, time, trendClass } from '../lib/format';
 import { useApi } from '../lib/useApi';
 import { usePortfolioSummary } from '../lib/usePortfolio';
@@ -26,7 +26,7 @@ export function DashboardPage() {
       <PageHeader
         title={`Welcome${isNewUser ? '' : ' back'}, ${user?.name?.split(' ')[0] ?? ''}`}
         subtitle={s?.pricesAsOf ? <>Valued at simulated prices as of {time(s.pricesAsOf)}</> : 'Your portfolio at a glance'}
-        actions={<Link to="/demo/market" className="inline-flex items-center gap-1.5 rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800">Trade <ArrowRight className="size-4" /></Link>}
+        actions={<Link to="/demo/market" className="group inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-emerald-500 to-cyan-600 px-4 py-2 text-sm font-medium text-white shadow-sm shadow-emerald-600/30 transition-all hover:shadow-glow active:scale-[0.97]">Trade <ArrowRight className="size-4 transition-transform group-hover:translate-x-0.5" /></Link>}
       />
 
       {summary.opening && (
@@ -39,20 +39,23 @@ export function DashboardPage() {
         <div className="mb-6"><Alert tone="warning">Market data is unavailable right now; holdings are shown at cost.</Alert></div>
       )}
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="stagger grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {s ? <>
-          <Stat testId="stat-total-value" label="Portfolio value" value={money(s.totalValue)}
-            sub={<>Net deposits {money(s.netDeposits)}</>} />
-          <Stat testId="stat-available-cash" label="Available cash" value={money(s.availableCash)}
+          <Stat testId="stat-total-value" label="Portfolio value" value={money(s.totalValue)} flashValue={s.totalValue}
+            icon={<Wallet className="size-4" />} sub={<>Net deposits {money(s.netDeposits)}</>} />
+          <Stat testId="stat-available-cash" label="Available cash" value={money(s.availableCash)} flashValue={s.availableCash}
+            icon={<Banknote className="size-4" />}
             sub={s.reservedCash > 0 ? <>{money(s.reservedCash)} reserved for open orders</> : <>Cash balance {money(s.cashBalance)}</>} />
-          <Stat testId="stat-total-pnl" label="Total P&L" value={signedMoney(s.totalPnl)} valueClass={trendClass(s.totalPnl)}
+          <Stat testId="stat-total-pnl" label="Total P&L" value={signedMoney(s.totalPnl)} valueClass={trendClass(s.totalPnl)} flashValue={s.totalPnl}
+            icon={<TrendingUp className="size-4" />}
             sub={<span className={trendClass(s.totalReturnRatio)}>{signedPercent(s.totalReturnRatio)} return</span>} />
           <Stat testId="stat-unrealized" label="Unrealized / realized" value={<span className={trendClass(s.unrealizedPnl)}>{signedMoney(s.unrealizedPnl)}</span>}
+            flashValue={s.unrealizedPnl} icon={<PiggyBank className="size-4" />}
             sub={<>Realized <span className={trendClass(s.realizedPnl)}>{signedMoney(s.realizedPnl)}</span></>} />
         </> : !summary.error && Array.from({ length: 4 }, (_, i) => <Skeleton key={i} className="h-[118px]" />)}
       </div>
 
-      <div className="mt-6 grid gap-6 xl:grid-cols-3">
+      <div className="stagger mt-6 grid gap-6 xl:grid-cols-3">
         {/* /portfolio/performance is rebuilt from the ledger, so it ends at the last ledger event,
             not at the current tick; label it so it is not confused with Total P&L above. */}
         <Card className="xl:col-span-2" title="Performance" action={performance.data && (
@@ -92,7 +95,7 @@ export function DashboardPage() {
         </Card>
       </div>
 
-      <div className="mt-6 grid gap-6 xl:grid-cols-3">
+      <div className="stagger mt-6 grid gap-6 xl:grid-cols-3">
         <Card className="xl:col-span-2" title="Recent orders" bodyClassName="p-0"
           action={<Link to="/demo/orders" className="text-sm font-medium text-sky-700 hover:underline">
             All orders{open.data && open.data.totalElements > 0 ? ` · ${open.data.totalElements} open` : ''}
@@ -107,8 +110,8 @@ export function DashboardPage() {
                     </thead>
                     <tbody className="divide-y divide-slate-100">
                       {recent.data.content.map((o) => (
-                        <tr key={o.id} className="hover:bg-slate-50">
-                          <td className="px-5 py-2.5"><Link to={`/demo/orders/${o.id}`} className="font-semibold hover:text-sky-700">{o.symbol}</Link> <span className="text-xs text-slate-400">{o.type}</span></td>
+                        <tr key={o.id} className="transition-colors hover:bg-emerald-50/40">
+                          <td className="px-5 py-2.5"><Link to={`/demo/orders/${o.id}`} className="font-semibold transition-colors hover:text-emerald-700">{o.symbol}</Link> <span className="text-xs text-slate-400">{o.type}</span></td>
                           <td className="px-3 py-2.5"><SideBadge side={o.side} /></td>
                           <td className="px-3 py-2.5 text-right">{quantity(o.quantity)}</td>
                           <td className="px-3 py-2.5"><OrderStatusBadge status={o.status} /></td>
@@ -126,10 +129,10 @@ export function DashboardPage() {
               : watchlist.data.length === 0 ? <EmptyState title="Your watchlist is empty">Star instruments in <Link to="/demo/market" className="text-sky-700 hover:underline">Market watch</Link>.</EmptyState>
                 : <ul className="divide-y divide-slate-100">
                   {watchlist.data.slice(0, 6).map((q) => (
-                    <li key={q.symbol} className="flex items-center justify-between gap-3 px-5 py-3">
+                    <li key={q.symbol} className="flex items-center justify-between gap-3 px-5 py-3 transition-colors hover:bg-slate-50/80">
                       <SymbolLink symbol={q.symbol} name={q.name} />
                       <div className="text-right text-sm">
-                        <p className="font-medium tabular-nums">{money(q.price)}</p>
+                        <p className="font-medium tabular-nums"><Flash value={q.price}>{money(q.price)}</Flash></p>
                         <Change ratio={q.changeRatio} className="text-xs" />
                       </div>
                     </li>

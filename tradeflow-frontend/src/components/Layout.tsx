@@ -6,7 +6,7 @@ import {
 import { useAuth } from '../auth/AuthContext';
 import { liveApi, marketApi } from '../api/endpoints';
 import { useApi } from '../lib/useApi';
-import { cx, Spinner } from './ui';
+import { cx, Flash, Spinner } from './ui';
 import { EnvironmentBadge } from './environment';
 
 interface NavItem { to: string; label: string; icon: typeof LayoutDashboard; end?: boolean }
@@ -38,10 +38,21 @@ const LIVE_NAV: NavSection = {
 
 export function Logo({ dark = true }: { dark?: boolean }) {
   return (
-    <div className="flex items-center gap-2.5">
-      <svg viewBox="0 0 32 32" className="size-8" aria-hidden>
-        <rect width="32" height="32" rx="7" fill={dark ? '#1e293b' : '#0f172a'} />
-        <path d="M6 21l6-6 4 4 9-9" stroke="#34d399" strokeWidth="3" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+    <div className="group flex items-center gap-2.5">
+      <svg viewBox="0 0 32 32" className="size-8 drop-shadow-[0_0_12px_rgba(52,211,153,0.35)] transition-transform duration-500 group-hover:rotate-[-6deg] group-hover:scale-105" aria-hidden>
+        <defs>
+          <linearGradient id="logoBg" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stopColor={dark ? '#1e293b' : '#0f172a'} />
+            <stop offset="100%" stopColor="#020617" />
+          </linearGradient>
+          <linearGradient id="logoLine" x1="0" y1="1" x2="1" y2="0">
+            <stop offset="0%" stopColor="#34d399" />
+            <stop offset="100%" stopColor="#22d3ee" />
+          </linearGradient>
+        </defs>
+        <rect width="32" height="32" rx="8" fill="url(#logoBg)" />
+        <path d="M6 21l6-6 4 4 9-9" stroke="url(#logoLine)" strokeWidth="3" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+        <circle cx="25" cy="10" r="2" fill="#22d3ee" />
       </svg>
       <span className={cx('text-lg font-semibold tracking-tight', dark ? 'text-white' : 'text-slate-900')}>TradeFlow</span>
     </div>
@@ -61,9 +72,11 @@ function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
   if (isAdmin) staff.push({ to: '/admin', label: 'Admin', icon: Shield });
   if (staff.length) sections.push({ title: 'Administration', items: staff });
   return (
-    <div className="flex h-full flex-col bg-[#0b1220] text-slate-300">
-      <div className="px-5 py-5"><Logo /></div>
-      <nav className="flex-1 space-y-5 overflow-y-auto px-3" aria-label="Main">
+    <div className="relative flex h-full flex-col overflow-hidden bg-gradient-to-b from-[#0b1324] via-[#080e1c] to-[#060a14] text-slate-300">
+      <div className="pointer-events-none absolute -left-24 -top-24 size-64 rounded-full bg-emerald-500/10 blur-3xl" aria-hidden />
+      <div className="pointer-events-none absolute -bottom-32 -right-24 size-72 rounded-full bg-indigo-500/10 blur-3xl" aria-hidden />
+      <div className="relative px-5 py-5"><Logo /></div>
+      <nav className="relative flex-1 space-y-5 overflow-y-auto px-3" aria-label="Main">
         {sections.map((section) => (
           <div key={section.title}>
             <p className="mb-1.5 flex items-center gap-2 px-3 text-[11px] font-semibold uppercase tracking-wider text-slate-500">
@@ -73,21 +86,26 @@ function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
               {section.items.map(({ to, label, icon: Icon, end }) => (
                 <NavLink
                   key={to} to={to} end={end} onClick={onNavigate}
-                  className={({ isActive }) => cx('flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
-                    isActive ? 'bg-slate-800 text-white' : 'text-slate-400 hover:bg-slate-800/60 hover:text-slate-100')}
+                  className={({ isActive }) => cx('group relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all duration-200',
+                    isActive ? 'bg-gradient-to-r from-white/[0.09] to-white/[0.02] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]'
+                      : 'text-slate-400 hover:translate-x-0.5 hover:bg-white/[0.04] hover:text-slate-100')}
                 >
-                  <Icon className="size-4.5" aria-hidden /> {label}
+                  {({ isActive }) => <>
+                    <span aria-hidden className={cx('absolute left-0 top-1/2 h-5 w-[3px] -translate-y-1/2 rounded-r-full bg-gradient-to-b from-emerald-400 to-cyan-400 transition-all duration-300',
+                      isActive ? 'opacity-100' : 'scale-y-0 opacity-0')} />
+                    <Icon className={cx('size-4.5 transition-colors', isActive ? 'text-emerald-400' : 'group-hover:text-slate-200')} aria-hidden /> {label}
                   {to === '/live' && unreadLive > 0 && (
                     <span data-testid="live-unread" aria-label={`${unreadLive} unread live-trading notices`}
-                      className="ml-auto rounded-full bg-rose-600 px-1.5 text-[10px] font-semibold leading-4 text-white">{unreadLive}</span>
+                      className="ml-auto rounded-full bg-rose-600 px-1.5 text-[10px] font-semibold leading-4 text-white shadow-[0_0_10px_rgba(225,29,72,0.6)]">{unreadLive}</span>
                   )}
+                  </>}
                 </NavLink>
               ))}
             </div>
           </div>
         ))}
       </nav>
-      <div className="mx-3 mb-3 rounded-lg bg-slate-800/50 px-3 py-2.5 text-xs text-slate-400">
+      <div className="relative mx-3 mb-3 rounded-xl border border-white/5 bg-white/[0.03] px-3 py-2.5 text-xs text-slate-400">
         <div className="flex items-center gap-2">
           <span className="relative flex size-2">
             <span className="absolute inline-flex size-full animate-ping rounded-full bg-emerald-400 opacity-60" />
@@ -95,18 +113,18 @@ function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
           </span>
           Simulated market
         </div>
-        <p className="mt-1 tabular-nums">{sim.data ? `Tick ${sim.data.currentTick}` : sim.error ? 'Market data unavailable' : '…'}</p>
+        <p className="mt-1 tabular-nums">{sim.data ? <Flash value={sim.data.currentTick}>Tick {sim.data.currentTick}</Flash> : sim.error ? 'Market data unavailable' : '…'}</p>
       </div>
-      <div className="border-t border-slate-800 px-4 py-4">
+      <div className="relative border-t border-white/5 px-4 py-4">
         <div className="flex items-center gap-3">
-          <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-slate-700 text-sm font-semibold text-white">
+          <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-emerald-400 to-cyan-600 text-sm font-semibold text-white ring-2 ring-white/10">
             {user?.name?.slice(0, 1).toUpperCase() ?? '?'}
           </div>
           <div className="min-w-0 flex-1">
             <p className="truncate text-sm font-medium text-white" data-testid="current-user">{user?.name}</p>
             <p className="truncate text-xs text-slate-400">{user?.email}{isAdmin && ' · Admin'}</p>
           </div>
-          <button onClick={() => logout('manual')} className="rounded-md p-2 text-slate-400 hover:bg-slate-800 hover:text-white" aria-label="Sign out" title="Sign out">
+          <button onClick={() => logout('manual')} className="rounded-md p-2 text-slate-400 transition-colors hover:bg-white/10 hover:text-white" aria-label="Sign out" title="Sign out">
             <LogOut className="size-4" />
           </button>
         </div>
@@ -124,8 +142,8 @@ export function AppLayout() {
 
       {open && (
         <div className="fixed inset-0 z-40 lg:hidden">
-          <div className="absolute inset-0 bg-slate-950/60" onClick={() => setOpen(false)} />
-          <aside className="absolute inset-y-0 left-0 w-72 shadow-xl">
+          <div className="absolute inset-0 animate-fade bg-slate-950/60 backdrop-blur-sm" onClick={() => setOpen(false)} />
+          <aside className="absolute inset-y-0 left-0 w-72 animate-enter shadow-xl">
             <button className="absolute right-3 top-5 rounded-md p-1 text-slate-400 hover:text-white" onClick={() => setOpen(false)} aria-label="Close menu">
               <X className="size-5" />
             </button>
@@ -134,7 +152,7 @@ export function AppLayout() {
         </div>
       )}
 
-      <header className="sticky top-0 z-30 flex items-center justify-between border-b border-slate-200 bg-white/90 px-4 py-3 backdrop-blur lg:hidden">
+      <header className="sticky top-0 z-30 flex items-center justify-between border-b border-slate-200/70 bg-white/80 px-4 py-3 backdrop-blur-md lg:hidden">
         <button onClick={() => setOpen(true)} className="rounded-md p-1.5 text-slate-600 hover:bg-slate-100" aria-label="Open menu">
           <Menu className="size-5" />
         </button>
@@ -142,7 +160,7 @@ export function AppLayout() {
         <span className="w-8" />
       </header>
 
-      <main key={location.pathname} className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
+      <main key={location.pathname} className="mx-auto max-w-7xl animate-enter px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
         <Suspense fallback={<Spinner />}><Outlet /></Suspense>
         <footer className="mt-12 border-t border-slate-200 pt-4 text-xs text-slate-400">
           TradeFlow · demo prices are simulated · not investment advice
