@@ -6,7 +6,7 @@ import { BookOpen, CheckCircle2, ChevronLeft, ChevronRight, Circle, ClipboardChe
 import { ApiError } from '../api/client';
 import { academyApi } from '../api/endpoints';
 import type { ModuleStatus, QuizAttemptView, QuizResultView } from '../api/types';
-import { Alert, Badge, Button, Card, cx, ErrorState, PageHeader, Spinner } from '../components/ui';
+import { Alert, Badge, Button, Card, cx, ErrorState, PageHeader, Spinner, spotlight } from '../components/ui';
 import { invalidate, useApi } from '../lib/useApi';
 
 const STATUS: Record<ModuleStatus, { label: string; cls: string }> = {
@@ -36,17 +36,17 @@ export function AcademyPage() {
         : !o ? <Spinner />
           : <>
             <div className="mb-6 h-2 overflow-hidden rounded-full bg-slate-200" role="progressbar" aria-valuenow={o.modulesCompleted} aria-valuemax={o.moduleCount}>
-              <div className="h-full bg-emerald-500 transition-all" style={{ width: `${(100 * o.modulesCompleted) / o.moduleCount}%` }} />
+              <div className="h-full rounded-full bg-gradient-to-r from-emerald-400 to-cyan-500 transition-all duration-1000" style={{ width: `${(100 * o.modulesCompleted) / o.moduleCount}%` }} />
             </div>
-            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3" data-testid="academy-modules">
+            <div className="stagger grid gap-4 md:grid-cols-2 xl:grid-cols-3" data-testid="academy-modules">
               {o.modules.map((m) => (
-                <Link key={m.slug} to={`/academy/${m.slug}`}
-                  className="group flex flex-col rounded-xl border border-slate-200 bg-white p-5 shadow-sm transition hover:border-slate-300 hover:shadow">
+                <Link key={m.slug} to={`/academy/${m.slug}`} onMouseMove={spotlight}
+                  className="spotlight group flex flex-col overflow-hidden rounded-2xl border border-slate-200/80 bg-white/90 p-5 shadow-soft transition duration-300 hover:-translate-y-1 hover:border-emerald-200 hover:shadow-lift">
                   <div className="flex items-start justify-between gap-3">
-                    <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-slate-900 text-sm font-semibold text-white">{m.position}</span>
+                    <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-slate-800 to-slate-950 text-sm font-semibold text-white shadow-sm transition-all duration-300 group-hover:from-emerald-500 group-hover:to-cyan-600 group-hover:shadow-glow">{m.position}</span>
                     <Badge className={STATUS[m.status].cls}>{STATUS[m.status].label}</Badge>
                   </div>
-                  <h2 className="mt-3 font-semibold text-slate-900 group-hover:text-sky-700">{m.title}</h2>
+                  <h2 className="mt-3 font-semibold text-slate-900 transition-colors group-hover:text-emerald-700">{m.title}</h2>
                   <p className="mt-1 flex-1 text-sm text-slate-500">{m.summary}</p>
                   <div className="mt-4 flex items-center justify-between text-xs text-slate-500">
                     <span><BookOpen className="mr-1 inline size-3.5" />{m.lessonsCompleted}/{m.lessonCount} lessons</span>

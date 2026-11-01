@@ -33,7 +33,8 @@ export function AlertStatusBadge({ status }: { status: AlertStatus }) {
 
 export function SideBadge({ side }: { side: OrderSide }) {
   return (
-    <span className={cx('text-xs font-semibold', side === 'BUY' ? 'text-emerald-600' : 'text-rose-600')}>{side}</span>
+    <span className={cx('inline-flex rounded-md px-1.5 py-0.5 text-[11px] font-bold tracking-wide',
+      side === 'BUY' ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700')}>{side}</span>
   );
 }
 
@@ -53,11 +54,31 @@ export function Change({ change, ratio, money = true, className }: {
   );
 }
 
+const AVATAR_TONES = [
+  'from-emerald-400 to-teal-600', 'from-sky-400 to-indigo-600', 'from-amber-400 to-orange-600',
+  'from-fuchsia-400 to-purple-600', 'from-cyan-400 to-blue-600', 'from-rose-400 to-pink-600', 'from-lime-400 to-green-600',
+];
+
+/** Decorative monogram for an instrument; the colour is stable per symbol. */
+export function SymbolAvatar({ symbol, className }: { symbol: string; className?: string }) {
+  let h = 0;
+  for (const c of symbol) h = (h * 31 + c.charCodeAt(0)) >>> 0;
+  return (
+    <span aria-hidden className={cx('flex size-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br text-[11px] font-bold tracking-tight text-white shadow-sm ring-1 ring-black/5 transition-transform duration-300 group-hover:scale-105 group-hover:-rotate-3',
+      AVATAR_TONES[h % AVATAR_TONES.length], className)}>
+      {symbol.slice(0, 2)}
+    </span>
+  );
+}
+
 export function SymbolLink({ symbol, name }: { symbol: string; name?: string }) {
   return (
-    <Link to={`/demo/market/${encodeURIComponent(symbol)}`} className="group block">
-      <span className="font-semibold text-slate-900 group-hover:text-sky-700">{symbol}</span>
-      {name && <span className="block truncate text-xs text-slate-500">{name}</span>}
+    <Link to={`/demo/market/${encodeURIComponent(symbol)}`} className="group flex min-w-0 items-center gap-3">
+      <SymbolAvatar symbol={symbol} />
+      <span className="min-w-0">
+        <span className="block font-semibold text-slate-900 transition-colors group-hover:text-emerald-700">{symbol}</span>
+        {name && <span className="block truncate text-xs text-slate-500">{name}</span>}
+      </span>
     </Link>
   );
 }

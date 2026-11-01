@@ -6,7 +6,7 @@ import { marketApi, watchlistApi } from '../api/endpoints';
 import type { HistoryResponse } from '../api/types';
 import { Sparkline } from '../components/charts';
 import { Change, SimulatedNote, SymbolLink } from '../components/trading';
-import { Button, Card, cx, EmptyState, ErrorState, PageHeader, Spinner, useToast } from '../components/ui';
+import { Button, Card, cx, EmptyState, ErrorState, Flash, PageHeader, Spinner, useToast } from '../components/ui';
 import { money, time } from '../lib/format';
 import { invalidate, useApi } from '../lib/useApi';
 
@@ -59,10 +59,10 @@ export function MarketPage() {
           <label className="relative flex-1">
             <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
             <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search symbol or company"
-              className="w-full rounded-lg border border-slate-300 py-2 pl-9 pr-3 text-sm focus:border-slate-500 focus:outline-none focus:ring-2 focus:ring-slate-200" />
+              className="w-full rounded-lg border border-slate-200 py-2 pl-9 pr-3 text-sm shadow-sm transition hover:border-slate-300 focus:border-emerald-500 focus:outline-none focus:ring-4 focus:ring-emerald-500/15" />
           </label>
           <select value={sector} onChange={(e) => setSector(e.target.value)} aria-label="Sector"
-            className="rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-500 focus:outline-none">
+            className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm shadow-sm transition hover:border-slate-300 focus:border-emerald-500 focus:outline-none focus:ring-4 focus:ring-emerald-500/15">
             <option value="">All sectors</option>
             {sectors.map((s) => <option key={s}>{s}</option>)}
           </select>
@@ -85,19 +85,19 @@ export function MarketPage() {
                   </thead>
                   <tbody className="divide-y divide-slate-100">
                     {rows.map((q) => (
-                      <tr key={q.symbol} className="cursor-pointer hover:bg-slate-50" onClick={() => navigate(`/demo/market/${q.symbol}`)}>
+                      <tr key={q.symbol} className="group cursor-pointer transition-colors hover:bg-emerald-50/40" onClick={() => navigate(`/demo/market/${q.symbol}`)}>
                         <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
                           <button onClick={() => toggleWatch(q.symbol)} disabled={busy === q.symbol}
                             aria-label={watched.has(q.symbol) ? `Remove ${q.symbol} from watchlist` : `Add ${q.symbol} to watchlist`}
-                            className="rounded p-1 hover:bg-slate-100 disabled:opacity-40">
-                            <Star className={cx('size-4', watched.has(q.symbol) ? 'fill-amber-400 text-amber-400' : 'text-slate-300')} />
+                            className="rounded p-1 transition hover:scale-110 hover:bg-amber-50 active:scale-90 disabled:opacity-40">
+                            <Star className={cx('size-4 transition-colors', watched.has(q.symbol) ? 'fill-amber-400 text-amber-400' : 'text-slate-300 hover:text-amber-400')} />
                           </button>
                         </td>
                         <td className="px-3 py-3"><SymbolLink symbol={q.symbol} name={q.name} /></td>
                         <td className="hidden px-3 py-3 text-slate-500 md:table-cell">
                           {q.sector} <span className="ml-1 rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-500">{q.assetClass}</span>
                         </td>
-                        <td className="px-3 py-3 text-right font-medium">{money(q.price)}</td>
+                        <td className="px-3 py-3 text-right font-medium"><Flash value={q.price}>{money(q.price)}</Flash></td>
                         <td className="hidden px-3 py-3 text-right text-xs text-slate-500 lg:table-cell">{money(q.bid)} / {money(q.ask)}</td>
                         <td className="px-3 py-3 text-right"><Change change={q.change} ratio={q.changeRatio} className="justify-end text-xs sm:text-sm" /></td>
                         <td className="hidden px-5 py-3 sm:table-cell">

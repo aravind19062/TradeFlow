@@ -1,6 +1,6 @@
 import { useState, type FormEvent, type ReactNode } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router';
-import { Activity, ShieldCheck, Zap } from 'lucide-react';
+import { GraduationCap, ShieldCheck, Zap } from 'lucide-react';
 import { ApiError } from '../api/client';
 import type { RegisterRequest } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
@@ -8,26 +8,46 @@ import { Logo } from '../components/Layout';
 import { Alert, Button, SelectInput, TextInput } from '../components/ui';
 
 function AuthShell({ title, subtitle, children }: { title: string; subtitle: ReactNode; children: ReactNode }) {
+  const features = [
+    { icon: GraduationCap, title: 'Learn', text: 'Trading Academy lessons, exercises and quizzes, then a readiness assessment.' },
+    { icon: Zap, title: 'Practice', text: 'Market, limit and stop orders on a simulated market with virtual money.' },
+    { icon: ShieldCheck, title: 'Trade responsibly', text: 'Live trading stays separate, behind readiness, limits and two-factor step-up.' },
+  ];
   return (
     <div className="grid min-h-dvh lg:grid-cols-[1fr_minmax(0,560px)]">
-      <div className="relative hidden flex-col justify-between overflow-hidden bg-[#0b1220] p-12 text-slate-300 lg:flex">
-        <Logo />
-        <div className="max-w-md">
-          <h2 className="text-3xl font-semibold leading-tight text-white">Event-driven paper trading on a simulated market.</h2>
-          <ul className="mt-8 space-y-4 text-sm">
-            <li className="flex gap-3"><Zap className="size-5 shrink-0 text-emerald-400" />Market and limit orders, settled through a Kafka saga across microservices.</li>
-            <li className="flex gap-3"><Activity className="size-5 shrink-0 text-emerald-400" />Portfolio value, P&amp;L, risk and performance computed from your ledger.</li>
-            <li className="flex gap-3"><ShieldCheck className="size-5 shrink-0 text-emerald-400" />Every request authenticated at the API gateway with a signed JWT.</li>
+      <div className="relative hidden flex-col justify-between overflow-hidden bg-ink p-12 text-slate-300 lg:flex">
+        <div className="bg-grid pointer-events-none absolute inset-0" aria-hidden />
+        <div className="pointer-events-none absolute -left-32 top-1/4 size-[28rem] animate-float rounded-full bg-emerald-500/20 blur-[100px]" aria-hidden />
+        <div className="pointer-events-none absolute -right-20 bottom-0 size-[24rem] animate-float rounded-full bg-indigo-500/20 blur-[100px] [animation-delay:-7s]" aria-hidden />
+        <div className="pointer-events-none absolute right-1/4 top-0 size-64 animate-float rounded-full bg-cyan-400/10 blur-[80px] [animation-delay:-3s]" aria-hidden />
+
+        <div className="relative animate-enter"><Logo /></div>
+        <div className="relative max-w-lg">
+          <p className="mb-4 inline-flex animate-enter items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-medium text-slate-300 backdrop-blur">
+            <span className="size-1.5 rounded-full bg-emerald-400 shadow-[0_0_8px_#34d399]" /> Learn. Practice. Trade responsibly.
+          </p>
+          <h2 className="animate-enter text-5xl font-semibold leading-[1.08] tracking-tight text-white [animation-delay:80ms]">
+            Build skill before <span className="text-gradient">real money</span> is on the line.
+          </h2>
+          <ul className="stagger mt-10 space-y-3 text-sm">
+            {features.map(({ icon: Icon, title, text }) => (
+              <li key={title} className="group flex gap-4 rounded-2xl border border-white/5 bg-white/[0.03] p-4 backdrop-blur transition-all duration-300 hover:-translate-y-0.5 hover:border-emerald-400/20 hover:bg-white/[0.06]">
+                <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-400/20 to-cyan-500/20 text-emerald-300 ring-1 ring-emerald-400/20 transition-transform duration-300 group-hover:scale-110">
+                  <Icon className="size-5" />
+                </span>
+                <span><span className="block font-semibold text-white">{title}</span>{text}</span>
+              </li>
+            ))}
           </ul>
         </div>
-        <p className="text-xs text-slate-500">All prices are simulated demo data. Not investment advice.</p>
+        <p className="relative text-xs text-slate-500">Demo prices are simulated. Not investment advice.</p>
       </div>
-      <div className="flex items-center justify-center px-4 py-12 sm:px-8">
-        <div className="w-full max-w-sm">
+      <div className="relative flex items-center justify-center px-4 py-12 sm:px-8">
+        <div className="w-full max-w-sm animate-enter">
           <div className="mb-8 lg:hidden"><Logo dark={false} /></div>
-          <h1 className="text-2xl font-semibold tracking-tight text-slate-900">{title}</h1>
+          <h1 className="text-3xl font-semibold tracking-tight text-slate-900">{title}</h1>
           <p className="mt-1.5 text-sm text-slate-500">{subtitle}</p>
-          <div className="mt-8">{children}</div>
+          <div className="mt-8 rounded-2xl border border-slate-200/80 bg-white/80 p-6 shadow-soft backdrop-blur">{children}</div>
         </div>
       </div>
     </div>
