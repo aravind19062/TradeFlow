@@ -13,9 +13,11 @@ import java.util.Set;
  *        └─timeout──┐            RESTING ─cancel / expiry─┐
  *                   ▼                                     ▼
  *             RELEASE_REQUESTED ─orders.released─▶ RELEASED
+ *                   └─orders.released, trades still unconfirmed─▶ AWAITING_SETTLEMENT ─▶ RELEASED
  * AWAITING_SETTLEMENT ─max re-drives─▶ SETTLEMENT_FAILED   (trade is real: never released)
  * RELEASE_REQUESTED   ─max re-drives─▶ RELEASE_FAILED
  * </pre>
+ * A partially filled order stays RESTING: each partial trade settles on its own while the rest works.
  */
 public enum SagaState {
     AWAITING_RESERVATION, RESTING, AWAITING_SETTLEMENT, RELEASE_REQUESTED,

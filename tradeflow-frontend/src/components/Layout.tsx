@@ -1,10 +1,12 @@
-import { Suspense, useEffect, useRef, useState } from 'react';
+import { Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router';
-import { Bell, ChevronDown, ClipboardCheck, KeyRound, LogOut, Menu, Moon, Shield, Sun, X } from 'lucide-react';
+import { Bell, ChevronDown, ClipboardCheck, KeyRound, LogOut, Menu, Moon, Search, Shield, Sun, UserRound, X } from 'lucide-react';
 import { useAuth } from '../auth/AuthContext';
 import { liveApi, marketApi } from '../api/endpoints';
 import { useApi } from '../lib/useApi';
+import { useMarketStream } from '../lib/useMarketStream';
 import { useTheme } from '../lib/theme';
+import { CommandPalette } from './CommandPalette';
 import { cx, Spinner } from './ui';
 
 type Section = 'demo' | 'learn' | 'live';
@@ -41,6 +43,7 @@ const NAV_GROUPS: NavItem[][] = [
   ],
   [{ to: '/live', label: 'Live trading', live: true }],
 ];
+const ALL_PAGES = NAV_GROUPS.flat();
 
 export function Logo() {
   return (
@@ -127,6 +130,7 @@ function AccountMenu() {
             <p className="truncate text-xs text-slate-500">{user?.email}{isAdmin && ' · Admin'}</p>
           </div>
           <nav aria-label="Account" className="py-1">
+            <NavLink to="/settings/profile" className={item}><UserRound className="size-4 text-slate-400" /> Profile</NavLink>
             <NavLink to="/settings/security" className={item}><KeyRound className="size-4 text-slate-400" /> Security</NavLink>
             {reviewer && <NavLink to="/review" className={item}><ClipboardCheck className="size-4 text-slate-400" /> Readiness reviews</NavLink>}
             {isAdmin && <NavLink to="/admin" className={item}><Shield className="size-4 text-slate-400" /> Admin</NavLink>}
@@ -145,10 +149,13 @@ function AccountMenu() {
 export function AppLayout() {
   const [open, setOpen] = useState(false);
   const location = useLocation();
+  const openPalette = useRef<(() => void) | null>(null);
+  const registerOpener = useCallback((fn: () => void) => { openPalette.current = fn; }, []);
   const section = sectionOf(location.pathname);
   const inLive = section === 'live';
   useEffect(() => setOpen(false), [location.pathname]);
-  const sim = useApi(() => marketApi.simulation(), [], { intervalMs: 30_000, topics: ['market'] });
+  const streaming = useMarketStream();
+  const sim = useApi(() => marketApi.simulation(), [], { intervalMs: 60_000, topics: ['market'] });
   // Live notices (readiness lost, account halted) must be seen even by users who never open the
   // Live dashboard. Best effort: if live-trading-service is not running the badge just stays hidden.
   const liveNotes = useApi(() => liveApi.notifications(), [], { intervalMs: 60_000, topics: ['live'] });
@@ -156,6 +163,11 @@ export function AppLayout() {
 
   return (
     <div className="relative isolate min-h-dvh">
+      <a href="#main-content" onClick={(e) => { e.preventDefault(); document.getElementById('main-content')?.focus(); }}
+        className="sr-only focus:not-sr-only focus:fixed focus:left-3 focus:top-3 focus:z-50 focus:rounded-md focus:bg-surface focus:px-3 focus:py-2 focus:text-sm focus:font-medium focus:shadow-lg">
+        Skip to main content
+      </a>
+      <CommandPalette pages={ALL_PAGES} registerOpener={registerOpener} />
       <header className={cx('sticky top-0 z-30 border-b bg-surface/85 backdrop-blur-md', inLive ? 'border-b-rose-200' : 'border-slate-200/80')}>
         {inLive && <div className="h-0.5 bg-red-500" aria-hidden />}
         <div className="mx-auto flex h-14 max-w-7xl items-center gap-4 px-4 sm:px-6 lg:px-8">
@@ -176,8 +188,14 @@ export function AppLayout() {
           )}
 
           <div className="ml-auto flex items-center gap-1.5">
+            <button onClick={() => openPalette.current?.()} data-testid="open-command-palette" aria-label="Search and commands (Control or Command K)" title="Search and commands"
+              className="flex items-center gap-2 rounded-md p-2 text-sm text-slate-500 hover:bg-slate-100 hover:text-slate-800 md:border md:border-slate-200 md:px-2.5 md:py-1">
+              <Search className="size-4" aria-hidden />
+              <span className="hidden md:inline">Search</span>
+              <kbd className="hidden font-sans text-xs text-slate-400 lg:inline">⌘K</kbd>
+            </button>
             <span className="hidden items-center gap-1.5 whitespace-nowrap rounded-md px-2 py-1 text-xs text-slate-500 2xl:flex" title="Demo prices come from TradeFlow's market simulator">
-              <span className="size-1.5 rounded-full bg-emerald-500" aria-hidden />
+              <span data-testid="stream-status" data-connected={streaming} className={cx('size-1.5 rounded-full', streaming ? 'bg-emerald-500' : 'bg-amber-500')} aria-hidden />
               {sim.data ? <>Sim tick <span className="tabular-nums">{sim.data.currentTick}</span></> : sim.error ? 'Market data unavailable' : '…'}
             </span>
             <NavLink to="/live" className="relative rounded-md p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-800"
@@ -210,7 +228,7 @@ export function AppLayout() {
 
       {/* A soft wash in the colour of the current area, behind the top of the page. */}
       {section && <div aria-hidden className={cx('pointer-events-none absolute inset-x-0 top-0 -z-10 h-80 bg-gradient-to-b to-transparent', SECTION_STYLE[section].wash)} />}
-      <main key={location.pathname} className="mx-auto max-w-7xl animate-enter px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
+      <main id="main-content" tabIndex={-1} key={location.pathname} className="mx-auto max-w-7xl outline-none animate-enter px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
         <Suspense fallback={<Spinner />}><Outlet /></Suspense>
         <footer className="mt-12 border-t border-slate-200 pt-4 text-xs text-slate-400">
           TradeFlow · demo prices are simulated · not investment advice

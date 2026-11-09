@@ -37,11 +37,20 @@ mem: ## Show memory per container and for the Docker VM
 	@docker stats --no-stream --format 'table {{.Name}}\t{{.MemUsage}}\t{{.CPUPerc}}'
 	@docker run --rm alpine:3 free -m
 
+up-server: ## On the Oracle server: build and start everything, publish over Tailscale (docs/DEPLOY_ORACLE.md)
+	deploy/up.sh
+
+obs-up: ## Start Prometheus (127.0.0.1:9090) and Grafana (127.0.0.1:3001); meant for the server
+	$(COMPOSE) --profile observability up -d prometheus grafana
+
+obs-down: ## Stop Prometheus and Grafana (their data is kept)
+	$(COMPOSE) --profile observability stop prometheus grafana
+
 tools: ## Start Kafka UI on http://localhost:8085 (optional)
 	$(COMPOSE) --profile tools up -d kafka-ui
 
 down: ## Stop all containers (data volumes are KEPT)
-	$(COMPOSE) --profile apps --profile demo --profile academy --profile tools down
+	$(COMPOSE) --profile apps --profile demo --profile academy --profile tools --profile observability down
 
 ps: ## Show container status and health
 	$(COMPOSE) --profile apps --profile tools ps

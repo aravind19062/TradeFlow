@@ -43,14 +43,14 @@ FROM users;
 Step A: back up, then clear the values. This changes no other user data.
 
 ```sql
--- Flyway migration V3__purge_pan.sql (user-service), to be added only after approval
+-- Flyway migration V5__purge_pan.sql (user-service), to be added only after approval
 UPDATE users SET pan_number = NULL WHERE pan_number IS NOT NULL;
 ```
 
 Step B: one release later, once no running version maps the column, drop it.
 
 ```sql
--- Flyway migration V4__drop_pan_column.sql
+-- Flyway migration V6__drop_pan_column.sql
 ALTER TABLE users DROP COLUMN pan_number;
 ```
 

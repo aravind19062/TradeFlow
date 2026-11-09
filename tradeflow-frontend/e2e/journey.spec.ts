@@ -1,12 +1,11 @@
 import { createHmac } from 'node:crypto';
-import { accountMenu, signInAdmin, signOut } from './admin';
+import { accountMenu, plainUser, signInAdmin, signOut } from './admin';
 import { expect, test, type APIRequestContext, type Page } from '@playwright/test';
 
 // Full user journey against the real backend. Every figure the UI shows is checked
 // against the API response for the same signed-in user.
 
 const inr = new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', minimumFractionDigits: 2, maximumFractionDigits: 2 });
-const DEMO_PASSWORD = process.env.TRADEFLOW_DEMO_PASSWORD ?? 'Demo@12345';
 const runId = Date.now();
 const user = { name: `E2E Trader ${runId}`, email: `e2e-${runId}@tradeflow.dev`, password: 'E2e-Passw0rd!' };
 
@@ -39,7 +38,7 @@ async function signIn(page: Page, email: string, password: string) {
   await page.goto('/login');
   await page.getByLabel('Email').fill(email);
   await page.getByLabel('Password').fill(password);
-  await page.getByRole('button', { name: 'Sign in' }).click();
+  await page.getByRole('button', { name: 'Sign in', exact: true }).click();
 }
 
 test.describe.serial('TradeFlow user journey', () => {
@@ -302,13 +301,14 @@ test.describe('authentication and authorization', () => {
   });
 
   test('USER role cannot reach admin pages or admin APIs', async ({ page, request }) => {
-    await signIn(page, 'demo@tradeflow.dev', DEMO_PASSWORD);
+    const plain = await plainUser(request);
+    await signIn(page, plain.email, plain.password);
     await expect(page.getByTestId('current-user')).toBeVisible();
     await expect((await accountMenu(page)).getByRole('link', { name: 'Admin' })).toHaveCount(0);
     await page.keyboard.press('Escape');
     await page.goto('/admin');
     await expect(page).toHaveURL(/\/demo$/);
-    const token = await apiToken(request, 'demo@tradeflow.dev', DEMO_PASSWORD);
+    const token = await apiToken(request, plain.email, plain.password);
     expect((await api(request, token, '/admin/reconciliation')).status).toBe(403);
     expect((await api(request, null, '/portfolio/summary')).status).toBe(401);
   });
@@ -323,9 +323,10 @@ test.describe('authentication and authorization', () => {
     await expect(page.getByText(/accounts checked/)).toBeVisible();
   });
 
-  test('mobile layout uses a slide-out menu', async ({ browser }) => {
+  test('mobile layout uses a slide-out menu', async ({ browser, request }) => {
     const mobile = await browser.newPage({ viewport: { width: 390, height: 844 } });
-    await signIn(mobile, 'demo@tradeflow.dev', DEMO_PASSWORD);
+    const plain = await plainUser(request);
+    await signIn(mobile, plain.email, plain.password);
     await expect(mobile.getByRole('heading', { name: /Welcome back/ })).toBeVisible();
     await mobile.getByRole('button', { name: 'Open menu' }).click();
     await mobile.getByRole('navigation', { name: 'Main' }).getByRole('link', { name: 'Orders' }).click();

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 
 export type ThemeChoice = 'light' | 'dark' | 'system';
 const KEY = 'tf_theme';
+const CHANGED = 'tf-theme-changed';
 
 function systemDark(): boolean {
   return typeof window !== 'undefined' && !!window.matchMedia?.('(prefers-color-scheme: dark)').matches;
@@ -22,6 +23,12 @@ function saved(): ThemeChoice {
 /** Light / dark / follow the system. theme-init.js applies the saved choice before first paint. */
 export function useTheme() {
   const [choice, setChoice] = useState<ThemeChoice>(saved);
+  // Keep every component using this hook in step (the toolbar button and the command palette).
+  useEffect(() => {
+    const sync = () => setChoice(saved());
+    window.addEventListener(CHANGED, sync);
+    return () => window.removeEventListener(CHANGED, sync);
+  }, []);
   useEffect(() => {
     apply(choice);
     if (choice !== 'system') return;
@@ -33,6 +40,7 @@ export function useTheme() {
   const set = useCallback((next: ThemeChoice) => {
     try { localStorage.setItem(KEY, next); } catch { /* not persisted */ }
     setChoice(next);
+    window.dispatchEvent(new Event(CHANGED));
   }, []);
   const isDark = choice === 'dark' || (choice === 'system' && systemDark());
   return { choice, isDark, set, toggle: () => set(isDark ? 'light' : 'dark') };

@@ -52,8 +52,8 @@ acts on overdue steps.
 | Saga state | Waiting for | On timeout |
 |---|---|---|
 | `AWAITING_RESERVATION` | `orders.reserved` / `orders.rejected` (2 min) | Order REJECTED (`RESERVATION_TIMEOUT`) and release requested |
-| `RESTING` | marketable `prices.updated` or user cancel (time-to-live 1 day) | Order EXPIRED and release requested |
-| `AWAITING_SETTLEMENT` | `trades.settled` (2 min) | Same trade re-sent (≤ 3 times), then `SETTLEMENT_FAILED`. Funds are **never** released. |
+| `RESTING` | enough liquidity on `prices.updated`, or user cancel (time-to-live 1 day; MARKET orders 2 min) | Order EXPIRED and the unfilled part released. A MARKET order is marked `INSUFFICIENT_LIQUIDITY`. |
+| `AWAITING_SETTLEMENT` | `trades.settled` for every trade of the order (2 min) | Unconfirmed trades re-sent (≤ 3 times), then `SETTLEMENT_FAILED`. Their funds are **never** released. |
 | `RELEASE_REQUESTED` | `orders.released` (2 min) | Release re-sent (≤ 3 times), then `RELEASE_FAILED` |
 
 Final states: `COMPLETED`, `REJECTED`, `RELEASED`. Failed states (`SETTLEMENT_FAILED`, `RELEASE_FAILED`)
@@ -70,6 +70,10 @@ Rules that keep compensation safe:
 * **Settled reservations:** portfolio never releases them, and answers `ALREADY_SETTLED`.
 * **Fill vs cancel:** FILLED and CANCELLED/EXPIRED are mutually exclusive (optimistic lock on the order
   row).
+* **Partial fills:** each trade settles its own slice of the reservation. `orders.cancelled` carries
+  `filledQuantity`, because a cancel can overtake a trade on another topic: portfolio releases only what
+  no executed trade needs, and the reservation stays ACTIVE until those trades arrive. The saga goes
+  through `AWAITING_SETTLEMENT` if trades are still unconfirmed after the release, then ends `RELEASED`.
 * **Concurrent settlements:** settlements of the same order are serialized by a row lock on the
   reservation, and `ledger_entries.trade_id` is UNIQUE.
 * **Cross-service check:** portfolio-service compares stale ACTIVE reservations with order-service. It
@@ -105,3 +109,14 @@ Inspect them with `make dlt T=trades.executed` or Kafka UI (http://localhost:808
 * Adding an optional payload field is backward compatible (unknown fields are ignored).
 * Removing/renaming a field or changing its meaning requires `schemaVersion: 2`. Producers
   then publish both versions (or a new topic) until every consumer supports v2.
+
+## Simulated matching (DEMO only)
+
+TradeFlow has no other traders, so order-service simulates the other side. Each `prices.updated` starts a
+fresh book per symbol: five price levels per side, 0.05% apart, about ₹50,000 at the best level and more on
+deeper ones. Depth depends only on the symbol, tick, side and level. Orders in the same tick share it, best
+price first and then oldest. What can't execute waits for later ticks.
+
+A MARKET order may trade up to 1% from the quote the user accepted. A market buy reserves that 1% and gets
+back whatever it doesn't use. These settings are under `tradeflow.orders.matching` in order-service.
+live-trading-service has no dependency on this code, enforced by `EnvironmentSeparationArchitectureTest`.

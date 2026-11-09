@@ -16,7 +16,10 @@ export function DashboardPage() {
   const performance = useApi(() => portfolioApi.performance(), [], { topics: ['portfolio'], enabled: ready });
   const risk = useApi(() => portfolioApi.risk(), [], { topics: ['portfolio'], enabled: ready, intervalMs: 30_000 });
   const recent = useApi(() => orderApi.list({ size: 6 }), [], { topics: ['orders'], intervalMs: 15_000 });
-  const open = useApi(() => orderApi.list({ status: 'OPEN', size: 1 }), [], { topics: ['orders'], intervalMs: 15_000 });
+  const open = useApi(async () => {
+    const [resting, partial] = await Promise.all([orderApi.list({ status: 'OPEN', size: 1 }), orderApi.list({ status: 'PARTIALLY_FILLED', size: 1 })]);
+    return { totalElements: resting.totalElements + partial.totalElements };
+  }, [], { topics: ['orders'], intervalMs: 15_000 });
   const watchlist = useApi(() => watchlistApi.list(), [], { topics: ['watchlist'], intervalMs: 30_000 });
 
   const s = summary.data;

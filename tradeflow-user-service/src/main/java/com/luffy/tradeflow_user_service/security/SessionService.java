@@ -131,6 +131,42 @@ public class SessionService {
         });
     }
 
+    /** A signed-in device. */
+    public record ActiveSession(UUID id, String clientIp, String userAgent, Instant startedAt, Instant lastActiveAt,
+                                boolean current) {
+    }
+
+    @Transactional(readOnly = true)
+    public List<ActiveSession> active(long userId, int tokenVersion, UUID currentSession) {
+        List<RefreshToken> live = tokens.findLive(userId, tokenVersion, clock.instant());
+        if (live.isEmpty()) {
+            return List.of();
+        }
+        var starts = new java.util.HashMap<UUID, Instant>();
+        for (Object[] row : tokens.sessionStarts(live.stream().map(RefreshToken::getFamilyId).toList())) {
+            starts.put((UUID) row[0], (Instant) row[1]);
+        }
+        return live.stream()
+                .map(t -> new ActiveSession(t.getFamilyId(), t.getClientIp(), t.getUserAgent(),
+                        starts.get(t.getFamilyId()), t.getIssuedAt(), t.getFamilyId().equals(currentSession)))
+                .sorted(java.util.Comparator.comparing(ActiveSession::current).reversed()
+                        .thenComparing(ActiveSession::lastActiveAt, java.util.Comparator.reverseOrder()))
+                .toList();
+    }
+
+    /** Ends one other device's session. Its access token stops working when it expires (15 minutes at most). */
+    @Transactional
+    public void revoke(long userId, UUID session, UUID currentSession, ClientInfo client) {
+        if (!tokens.existsByFamilyIdAndUserId(session, userId)) {
+            throw ApiException.notFound("Session");
+        }
+        if (session.equals(currentSession)) {
+            throw ApiException.conflict("CURRENT_SESSION", "Use Sign out to end the session you are using");
+        }
+        tokens.revokeFamily(session, clock.instant(), "REVOKED_BY_USER");
+        events.record(userId, SecurityEvent.Type.SESSION_REVOKED, null, null, client);
+    }
+
     /** Ends every session and invalidates outstanding access tokens (via the token version). */
     @Transactional
     public void endAllSessions(long userId, String reason) {

@@ -143,6 +143,32 @@ public class AuthService {
             throw new ApiException(HttpStatus.FORBIDDEN, "STEP_UP_ON_HOLD", "Live trading is unavailable for "
                     + properties.stepUpHoldAfterMfaReset().toHours() + " hours after a two-factor reset");
         }
+        requirePasswordAndCode(user, password, code, client, SecurityEvent.Type.STEP_UP_FAILED);
+        events.record(user.getId(), SecurityEvent.Type.STEP_UP_SUCCEEDED, null, null, client);
+        return new StepUp(issuer.stepUp(user, UUID.fromString(sessionId)));
+    }
+
+    /**
+     * Password + TOTP for a sensitive account change (recovery codes are not accepted). Refused
+     * for the same hold period as step-up after an administrator MFA reset.
+     */
+    @Transactional(noRollbackFor = ApiException.class)
+    public void reauthenticate(User user, String password, String code, ClientInfo client,
+                               SecurityEvent.Type failureEvent) {
+        if (!mfa.enabled(user.getId())) {
+            throw new ApiException(HttpStatus.FORBIDDEN, "MFA_REQUIRED",
+                    "Turn on two-factor authentication before making this change");
+        }
+        if (user.getMfaResetAt() != null
+                && clock.instant().isBefore(user.getMfaResetAt().plus(properties.stepUpHoldAfterMfaReset()))) {
+            throw new ApiException(HttpStatus.FORBIDDEN, "STEP_UP_ON_HOLD", "This change is unavailable for "
+                    + properties.stepUpHoldAfterMfaReset().toHours() + " hours after a two-factor reset");
+        }
+        requirePasswordAndCode(user, password, code, client, failureEvent);
+    }
+
+    private void requirePasswordAndCode(User user, String password, String code, ClientInfo client,
+                                        SecurityEvent.Type failureEvent) {
         loginAttempts.checkAllowed(user.getMailId(), client.ip());
         boolean ok = password != null && passwordEncoder.matches(password, user.getPassword());
         if (ok) {
@@ -154,10 +180,8 @@ public class AuthService {
         }
         if (!ok) {
             loginAttempts.recordFailure(user.getMailId(), client.ip());
-            events.record(user.getId(), SecurityEvent.Type.STEP_UP_FAILED, null, null, client);
+            events.record(user.getId(), failureEvent, null, null, client);
             throw new ApiException(HttpStatus.UNAUTHORIZED, "STEP_UP_FAILED", "Password or verification code is incorrect");
         }
-        events.record(user.getId(), SecurityEvent.Type.STEP_UP_SUCCEEDED, null, null, client);
-        return new StepUp(issuer.stepUp(user, UUID.fromString(sessionId)));
     }
 }

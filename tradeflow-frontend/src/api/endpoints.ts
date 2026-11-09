@@ -1,5 +1,6 @@
 import { del, get, post, put } from './client';
 import type {
+  ActivityCategory, ActivityPageView, BankAccountSave, BankAccountView, PasskeyOptions, PasskeyView, ProfileUpdate, SessionView,
   BrokerFunds, BrokerHolding, BrokerOrder, BrokerPosition,
   AdminUserLive, KillSwitchView, LiveLimits, LiveLimitsView, LiveNotification, LiveOrderParams, LiveOrderPreview,
   LiveOrderView, LiveStatus, BrokerConnectionView, ReconcileResult,
@@ -35,6 +36,34 @@ export const authApi = {
   logoutAll: () => post<void>('/auth/logout-all'),
   stepUp: (password: string, code: string) => post<StepUpResponse>('/auth/step-up', { password, code }),
   me: () => get<UserResponse>('/users/me'),
+};
+
+// user-service: PasskeyController
+export const passkeyApi = {
+  list: () => get<PasskeyView[]>('/auth/passkeys'),
+  registerOptions: (password: string, code: string) => post<PasskeyOptions>('/auth/passkeys/register/options', { password, code }),
+  register: (body: { challengeId: string; name: string; clientDataJSON: string; attestationObject: string }) =>
+    post<PasskeyView>('/auth/passkeys/register', body),
+  remove: (id: string, password: string, code: string) => post<void>(`/auth/passkeys/${enc(id)}/remove`, { password, code }),
+  loginOptions: () => post<PasskeyOptions>('/auth/passkeys/login/options'),
+  login: (body: { challengeId: string; credentialId: string; clientDataJSON: string; authenticatorData: string; signature: string; userHandle: string }) =>
+    post<TokenResponse>('/auth/passkeys/login', body),
+};
+
+// user-service: SessionController
+export const sessionApi = {
+  list: () => get<SessionView[]>('/auth/sessions'),
+  revoke: (id: string) => del<void>(`/auth/sessions/${enc(id)}`),
+  activity: (category: ActivityCategory, page: number) =>
+    get<ActivityPageView>('/auth/activity', { params: params({ category, page, size: 20 }) }),
+};
+
+// user-service: ProfileController
+export const profileApi = {
+  update: (body: ProfileUpdate) => put<UserResponse>('/users/me/profile', body),
+  bankAccount: () => get<{ account: BankAccountView | null }>('/users/me/bank-account'),
+  saveBankAccount: (body: BankAccountSave) => put<BankAccountView>('/users/me/bank-account', body),
+  removeBankAccount: (password: string, code: string) => post<void>('/users/me/bank-account/remove', { password, code }),
 };
 
 // user-service: MfaController

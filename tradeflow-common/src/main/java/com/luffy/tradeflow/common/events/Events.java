@@ -64,11 +64,25 @@ public final class Events {
             @NotBlank String reason) {
     }
 
-    /** orders.cancelled (order-service → portfolio-service): release any reservation. */
+    /**
+     * orders.cancelled (order-service → portfolio-service): release what the order no longer needs.
+     * {@code filledQuantity} is what has executed so far (absent on older events, meaning none): those
+     * shares' funds stay held even if their trades.executed has not reached portfolio yet.
+     */
     public record OrderCancelled(
             @NotNull UUID orderId,
             @NotNull Long userId,
-            @NotBlank String reason) {
+            @NotBlank String reason,
+            @PositiveOrZero Long filledQuantity) {
+
+        /** A release for an order with no executions. */
+        public OrderCancelled(UUID orderId, Long userId, String reason) {
+            this(orderId, userId, reason, null);
+        }
+
+        public long executedQuantity() {
+            return filledQuantity == null ? 0 : filledQuantity;
+        }
     }
 
     /** trades.executed (order-service → portfolio-service): settle the fill. */

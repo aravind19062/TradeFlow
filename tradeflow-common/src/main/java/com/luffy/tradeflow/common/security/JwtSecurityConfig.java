@@ -34,7 +34,7 @@ public class JwtSecurityConfig implements WebMvcConfigurer {
 
     /** Endpoints that never need a token in any service. */
     public static final String[] PUBLIC_PATHS = {
-            "/actuator/health/**", "/actuator/info", "/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html",
+            "/actuator/health/**", "/actuator/info", "/actuator/prometheus", "/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html",
             "/error"
     };
 

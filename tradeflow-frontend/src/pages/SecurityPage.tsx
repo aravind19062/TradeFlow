@@ -1,24 +1,19 @@
 import { useEffect, useState, type FormEvent } from 'react';
+import { Link } from 'react-router';
 import QRCode from 'qrcode';
-import { Copy, Download, KeyRound, LogOut, ShieldCheck, ShieldOff, Smartphone } from 'lucide-react';
+import { Copy, Download, Fingerprint, KeyRound, LogOut, ShieldCheck, ShieldOff, Smartphone } from 'lucide-react';
 import { ApiError } from '../api/client';
-import { authApi, mfaApi } from '../api/endpoints';
+import { authApi, mfaApi, passkeyApi, sessionApi } from '../api/endpoints';
+import type { PasskeyView } from '../api/types';
 import type { MfaEnrollment } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
-import { Alert, Badge, Button, Card, ConfirmDialog, ErrorState, PageHeader, Spinner, TextInput, useToast } from '../components/ui';
+import { Alert, Badge, Button, Card, ConfirmDialog, ErrorState, Modal, PageHeader, Spinner, TextInput, useToast } from '../components/ui';
 import { dateTime } from '../lib/format';
+import { createPasskey, passkeyCancelled, passkeysSupported } from '../lib/passkeys';
+import { deviceName, EVENT_LABELS } from '../lib/securityEvents';
 import { useApi } from '../lib/useApi';
 
 const message = (e: unknown) => (e instanceof ApiError ? e.message : String(e));
-
-const EVENT_LABELS: Record<string, string> = {
-  LOGIN_SUCCEEDED: 'Signed in', LOGIN_FAILED: 'Failed sign-in attempt', MFA_CHALLENGE_FAILED: 'Wrong verification code',
-  RECOVERY_CODE_USED: 'Recovery code used', MFA_ENROLLMENT_STARTED: 'Two-factor setup started', MFA_ENABLED: 'Two-factor enabled',
-  MFA_DISABLED: 'Two-factor disabled', RECOVERY_CODES_REGENERATED: 'Recovery codes replaced',
-  MFA_RESET_BY_ADMIN: 'Two-factor reset by an administrator', STEP_UP_SUCCEEDED: 'Live-trading verification',
-  STEP_UP_FAILED: 'Failed live-trading verification', REFRESH_REUSE_DETECTED: 'Session ended: possible token theft',
-  SIGNED_OUT: 'Signed out', SIGNED_OUT_EVERYWHERE: 'Signed out of all devices',
-};
 
 /** Two-factor authentication (TOTP), recovery codes, sessions and recent account activity. */
 export function SecurityPage() {
@@ -40,8 +35,9 @@ export function SecurityPage() {
                 : <EnrollMfa onDone={reload} />}
         </Card>
         <div className="space-y-6">
+          {status.data && <PasskeysCard mfaOn={status.data.enabled} onChange={activity.reload} />}
           <SessionsCard />
-          <Card title="Recent security activity" bodyClassName="p-0">
+          <Card title="Recent security activity" bodyClassName="p-0" action={<Link to="/settings/activity" className="text-sm font-medium text-indigo-600 hover:underline">View all</Link>}>
             {activity.error ? <ErrorState error={activity.error} onRetry={activity.reload} compact />
               : !activity.data ? <Spinner />
                 : <ul className="max-h-96 divide-y divide-slate-100 overflow-y-auto text-sm" data-testid="security-activity">
@@ -219,6 +215,146 @@ function ManageMfa({ remaining, enabledAt, onChange }: { remaining: number; enab
   );
 }
 
+/** Sign in with a fingerprint, face or device PIN instead of a password. */
+function PasskeysCard({ mfaOn, onChange }: { mfaOn: boolean; onChange: () => void }) {
+  const passkeys = useApi(() => passkeyApi.list(), []);
+  const toast = useToast();
+  const [adding, setAdding] = useState(false);
+  const [removing, setRemoving] = useState<PasskeyView | null>(null);
+  const changed = (text: string) => { setAdding(false); setRemoving(null); passkeys.reload(); onChange(); toast('success', text); };
+
+  return (
+    <Card title={<span className="flex items-center gap-2"><Fingerprint className="size-4" /> Passkeys</span>}>
+      <p className="text-sm text-slate-600">Sign in with your fingerprint, face or device PIN. Live trading and bank changes still ask for your password and authenticator code.</p>
+      {passkeys.error ? <div className="mt-3"><ErrorState error={passkeys.error} onRetry={passkeys.reload} compact /></div>
+        : !passkeys.data ? <Spinner />
+          : passkeys.data.length > 0 && (
+            <ul className="mt-3 divide-y divide-slate-100 text-sm" data-testid="passkey-list">
+              {passkeys.data.map((p) => (
+                <li key={p.id} className="flex items-center justify-between gap-3 py-2.5">
+                  <div className="min-w-0">
+                    <p className="truncate font-medium text-slate-900">{p.name}</p>
+                    <p className="text-xs text-slate-500">Added {dateTime(p.createdAt)} · {p.lastUsedAt ? `last used ${dateTime(p.lastUsedAt)}` : 'not used yet'}</p>
+                  </div>
+                  <Button variant="secondary" size="sm" onClick={() => setRemoving(p)} aria-label={`Remove ${p.name}`}>Remove</Button>
+                </li>
+              ))}
+            </ul>
+          )}
+      {!passkeysSupported() ? <div className="mt-3"><Alert tone="info">This browser doesn't support passkeys.</Alert></div>
+        : !mfaOn ? <div className="mt-3"><Alert tone="info">Turn on two-factor authentication to add a passkey.</Alert></div>
+          : <Button variant="secondary" className="mt-4" onClick={() => setAdding(true)}>Add a passkey</Button>}
+      <Modal open={adding} onClose={() => setAdding(false)} title="Add a passkey">
+        <AddPasskeyForm onDone={() => changed('Passkey added')} onCancel={() => setAdding(false)} />
+      </Modal>
+      <Modal open={removing !== null} onClose={() => setRemoving(null)} title="Remove passkey">
+        {removing && <RemovePasskeyForm passkey={removing} onDone={() => changed('Passkey removed')} onCancel={() => setRemoving(null)} />}
+      </Modal>
+    </Card>
+  );
+}
+
+function AddPasskeyForm({ onDone, onCancel }: { onDone: () => void; onCancel: () => void }) {
+  const [name, setName] = useState('');
+  const [password, setPassword] = useState('');
+  const [code, setCode] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  async function submit(e: FormEvent) {
+    e.preventDefault();
+    setBusy(true); setError(null);
+    try {
+      const options = await passkeyApi.registerOptions(password, code);
+      const attestation = await createPasskey(options.publicKey);
+      await passkeyApi.register({ challengeId: options.challengeId, name, ...attestation });
+      onDone();
+    } catch (err) {
+      setError(passkeyCancelled(err) ? 'Passkey setup was cancelled.' : message(err));
+      setPassword(''); setCode('');
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <form onSubmit={submit} className="space-y-3" data-testid="passkey-form">
+      <TextInput label="Passkey name" value={name} onChange={(e) => setName(e.target.value)} maxLength={60} required placeholder="MacBook" />
+      <TextInput label="Password" type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} required />
+      <TextInput label="Authenticator code" inputMode="numeric" autoComplete="one-time-code" value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))} required />
+      {error && <Alert tone="error">{error}</Alert>}
+      <div className="flex justify-end gap-2 pt-1">
+        <Button type="button" variant="secondary" onClick={onCancel} disabled={busy}>Cancel</Button>
+        <Button type="submit" loading={busy} disabled={!name.trim() || !password || code.length !== 6}>Continue</Button>
+      </div>
+    </form>
+  );
+}
+
+function RemovePasskeyForm({ passkey, onDone, onCancel }: { passkey: PasskeyView; onDone: () => void; onCancel: () => void }) {
+  const [password, setPassword] = useState('');
+  const [code, setCode] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  async function submit(e: FormEvent) {
+    e.preventDefault();
+    setBusy(true); setError(null);
+    try {
+      await passkeyApi.remove(passkey.id, password, code);
+      onDone();
+    } catch (err) {
+      setError(message(err));
+      setPassword(''); setCode('');
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <form onSubmit={submit} className="space-y-3">
+      <p className="text-slate-600">“{passkey.name}” will no longer be able to sign in.</p>
+      <TextInput label="Password" type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} required />
+      <TextInput label="Authenticator code" inputMode="numeric" autoComplete="one-time-code" value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))} required />
+      {error && <Alert tone="error">{error}</Alert>}
+      <div className="flex justify-end gap-2 pt-1">
+        <Button type="button" variant="secondary" onClick={onCancel} disabled={busy}>Cancel</Button>
+        <Button type="submit" variant="danger" loading={busy} disabled={!password || code.length !== 6}>Remove</Button>
+      </div>
+    </form>
+  );
+}
+
+/** Devices signed in right now. Ending one takes effect within 15 minutes at most (its access token's lifetime). */
+function SessionList() {
+  const sessions = useApi(() => sessionApi.list(), []);
+  const toast = useToast();
+  const [busy, setBusy] = useState<string | null>(null);
+  async function end(id: string) {
+    setBusy(id);
+    try {
+      await sessionApi.revoke(id);
+      toast('success', 'Device signed out');
+      sessions.reload();
+    } catch (err) {
+      toast('error', message(err));
+    } finally {
+      setBusy(null);
+    }
+  }
+  if (sessions.error) return <div className="mt-3"><ErrorState error={sessions.error} onRetry={sessions.reload} compact /></div>;
+  if (!sessions.data) return <Spinner />;
+  return (
+    <ul className="mt-3 divide-y divide-slate-100 text-sm" data-testid="session-list">
+      {sessions.data.map((s) => (
+        <li key={s.id} className="flex items-center justify-between gap-3 py-2.5">
+          <div className="min-w-0">
+            <p className="truncate font-medium text-slate-900">{deviceName(s.userAgent)}{s.current && <Badge className="ml-2 bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200">This device</Badge>}</p>
+            <p className="text-xs text-slate-500">{s.clientIp ?? 'Unknown address'} · last active {dateTime(s.lastActiveAt)}</p>
+          </div>
+          {!s.current && <Button variant="secondary" size="sm" loading={busy === s.id} onClick={() => end(s.id)} aria-label={`Sign out ${deviceName(s.userAgent)}`}>Sign out</Button>}
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 function SessionsCard() {
   const { forgetSession } = useAuth();
   const toast = useToast();
@@ -242,6 +378,7 @@ function SessionsCard() {
         Sign-ins stay active for up to 24 hours (8 hours without activity). If you think someone else has access,
         sign out everywhere and change your password.
       </p>
+      <SessionList />
       <Button variant="secondary" className="mt-4" onClick={() => setConfirming(true)}><LogOut className="size-4" /> Sign out everywhere</Button>
       <ConfirmDialog open={confirming} title="Sign out of every device?" confirmLabel="Sign out everywhere" variant="danger"
         busy={busy} error={error} onConfirm={signOutEverywhere} onCancel={() => setConfirming(false)}>

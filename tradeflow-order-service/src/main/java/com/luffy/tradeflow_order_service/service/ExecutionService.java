@@ -9,7 +9,10 @@ import com.luffy.tradeflow_order_service.domain.Order;
 import com.luffy.tradeflow_order_service.domain.OrderStatus;
 import com.luffy.tradeflow_order_service.domain.Touch;
 import com.luffy.tradeflow_order_service.domain.Trade;
+import com.luffy.tradeflow.common.events.Events.OrderSide;
 import com.luffy.tradeflow.common.events.Events.OrderType;
+import com.luffy.tradeflow_order_service.matching.MatchingProperties;
+import com.luffy.tradeflow_order_service.matching.SimulatedOrderBook;
 import com.luffy.tradeflow_order_service.repository.LatestPriceRepository;
 import com.luffy.tradeflow_order_service.repository.OrderRepository;
 import com.luffy.tradeflow_order_service.repository.TradeRepository;
@@ -22,20 +25,28 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.EnumSet;
+import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 /**
- * Simulated execution model (not an exchange matching engine), using the simulated touch:
- * buys execute at the ask, sells at the bid.
+ * The DEMO matching engine. Orders execute against a {@link SimulatedOrderBook}: limited shares at
+ * the touch and a few worse prices, renewed on every tick. Buys take the asks, sells take the bids.
  * <ul>
- *   <li>MARKET orders fill in full at the ask/bid accepted when the order was placed (the price
- *       the funds were reserved at), as soon as the reservation succeeds.</li>
- *   <li>LIMIT orders fill in full once the ask (buy) / bid (sell) is at or better than the limit:
- *       immediately after reservation, or on a later prices.updated tick.</li>
- *   <li>SELL STOP / STOP_LIMIT orders rest until the bid falls to the trigger; a STOP then sells at
- *       the bid, a STOP_LIMIT becomes a limit sell.</li>
+ *   <li>MARKET orders first execute at the quote the user accepted, as soon as the reservation
+ *       succeeds. Any remainder works on later ticks until it fills or its short time limit expires
+ *       (INSUFFICIENT_LIQUIDITY).</li>
+ *   <li>LIMIT orders take what is available at or better than the limit, immediately after
+ *       reservation or on later ticks.</li>
+ *   <li>SELL STOP / STOP_LIMIT orders rest until the bid falls to the trigger; a STOP then sells into
+ *       the book, a STOP_LIMIT becomes a limit sell.</li>
  * </ul>
- * Fills never exceed the reserved amount: a BUY fills at or below its reservation price.
+ * Fills never exceed the reserved amount: a BUY executes at or below its reservation price. On each
+ * tick the best-priced order goes first, then the oldest. Live orders never come here: they belong
+ * to live-trading-service, which goes to the broker and shares no code with this service.
  */
 @Slf4j
 @Service
@@ -47,16 +58,19 @@ public class ExecutionService {
     private final LatestPriceRepository latestPriceRepository;
     private final OutboxWriter outboxWriter;
     private final OrderSagaService sagaService;
+    private final MatchingProperties matching;
     private final Clock clock;
 
     public ExecutionService(OrderRepository orderRepository, TradeRepository tradeRepository,
                             LatestPriceRepository latestPriceRepository, OutboxWriter outboxWriter,
-                            OrderSagaService sagaService, Clock clock) {
+                            OrderSagaService sagaService, MatchingProperties matching,
+                            Clock clock) {
         this.orderRepository = orderRepository;
         this.tradeRepository = tradeRepository;
         this.latestPriceRepository = latestPriceRepository;
         this.outboxWriter = outboxWriter;
         this.sagaService = sagaService;
+        this.matching = matching;
         this.clock = clock;
     }
 
@@ -74,22 +88,40 @@ public class ExecutionService {
             return;
         }
         Instant now = clock.instant();
-        if (order.getType() == OrderType.MARKET) {
-            fill(order, order.getReservationPrice(), now);
+        marketFor(order, now).ifPresent(market -> match(order, market, firstTouch(order, market), now));
+        if (order.getStatus() == OrderStatus.FILLED) {
             sagaService.reservedAndFilled(order.getId());
             return;
         }
-        Optional<Touch> latest = latestPriceRepository.findById(order.getSymbol()).map(LatestPrice::touch);
-        Optional<BigDecimal> fillPrice = latest.flatMap(t -> order.evaluate(t, now));
-        if (fillPrice.isPresent()) {
-            fill(order, fillPrice.get(), now);
-            sagaService.reservedAndFilled(order.getId());
-        } else {
-            order.open(order.isStop() && order.getTriggeredAt() == null
-                    ? "Shares reserved; waiting for the bid to fall to the stop " + order.getTriggerPrice()
-                    : "Funds reserved; resting until the simulated price reaches " + order.getLimitPrice(), now);
-            sagaService.reservedAndResting(order.getId());
+        if (order.getStatus() == OrderStatus.PENDING) {
+            order.open(waitingReason(order), now);
         }
+        sagaService.reservedAndResting(order);
+    }
+
+    /** The symbol's book, locked. A MARKET order arriving before any tick uses its accepted quote. */
+    private Optional<LatestPrice> marketFor(Order order, Instant now) {
+        Optional<LatestPrice> market = latestPriceRepository.findForUpdate(order.getSymbol());
+        if (market.isPresent() || order.getType() != OrderType.MARKET) {
+            return market;
+        }
+        BigDecimal quoted = order.getQuotedPrice() != null ? order.getQuotedPrice() : order.getReservationPrice();
+        return Optional.of(latestPriceRepository.save(
+                new LatestPrice(order.getSymbol(), quoted, 0, now, quoted, quoted)));
+    }
+
+    /** A MARKET order's first execution uses the quote the user accepted, the freshest price it has. */
+    private static Touch firstTouch(Order order, LatestPrice market) {
+        return order.getQuotedPrice() != null ? Touch.flat(order.getQuotedPrice()) : market.touch();
+    }
+
+    private static String waitingReason(Order order) {
+        if (order.getType() == OrderType.MARKET) {
+            return "Reserved; waiting for liquidity at or better than " + order.getReservationPrice();
+        }
+        return order.isStop() && order.getTriggeredAt() == null
+                ? "Shares reserved; waiting for the bid to fall to the stop " + order.getTriggerPrice()
+                : "Funds reserved; resting until the simulated price reaches " + order.getLimitPrice();
     }
 
     public void onRejected(Events.OrderRejected event) {
@@ -103,33 +135,51 @@ public class ExecutionService {
         log.info("Order {} rejected: {} ({})", order.getId(), event.reasonCode(), event.reason());
     }
 
-    /** Records the tick and fills any resting LIMIT / triggered stop orders it makes marketable. */
+    /** Records the tick, renewing the book, and matches every working order against it. */
     public void onPriceUpdated(Events.PriceUpdated event) {
-        LatestPrice latest = latestPriceRepository.findById(event.symbol()).orElse(null);
+        LatestPrice latest = latestPriceRepository.findForUpdate(event.symbol()).orElse(null);
         if (latest == null) {
             latest = latestPriceRepository.save(new LatestPrice(event.symbol(), event.price(), event.tick(),
                     event.asOf(), event.bid(), event.ask()));
         } else if (!latest.update(event.price(), event.tick(), event.asOf(), event.bid(), event.ask())) {
             return;
         }
-        Touch touch = latest.touch();
         Instant now = clock.instant();
-        for (Order order : orderRepository.findBySymbolAndStatusAndTypeIn(event.symbol(), OrderStatus.OPEN,
-                RESTING_TYPES)) {
-            Optional<BigDecimal> fillPrice = order.evaluate(touch, now);
-            if (fillPrice.isPresent()) {
-                fill(order, fillPrice.get(), now);
+        List<Order> working = new ArrayList<>(orderRepository.findBySymbolAndStatusInAndTypeIn(event.symbol(),
+                WORKING, EnumSet.allOf(OrderType.class)));
+        working.sort(PRICE_TIME_PRIORITY);
+        for (Order order : working) {
+            match(order, latest, latest.touch(), now);
+            if (order.getStatus() == OrderStatus.FILLED) {
                 sagaService.filledFromResting(order.getId());
             }
         }
     }
 
-    private static final java.util.Set<OrderType> RESTING_TYPES =
-            java.util.EnumSet.of(OrderType.LIMIT, OrderType.STOP, OrderType.STOP_LIMIT);
+    private static final Set<OrderStatus> WORKING = EnumSet.of(OrderStatus.OPEN, OrderStatus.PARTIALLY_FILLED);
 
-    private void fill(Order order, BigDecimal price, Instant now) {
-        Trade trade = Trade.execute(order, price, now);
-        order.fill(trade.getPrice(), now);
+    /** Orders with no limit first, then the highest bids and lowest offers, then the oldest. */
+    private static final Comparator<Order> PRICE_TIME_PRIORITY = Comparator
+            .comparing((Order o) -> o.getLimitPrice() != null)
+            .thenComparing(o -> o.getLimitPrice() == null ? BigDecimal.ZERO
+                    : o.getSide() == OrderSide.BUY ? o.getLimitPrice().negate() : o.getLimitPrice())
+            .thenComparing(Order::getCreatedAt);
+
+    private void match(Order order, LatestPrice market, Touch touch, Instant now) {
+        if (order.evaluate(touch, now).isEmpty()) {
+            return;
+        }
+        OrderSide side = order.getSide();
+        SimulatedOrderBook book = new SimulatedOrderBook(order.getSymbol(), market.getTick(), side,
+                side == OrderSide.BUY ? touch.ask() : touch.bid(), market.consumed(side), matching);
+        book.take(order.remainingQuantity(), order::isMarketableAt)
+                .forEach(slice -> execute(order, slice.quantity(), slice.price(), now));
+        market.recordConsumed(side, book.consumed());
+    }
+
+    private void execute(Order order, long quantity, BigDecimal price, Instant now) {
+        Trade trade = Trade.execute(order, quantity, price, now);
+        order.fill(quantity, trade.getPrice(), now);
         tradeRepository.save(trade);
         outboxWriter.append(Topics.TRADES_EXECUTED, String.valueOf(order.getUserId()),
                 new Events.TradeExecuted(trade.getId(), order.getId(), order.getUserId(), order.getSymbol(),

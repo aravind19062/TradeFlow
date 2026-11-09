@@ -49,8 +49,11 @@ export function OrderDetailPage() {
             <Row label="Limit price" value={o.limitPrice != null ? money(o.limitPrice) : '—'} />
             {o.triggerPrice != null && <Row label="Stop (trigger)" value={money(o.triggerPrice)} />}
             {o.triggerPrice != null && <Row label="Triggered" value={o.triggeredAt ? dateTime(o.triggeredAt) : 'Not yet'} />}
-            <Row label="Reservation price" value={money(o.reservationPrice)} />
+            <Row label={o.type === 'MARKET' ? 'Worst allowed price' : 'Reservation price'} value={money(o.reservationPrice)} />
             <Row label="Filled" value={`${quantity(o.filledQuantity)} / ${quantity(o.quantity)}`} />
+            {o.filledQuantity > 0 && o.filledQuantity < o.quantity && (
+              <Row label={TERMINAL_STATUSES.includes(o.status) ? 'Not filled (released)' : 'Remaining'} value={quantity(o.quantity - o.filledQuantity)} />
+            )}
             <Row label="Average fill" value={o.averageFillPrice != null ? money(o.averageFillPrice) : '—'} />
             {o.rejectCode && <Row label="Reject code" value={<span className="text-rose-600">{o.rejectCode}</span>} />}
             <Row label="Client order id" value={<span className="break-all font-mono text-xs">{o.clientOrderId ?? '—'}</span>} />
@@ -77,7 +80,7 @@ export function OrderDetailPage() {
             </ol>
           </Card>
           <Card title="Executions" bodyClassName="p-0">
-            {trades.length === 0 ? <EmptyState title="No executions">{o.status === 'OPEN' ? 'The order is resting until the simulated price reaches the limit.' : undefined}</EmptyState>
+            {trades.length === 0 ? <EmptyState title="No executions">{o.status === 'OPEN' ? 'The order is working until the simulated market allows it to fill.' : undefined}</EmptyState>
               : <table className="w-full text-sm">
                 <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
                   <tr><th className="px-5 py-2.5 font-medium">Executed</th><th className="px-3 py-2.5 text-right font-medium">Qty</th><th className="px-3 py-2.5 text-right font-medium">Price</th><th className="px-5 py-2.5 text-right font-medium">Value</th></tr>

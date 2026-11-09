@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { accountMenu, signOut } from './admin';
+import { accountMenu, plainUser, signOut } from './admin';
 
 // Phase 4: readiness against the running stack. Exercise verification crosses services for real:
 // a demo order (order-service → Kafka) is read by learning-service as evidence.
@@ -69,7 +69,7 @@ test('only reviewers and admins see the review queue', async ({ page }) => {
   await page.goto('/login');
   await page.getByLabel('Email').fill('reviewer@tradeflow.dev');
   await page.getByLabel('Password').fill('Demo@12345');
-  await page.getByRole('button', { name: 'Sign in' }).click();
+  await page.getByRole('button', { name: 'Sign in', exact: true }).click();
   await (await accountMenu(page)).getByRole('link', { name: 'Readiness reviews' }).click();
   await expect(page.getByRole('heading', { name: 'Readiness reviews' })).toBeVisible();
   await expect((await accountMenu(page)).getByRole('link', { name: 'Admin' })).toHaveCount(0);
@@ -77,12 +77,13 @@ test('only reviewers and admins see the review queue', async ({ page }) => {
 
   await signOut(page);
   await expect(page).toHaveURL(/\/login$/);
-  await page.getByLabel('Email').fill('demo@tradeflow.dev');
-  await page.getByLabel('Password').fill('Demo@12345');
-  await page.getByRole('button', { name: 'Sign in' }).click();
+  const plain = await plainUser(page.request);
+  await page.getByLabel('Email').fill(plain.email);
+  await page.getByLabel('Password').fill(plain.password);
+  await page.getByRole('button', { name: 'Sign in', exact: true }).click();
   await expect(page.getByTestId('current-user')).toBeVisible();
   await expect((await accountMenu(page)).getByRole('link', { name: 'Readiness reviews' })).toHaveCount(0);
-  const login = await page.request.post('/api/auth/login', { data: { email: 'demo@tradeflow.dev', password: 'Demo@12345' } });
+  const login = await page.request.post('/api/auth/login', { data: plain });
   const token = (await login.json()).accessToken;
   expect((await page.request.get('/api/admin/readiness/reviews', { headers: { Authorization: `Bearer ${token}` } })).status()).toBe(403);
 });

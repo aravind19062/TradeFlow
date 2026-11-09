@@ -24,7 +24,7 @@ import java.util.stream.Collectors;
 @RestController
 public class InternalOrderController {
 
-    public record OrderStatusView(UUID orderId, String status, String sagaState) {
+    public record OrderStatusView(UUID orderId, String status, String sagaState, long filledQuantity) {
     }
 
     private final OrderRepository orderRepository;
@@ -43,7 +43,8 @@ public class InternalOrderController {
                 .collect(Collectors.toMap(OrderSaga::getOrderId, Function.identity()));
         return orderRepository.findAllById(capped).stream()
                 .map((Order o) -> new OrderStatusView(o.getId(), o.getStatus().name(),
-                        sagas.containsKey(o.getId()) ? sagas.get(o.getId()).getState().name() : null))
+                        sagas.containsKey(o.getId()) ? sagas.get(o.getId()).getState().name() : null,
+                        o.getFilledQuantity()))
                 .toList();
     }
 }

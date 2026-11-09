@@ -29,6 +29,15 @@ public class SecurityEventService {
                 clock.instant()));
     }
 
+    /** A filtered page of one user's activity, newest first. */
+    @Transactional(readOnly = true)
+    public org.springframework.data.domain.Page<SecurityEvent> page(long userId, java.util.Set<String> types, int page, int size) {
+        var request = PageRequest.of(Math.max(page, 0), Math.max(1, Math.min(size, 50)),
+                org.springframework.data.domain.Sort.by("occurredAt", "id").descending());
+        return types == null ? repository.findByUserId(userId, request)
+                : repository.findByUserIdAndTypeIn(userId, types, request);
+    }
+
     @Transactional(readOnly = true)
     public List<SecurityEvent> recent(long userId, int limit) {
         return repository.findByUserIdOrderByOccurredAtDesc(userId, PageRequest.of(0, Math.min(limit, 100)));

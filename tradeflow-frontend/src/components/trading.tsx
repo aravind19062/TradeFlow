@@ -1,4 +1,4 @@
-import { ArrowDownRight, ArrowUpRight, Ban, CircleCheck, Clock, Hourglass, LoaderCircle, XCircle } from 'lucide-react';
+import { ArrowDownRight, ArrowUpRight, Ban, CircleCheck, CircleDashed, Clock, Hourglass, LoaderCircle, XCircle } from 'lucide-react';
 import { Link } from 'react-router';
 import type { AlertStatus, OrderSide, OrderStatus } from '../api/types';
 import { signedMoney, signedPercent, trendClass } from '../lib/format';
@@ -6,11 +6,12 @@ import { Badge, cx } from './ui';
 
 const statusStyles: Record<OrderStatus, { cls: string; icon: typeof Clock; hint: string }> = {
   PENDING: { cls: 'bg-amber-50 text-amber-700 ring-1 ring-amber-200', icon: LoaderCircle, hint: 'Funds/position reservation in progress' },
-  OPEN: { cls: 'bg-indigo-50 text-indigo-700 ring-1 ring-indigo-200', icon: Clock, hint: 'Resting limit order; fills when the simulated price reaches the limit' },
+  OPEN: { cls: 'bg-indigo-50 text-indigo-700 ring-1 ring-indigo-200', icon: Clock, hint: 'Working; fills when the simulated market allows it' },
+  PARTIALLY_FILLED: { cls: 'bg-sky-50 text-sky-700 ring-1 ring-sky-200', icon: CircleDashed, hint: 'Part executed; the rest keeps working on later ticks' },
   FILLED: { cls: 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200', icon: CircleCheck, hint: 'Executed in full' },
   REJECTED: { cls: 'bg-rose-50 text-rose-700 ring-1 ring-rose-200', icon: XCircle, hint: 'Rejected by risk checks' },
-  CANCELLED: { cls: 'bg-slate-100 text-slate-600 ring-1 ring-slate-200', icon: Ban, hint: 'Cancelled; reservation released' },
-  EXPIRED: { cls: 'bg-slate-100 text-slate-600 ring-1 ring-slate-200', icon: Hourglass, hint: 'Limit order time-to-live elapsed' },
+  CANCELLED: { cls: 'bg-slate-100 text-slate-600 ring-1 ring-slate-200', icon: Ban, hint: 'Cancelled; any unfilled part was released' },
+  EXPIRED: { cls: 'bg-slate-100 text-slate-600 ring-1 ring-slate-200', icon: Hourglass, hint: 'Time limit reached; any unfilled part was released' },
 };
 
 export function OrderStatusBadge({ status }: { status: OrderStatus }) {
@@ -19,7 +20,7 @@ export function OrderStatusBadge({ status }: { status: OrderStatus }) {
   return (
     <Badge className={s.cls}>
       <Icon className={cx('size-3', status === 'PENDING' && 'animate-spin')} aria-hidden />
-      <span title={s.hint}>{status}</span>
+      <span title={s.hint}>{status.replace('_', ' ')}</span>
     </Badge>
   );
 }

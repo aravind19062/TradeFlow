@@ -46,7 +46,7 @@ function TickerItem({ q }: { q: QuoteResponse }) {
 
 /** Scrolling strip of the simulator's current quotes (pauses on hover). */
 function MarketTicker() {
-  const quotes = useApi(() => marketApi.quotes(), [], { topics: ['market'], intervalMs: 15_000 });
+  const quotes = useApi(() => marketApi.quotes(), [], { topics: ['market'], intervalMs: 60_000 });
   if (!quotes.data?.length) return null;
   const items = quotes.data;
   return (

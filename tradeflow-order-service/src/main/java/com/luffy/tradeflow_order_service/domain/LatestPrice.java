@@ -1,5 +1,6 @@
 package com.luffy.tradeflow_order_service.domain;
 
+import com.luffy.tradeflow.common.events.Events.OrderSide;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
@@ -33,6 +34,13 @@ public class LatestPrice {
     private BigDecimal bid;
     private BigDecimal ask;
 
+    /** Shares already taken from the simulated book this tick. A new tick starts a fresh book. */
+    @Column(name = "ask_consumed", nullable = false)
+    private long askConsumed;
+
+    @Column(name = "bid_consumed", nullable = false)
+    private long bidConsumed;
+
     public LatestPrice(String symbol, BigDecimal price, long tick, Instant asOf, BigDecimal bid, BigDecimal ask) {
         this.symbol = symbol;
         this.price = price;
@@ -52,7 +60,22 @@ public class LatestPrice {
         this.asOf = newAsOf;
         this.bid = newBid;
         this.ask = newAsk;
+        this.askConsumed = 0;
+        this.bidConsumed = 0;
         return true;
+    }
+
+    /** Shares taken this tick by orders on {@code takerSide}. */
+    public long consumed(OrderSide takerSide) {
+        return takerSide == OrderSide.BUY ? askConsumed : bidConsumed;
+    }
+
+    public void recordConsumed(OrderSide takerSide, long total) {
+        if (takerSide == OrderSide.BUY) {
+            askConsumed = total;
+        } else {
+            bidConsumed = total;
+        }
     }
 
     public Touch touch() {

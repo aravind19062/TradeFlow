@@ -16,7 +16,7 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.UUID;
 
-/** An execution. Immutable once written. */
+/** One execution; an order can have several. Only {@code settledAt} changes after it is written. */
 @Entity
 @Table(name = "trades")
 @Getter
@@ -51,16 +51,26 @@ public class Trade {
     @Column(name = "executed_at", nullable = false)
     private Instant executedAt;
 
-    public static Trade execute(Order order, BigDecimal price, Instant executedAt) {
+    /** When portfolio-service confirmed it booked this trade. */
+    @Column(name = "settled_at")
+    private Instant settledAt;
+
+    public void markSettled(Instant now) {
+        if (settledAt == null) {
+            settledAt = now;
+        }
+    }
+
+    public static Trade execute(Order order, long quantity, BigDecimal price, Instant executedAt) {
         Trade trade = new Trade();
         trade.id = UUID.randomUUID();
         trade.orderId = order.getId();
         trade.userId = order.getUserId();
         trade.symbol = order.getSymbol();
         trade.side = order.getSide();
-        trade.quantity = order.getQuantity();
+        trade.quantity = quantity;
         trade.price = Money.price(price);
-        trade.grossAmount = Money.amount(order.getQuantity(), trade.price);
+        trade.grossAmount = Money.amount(quantity, trade.price);
         trade.executedAt = executedAt;
         return trade;
     }

@@ -4,6 +4,66 @@
 // ---- user-service: dto/AuthDtos.java, dto/RegisterRequest.java
 export type Role = 'USER' | 'ADMIN' | 'READINESS_REVIEWER';
 
+export interface PasskeyView {
+  id: string;
+  name: string;
+  createdAt: string;
+  lastUsedAt: string | null;
+}
+
+export interface PasskeyOptions {
+  challengeId: string;
+  publicKey: Record<string, unknown>;
+}
+
+export interface SessionView {
+  id: string;
+  clientIp: string | null;
+  userAgent: string | null;
+  startedAt: string;
+  lastActiveAt: string;
+  current: boolean;
+}
+
+export type ActivityCategory = '' | 'signin' | 'security' | 'profile' | 'failed';
+
+export interface ActivityPageView {
+  items: SecurityEventView[];
+  page: number;
+  totalPages: number;
+  totalItems: number;
+}
+
+export interface ProfileUpdate {
+  name: string;
+  dateOfBirth: string | null;
+  gender: string | null;
+  mobileNumber: string | null;
+  occupation: string | null;
+  maritalStatus: string | null;
+  incomeRange: string | null;
+}
+
+/** The API never returns the full account number. */
+export interface BankAccountView {
+  accountHolderName: string;
+  bankName: string;
+  maskedAccountNumber: string;
+  ifsc: string;
+  accountType: string;
+  updatedAt: string;
+}
+
+export interface BankAccountSave {
+  accountHolderName: string;
+  bankName: string;
+  accountNumber: string;
+  ifsc: string;
+  accountType: string;
+  password: string;
+  code: string;
+}
+
 export interface UserResponse {
   id: number;
   name: string;
@@ -148,7 +208,7 @@ export interface AlertResponse {
 export type OrderSide = 'BUY' | 'SELL';
 /** STOP and STOP_LIMIT are SELL-only in the demo (long-only): they protect holdings. */
 export type OrderType = 'MARKET' | 'LIMIT' | 'STOP' | 'STOP_LIMIT';
-export type OrderStatus = 'PENDING' | 'OPEN' | 'FILLED' | 'REJECTED' | 'CANCELLED' | 'EXPIRED';
+export type OrderStatus = 'PENDING' | 'OPEN' | 'PARTIALLY_FILLED' | 'FILLED' | 'REJECTED' | 'CANCELLED' | 'EXPIRED';
 
 export const TERMINAL_STATUSES: readonly OrderStatus[] = ['FILLED', 'REJECTED', 'CANCELLED', 'EXPIRED'];
 

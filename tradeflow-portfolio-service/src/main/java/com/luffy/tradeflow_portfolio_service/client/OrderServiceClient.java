@@ -41,7 +41,15 @@ public class OrderServiceClient {
         }
     }
 
-    public record OrderStatusView(UUID orderId, String status, String sagaState) {
+    public record OrderStatusView(UUID orderId, String status, String sagaState, Long filledQuantity) {
+
+        public OrderStatusView(UUID orderId, String status, String sagaState) {
+            this(orderId, status, sagaState, null);
+        }
+
+        public long executedQuantity() {
+            return filledQuantity == null ? 0 : filledQuantity;
+        }
     }
 
     /** Internal, service-authenticated status lookup (no end-user token involved). */

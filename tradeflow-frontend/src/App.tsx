@@ -20,6 +20,8 @@ const WatchlistPage = page(() => import('./pages/WatchlistPage'), 'WatchlistPage
 const AssistantPage = page(() => import('./pages/AssistantPage'), 'AssistantPage');
 const AdminPage = page(() => import('./pages/AdminPage'), 'AdminPage');
 const SecurityPage = page(() => import('./pages/SecurityPage'), 'SecurityPage');
+const ActivityPage = page(() => import('./pages/ActivityPage'), 'ActivityPage');
+const ProfilePage = page(() => import('./pages/ProfilePage'), 'ProfilePage');
 const AcademyPage = page(() => import('./pages/AcademyPages'), 'AcademyPage');
 const ModulePage = page(() => import('./pages/AcademyPages'), 'ModulePage');
 const LessonPage = page(() => import('./pages/AcademyPages'), 'LessonPage');
@@ -95,6 +97,8 @@ export function AppRoutes() {
         <Route path="readiness/assessment" element={<AssessmentPage />} />
         <Route path="readiness/acknowledgement" element={<AcknowledgementPage />} />
         <Route path="review" element={<RequireReviewer><ReviewPage /></RequireReviewer>} />
+        <Route path="settings/profile" element={<ProfilePage />} />
+        <Route path="settings/activity" element={<ActivityPage />} />
         <Route path="settings/security" element={<SecurityPage />} />
         <Route path="admin" element={<RequireAdmin><AdminPage /></RequireAdmin>} />
         <Route path="*" element={<NotFoundPage />} />

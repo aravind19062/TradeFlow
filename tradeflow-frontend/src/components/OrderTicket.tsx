@@ -108,9 +108,11 @@ export function OrderTicket({ quote, heldQuantity, reservedQuantity, availableCa
       else if (settled.status === 'FILLED') toast('success', `${side} ${fmtQty(quantity)} ${quote.symbol} filled at ${money(settled.averageFillPrice)}`);
       else if (settled.status === 'OPEN') toast('info', settled.triggerPrice != null
         ? `Stop order is OPEN; it triggers if the bid falls to ${money(settled.triggerPrice)}`
-        : `Limit order is OPEN at ${money(settled.limitPrice)}`);
+        : settled.type === 'MARKET' ? 'Order is OPEN, waiting for liquidity'
+          : `Limit order is OPEN at ${money(settled.limitPrice)}`);
+      else if (settled.status === 'PARTIALLY_FILLED') toast('info', `${fmtQty(settled.filledQuantity)} of ${fmtQty(quantity)} ${quote.symbol} filled so far; the rest keeps working`);
       else toast('info', `Order ${settled.status}`);
-      if (TERMINAL_STATUSES.includes(settled.status) || settled.status === 'OPEN') { setQty(''); setLimit(''); setTrigger(''); }
+      if (TERMINAL_STATUSES.includes(settled.status) || settled.status === 'OPEN' || settled.status === 'PARTIALLY_FILLED') { setQty(''); setLimit(''); setTrigger(''); }
     } catch (e) {
       // Same clientOrderId is kept, so pressing "Place order" again cannot create a duplicate.
       const err = e instanceof ApiError ? e : null;
@@ -200,8 +202,8 @@ export function OrderTicket({ quote, heldQuantity, reservedQuantity, availableCa
         </dl>
         <p className="mt-3 text-xs text-slate-500">
           {type === 'MARKET'
-            ? `Market orders fill at the simulated ${side === 'BUY' ? 'ask' : 'bid'} when TradeFlow accepts the order; if the price ticks before then, the fill differs from this estimate.`
-            : type === 'LIMIT' ? 'Limit orders stay OPEN until the simulated price reaches your limit, you cancel, or they expire.'
+            ? `Market orders trade at the simulated ${side === 'BUY' ? 'ask' : 'bid'}, but each price only has limited shares. A large order can fill in parts over several ticks at slightly ${side === 'BUY' ? 'higher' : 'lower'} prices, within a small price protection.${side === 'BUY' ? ' TradeFlow reserves that protection too and returns whatever is unused.' : ''} Anything still unfilled after about two minutes expires.`
+            : type === 'LIMIT' ? 'Limit orders work until they fill at your limit or better, you cancel, or they expire. Each price only has limited shares, so a large order can fill in parts.'
               : type === 'STOP' ? 'A stop is not a guaranteed exit price: after it triggers it sells at the next bid, which can be lower after a gap.'
                 : 'A stop-limit never sells below your limit, so after a fast fall it may not sell at all.'}
         </p>

@@ -31,9 +31,9 @@ import java.time.Instant;
  * any reply event in the outbox.
  *
  * <p>Money moves in two steps: {@link #reserve} earmarks cash/shares when an order
- * is placed, {@link #settle} books the actual fill against that reservation, and
- * {@link #release} returns it if the order is cancelled. A trade that does not
- * match an active reservation is an inconsistency: it is rejected to the DLT and
+ * is placed, {@link #settle} books each fill against its slice of that reservation
+ * (an order can have several), and {@link #release} returns the unfilled part if the
+ * order is cancelled or expires. A trade that does not match an active reservation is an inconsistency: it is rejected to the DLT and
  * logged, never booked.
  */
 @Slf4j
@@ -144,7 +144,7 @@ public class AccountingService {
         Instant now = clock.instant();
         BigDecimal gross = event.grossAmount();
         if (event.side() == OrderSide.BUY) {
-            account.settleBuy(gross, reservation.getCashAmount(), now);
+            account.settleBuy(gross, reservation.settle(event.quantity(), gross, now), now);
             Holding holding = holdingRepository.findByUserIdAndSymbol(event.userId(), event.symbol())
                     .orElseGet(() -> new Holding(event.userId(), event.symbol(), now));
             holding.applyBuy(event.quantity(), gross, now);
@@ -156,13 +156,13 @@ public class AccountingService {
             Holding holding = holdingRepository.findByUserIdAndSymbol(event.userId(), event.symbol())
                     .orElseThrow(() -> new InconsistentStateException("SELL trade " + event.tradeId()
                             + " but user " + event.userId() + " holds no " + event.symbol()));
+            reservation.settle(event.quantity(), BigDecimal.ZERO, now);
             BigDecimal realized = holding.applySell(event.quantity(), event.price(), now);
             account.settleSell(gross, realized, now);
             ledgerRepository.save(LedgerEntry.trade(event.userId(), LedgerEntry.Type.SELL, event.symbol(),
                     event.quantity(), event.price(), gross, account.getCashBalance(), realized,
                     event.tradeId(), event.orderId(), event.executedAt()));
         }
-        reservation.settle(now);
         confirmSettled(event);
         log.info("Settled trade {} ({} {} x{} @ {})", event.tradeId(), event.side(), event.symbol(),
                 event.quantity(), event.price());
@@ -180,7 +180,7 @@ public class AccountingService {
             return;
         }
         if (reservation.getStatus() == Reservation.Status.SETTLED) {
-            // Never undo an executed trade: report it instead of releasing.
+            // Fully consumed by trades. Never undo an executed trade: report it instead of releasing.
             log.error("Release requested for order {} whose reservation is already SETTLED", event.orderId());
             replyReleased(event, Events.ReleaseOutcome.ALREADY_SETTLED);
             return;
@@ -194,17 +194,23 @@ public class AccountingService {
             throw new InconsistentStateException("Cancel for order " + event.orderId() + " from wrong user");
         }
         Instant now = clock.instant();
+        Reservation.Released released = reservation.release(event.executedQuantity(), now);
+        if (released.quantity() == 0) {
+            log.info("Order {} has nothing left to release; {} share(s) wait for their trades", event.orderId(),
+                    reservation.remainingQuantity());
+            replyReleased(event, Events.ReleaseOutcome.NOTHING_TO_RELEASE);
+            return;
+        }
         if (reservation.getSide() == OrderSide.BUY) {
             accountRepository.findById(event.userId())
                     .orElseThrow(() -> new InconsistentStateException("No account for user " + event.userId()))
-                    .release(reservation.getCashAmount(), now);
+                    .release(released.cash(), now);
         } else {
             holdingRepository.findByUserIdAndSymbol(event.userId(), reservation.getSymbol())
                     .orElseThrow(() -> new InconsistentStateException("No holding to release for order "
                             + event.orderId()))
-                    .release(reservation.getQuantity(), now);
+                    .release(released.quantity(), now);
         }
-        reservation.release(now);
         replyReleased(event, Events.ReleaseOutcome.RELEASED);
         log.info("Released reservation for order {} ({})", event.orderId(), event.reason());
     }
@@ -233,8 +239,8 @@ public class AccountingService {
             mismatch = "user differs";
         } else if (!r.getSymbol().equals(e.symbol()) || r.getSide() != e.side()) {
             mismatch = "symbol/side differs";
-        } else if (r.getQuantity() != e.quantity()) {
-            mismatch = "quantity " + e.quantity() + " != reserved " + r.getQuantity();
+        } else if (e.quantity() > r.remainingQuantity()) {
+            mismatch = "quantity " + e.quantity() + " exceeds the " + r.remainingQuantity() + " still reserved";
         } else if (Money.amount(e.quantity(), e.price()).compareTo(e.grossAmount()) != 0) {
             mismatch = "grossAmount " + e.grossAmount() + " != quantity × price";
         }

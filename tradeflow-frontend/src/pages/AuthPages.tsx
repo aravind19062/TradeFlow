@@ -1,11 +1,12 @@
 import { useState, type FormEvent, type ReactNode } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router';
-import { GraduationCap, ShieldCheck, Zap } from 'lucide-react';
+import { Fingerprint, GraduationCap, ShieldCheck, Zap } from 'lucide-react';
 import { ApiError } from '../api/client';
 import type { RegisterRequest } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
 import { Logo } from '../components/Layout';
 import { Alert, Button, SelectInput, TONES, TextInput } from '../components/ui';
+import { passkeyCancelled, passkeysSupported } from '../lib/passkeys';
 
 function AuthShell({ title, subtitle, children }: { title: string; subtitle: ReactNode; children: ReactNode }) {
   const features = [
@@ -50,7 +51,7 @@ function AuthShell({ title, subtitle, children }: { title: string; subtitle: Rea
 }
 
 export function LoginPage() {
-  const { login, completeMfa, logoutReason } = useAuth();
+  const { login, completeMfa, loginWithPasskey, logoutReason } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const from = (location.state as { from?: string } | null)?.from ?? '/';
@@ -63,6 +64,19 @@ export function LoginPage() {
   const [error, setError] = useState<ApiError | null>(null);
 
   const fail = (err: unknown) => setError(err instanceof ApiError ? err : new ApiError(0, 'CLIENT_ERROR', String(err)));
+
+  async function onPasskey() {
+    setBusy(true);
+    setError(null);
+    try {
+      await loginWithPasskey();
+      navigate(from, { replace: true });
+    } catch (err) {
+      if (!passkeyCancelled(err)) fail(err);
+    } finally {
+      setBusy(false);
+    }
+  }
 
   async function onPassword(e: FormEvent) {
     e.preventDefault();
@@ -145,6 +159,11 @@ export function LoginPage() {
           onChange={(e) => setPassword(e.target.value)} required error={error?.fieldError('password')} />
         <Button type="submit" className="w-full" loading={busy}>Sign in</Button>
       </form>
+      {passkeysSupported() && (
+        <Button type="button" variant="secondary" className="mt-3 w-full" disabled={busy} onClick={onPasskey}>
+          <Fingerprint className="size-4" aria-hidden /> Sign in with a passkey
+        </Button>
+      )}
     </AuthShell>
   );
 }

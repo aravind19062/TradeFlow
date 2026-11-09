@@ -87,17 +87,25 @@ class TradeFlowEndToEndTest {
                 r -> r.status == 200).body;
         assertThat(summary.get("cashBalance").decimalValue()).isEqualByComparingTo("1000000.00");
 
-        // 2. MARKET BUY fills at the accepted quote; cash and holdings settle exactly.
+        // 2. MARKET BUY fills inside its price protection; cash and holdings settle exactly and the unused
+        //    part of the reservation comes back.
         JsonNode buy = call(HttpMethod.POST, orderUrl + "/api/orders", token,
                 "{\"symbol\":\"TCS\",\"side\":\"BUY\",\"type\":\"MARKET\",\"quantity\":10,\"clientOrderId\":\"e2e-buy\"}",
                 202);
         JsonNode filled = awaitOrder(token, buy.get("id").asString(), "FILLED");
-        BigDecimal gross = filled.at("/trades/0/grossAmount").decimalValue();
-        BigDecimal buyPrice = filled.at("/trades/0/price").decimalValue();
-        assertThat(gross).isEqualByComparingTo(buy.get("reservationPrice").decimalValue().multiply(BigDecimal.TEN));
+        // Ten shares can span two levels of the simulated book, so add up the executions.
+        BigDecimal gross = BigDecimal.ZERO;
+        long executed = 0;
+        for (JsonNode trade : filled.get("trades")) {
+            assertThat(trade.get("price").decimalValue()).isLessThanOrEqualTo(buy.get("reservationPrice").decimalValue());
+            gross = gross.add(trade.get("grossAmount").decimalValue());
+            executed += trade.get("quantity").asLong();
+        }
+        assertThat(executed).isEqualTo(10);
+        BigDecimal buyPrice = filled.at("/order/averageFillPrice").decimalValue();
         JsonNode afterBuy = await("buy settled",
                 () -> callStatus(HttpMethod.GET, portfolioUrl + "/api/portfolio/summary", token, null),
-                r -> r.body.get("holdings").size() == 1).body;
+                r -> r.body.get("holdings").size() == 1 && r.body.at("/holdings/0/quantity").asLong() == 10).body;
         assertThat(afterBuy.get("cashBalance").decimalValue())
                 .isEqualByComparingTo(new BigDecimal("1000000.00").subtract(gross));
         assertThat(afterBuy.at("/holdings/0/quantity").asLong()).isEqualTo(10);
@@ -126,13 +134,15 @@ class TradeFlowEndToEndTest {
         // 5. SELL realizes P&L against the average cost.
         JsonNode sell = call(HttpMethod.POST, orderUrl + "/api/orders", token,
                 "{\"symbol\":\"TCS\",\"side\":\"SELL\",\"type\":\"MARKET\",\"quantity\":4}", 202);
-        BigDecimal sellPrice = awaitOrder(token, sell.get("id").asString(), "FILLED").at("/trades/0/price")
+        BigDecimal sellPrice = awaitOrder(token, sell.get("id").asString(), "FILLED").at("/order/averageFillPrice")
                 .decimalValue();
         BigDecimal expectedRealized = sellPrice.subtract(buyPrice).multiply(BigDecimal.valueOf(4));
         JsonNode afterSell = await("sell settled",
                 () -> callStatus(HttpMethod.GET, portfolioUrl + "/api/portfolio/summary", token, null),
                 r -> r.body.at("/holdings/0/quantity").asLong() == 6).body;
-        assertThat(afterSell.get("realizedPnl").decimalValue()).isEqualByComparingTo(expectedRealized);
+        // Each execution rounds to the paisa on its own, so allow for that against the average.
+        assertThat(afterSell.get("realizedPnl").decimalValue())
+                .isCloseTo(expectedRealized, org.assertj.core.data.Offset.offset(new BigDecimal("0.03")));
 
         // 6. Admin moves the simulated market; analytics and reconciliation stay consistent.
         String admin = call(HttpMethod.POST, userUrl + "/api/auth/login", null,

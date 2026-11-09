@@ -108,12 +108,12 @@ public class ReconciliationService {
         List<LedgerEntry> ledger = ledgerRepository.findByUserIdOrderByOccurredAtAscIdAsc(userId);
 
         BigDecimal reservedCash = active.stream().filter(r -> r.getSide() == OrderSide.BUY)
-                .map(Reservation::getCashAmount).reduce(BigDecimal.ZERO, BigDecimal::add);
+                .map(Reservation::getRemainingCash).reduce(BigDecimal.ZERO, BigDecimal::add);
         compare(issues, userId, "reserved_cash", reservedCash, account.getReservedCash());
 
         Map<String, Long> reservedShares = new HashMap<>();
         active.stream().filter(r -> r.getSide() == OrderSide.SELL)
-                .forEach(r -> reservedShares.merge(r.getSymbol(), r.getQuantity(), Long::sum));
+                .forEach(r -> reservedShares.merge(r.getSymbol(), r.remainingQuantity(), Long::sum));
         Map<String, Long> ledgerShares = new HashMap<>();
         BigDecimal ledgerCash = BigDecimal.ZERO;
         for (LedgerEntry e : ledger) {

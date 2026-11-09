@@ -51,9 +51,18 @@ public class MfaController {
     public record SecurityEventView(String type, String detail, String clientIp, String userAgent, Instant occurredAt,
                                     boolean byAdministrator) {
         static SecurityEventView from(SecurityEvent e) {
-            return new SecurityEventView(e.getType(), e.getType().equals("MFA_RESET_BY_ADMIN") ? "Reset by an administrator"
-                    : null, e.getClientIp(), e.getUserAgent(), e.getOccurredAt(),
+            return new SecurityEventView(e.getType(), visibleDetail(e), e.getClientIp(), e.getUserAgent(), e.getOccurredAt(),
                     e.getActorId() != null && e.getActorId() != e.getUserId());
+        }
+
+        /** Details can hold internal notes, so only these known-safe ones reach the user. */
+        private static String visibleDetail(SecurityEvent e) {
+            return switch (e.getType()) {
+                case "MFA_RESET_BY_ADMIN" -> "Reset by an administrator";
+                case "BANK_DETAILS_SAVED", "PASSKEY_ADDED", "PASSKEY_REMOVED" -> e.getDetail();
+                case "LOGIN_SUCCEEDED", "LOGIN_FAILED" -> "passkey".equals(e.getDetail()) ? "with a passkey" : null;
+                default -> null;
+            };
         }
     }
 

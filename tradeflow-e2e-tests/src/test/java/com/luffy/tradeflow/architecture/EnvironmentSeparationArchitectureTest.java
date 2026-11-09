@@ -52,6 +52,13 @@ class EnvironmentSeparationArchitectureTest {
     }
 
     @Test
+    void theSimulatedMatchingEngineIsActuallyImported() {
+        // Guards against the demo/live rules passing vacuously for the simulated order book.
+        org.assertj.core.api.Assertions.assertThat(CLASSES.containPackage("com.luffy.tradeflow_order_service.matching"))
+                .isTrue();
+    }
+
+    @Test
     void onlyApprovedBrokerAdaptersExist() {
         // DisabledBrokerAdapter (no broker) and FyersBrokerAdapter (approved 2026-11-01) are the only
         // production implementations; any other broker needs a new approval and a change here.

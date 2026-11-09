@@ -10,4 +10,8 @@ public interface SecurityEventRepository extends JpaRepository<SecurityEvent, Lo
     List<SecurityEvent> findByUserIdOrderByOccurredAtDesc(long userId, Pageable page);
 
     List<SecurityEvent> findByUserIdAndTypeOrderByOccurredAtDesc(long userId, String type);
+
+    org.springframework.data.domain.Page<SecurityEvent> findByUserId(long userId, Pageable page);
+
+    org.springframework.data.domain.Page<SecurityEvent> findByUserIdAndTypeIn(long userId, java.util.Collection<String> types, Pageable page);
 }

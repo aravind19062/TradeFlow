@@ -26,4 +26,6 @@ day's limits and a quantity outside allowed limits each need a different respons
 ## In TradeFlow's demo
 
 Demo orders start **PENDING** while virtual cash or shares are reserved, then become **OPEN** (resting),
-**FILLED**, **REJECTED**, **CANCELLED** or **EXPIRED**. The demo does not model partial fills.
+**PARTIALLY_FILLED**, **FILLED**, **REJECTED**, **CANCELLED** or **EXPIRED**. Each simulated price holds a
+limited number of shares, so a large order can fill in parts over several market ticks. If you cancel it, or
+it expires, the shares already bought or sold stay yours and only the unfilled part is released.

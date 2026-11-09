@@ -94,6 +94,119 @@ class AccountingIntegrationTest {
         return outbox.findAll().stream().filter(e -> e.getMessageKey().equals(orderId.toString())).toList();
     }
 
+    private void settle(Events.TradeExecuted trade) {
+        listener.onTradeExecuted(encode(Topics.TRADES_EXECUTED, trade));
+    }
+
+    private void cancel(UUID orderId, long executed) {
+        listener.onOrderCancelled(encode(Topics.ORDERS_CANCELLED,
+                new Events.OrderCancelled(orderId, user, "test", executed)));
+    }
+
+    private BigDecimal reservedCash() {
+        return accounts.findById(user).orElseThrow().getReservedCash();
+    }
+
+    private BigDecimal cash() {
+        return accounts.findById(user).orElseThrow().getCashBalance();
+    }
+
+    private void assertBooksAgree() {
+        assertThat(reconciliation.check(user).consistent()).isTrue();
+    }
+
+    @Test
+    void partialFillsSettleSliceBySliceAndReturnPriceImprovement() {
+        UUID order = placeAndReserve(OrderSide.BUY, "PART", 100, "10.00");
+        assertThat(reservedCash()).isEqualByComparingTo("1000.00");
+
+        settle(trade(order, OrderSide.BUY, "PART", 30, "9.50")); // 15.00 cheaper than reserved
+        assertThat(reservedCash()).isEqualByComparingTo("700.00");
+        assertThat(cash()).isEqualByComparingTo("999715.00");
+        Reservation r = reservations.findById(order).orElseThrow();
+        assertThat(r.getStatus()).isEqualTo(Reservation.Status.ACTIVE);
+        assertThat(r.remainingQuantity()).isEqualTo(70);
+        assertBooksAgree();
+
+        settle(trade(order, OrderSide.BUY, "PART", 70, "10.00"));
+        assertThat(reservedCash()).isEqualByComparingTo("0.00");
+        assertThat(cash()).isEqualByComparingTo("999015.00");
+        assertThat(reservations.findById(order).orElseThrow().getStatus()).isEqualTo(Reservation.Status.SETTLED);
+        assertThat(holdings.findByUserIdAndSymbol(user, "PART").orElseThrow().getQuantity()).isEqualTo(100);
+        assertBooksAgree();
+    }
+
+    @Test
+    void aRedeliveredPartialTradeIsBookedOnce() {
+        UUID order = placeAndReserve(OrderSide.BUY, "REDO", 10, "10.00");
+        Events.TradeExecuted first = trade(order, OrderSide.BUY, "REDO", 4, "10.00");
+        settle(first);
+        settle(first); // a different envelope with the same trade id, as a saga re-drive sends
+        assertThat(reservedCash()).isEqualByComparingTo("60.00");
+        assertThat(holdings.findByUserIdAndSymbol(user, "REDO").orElseThrow().getQuantity()).isEqualTo(4);
+        assertBooksAgree();
+    }
+
+    @Test
+    void cancelAfterPartialFillReleasesOnlyTheUnfilledPart() {
+        UUID order = placeAndReserve(OrderSide.BUY, "CUT", 100, "10.00");
+        settle(trade(order, OrderSide.BUY, "CUT", 40, "10.00"));
+        cancel(order, 40);
+        assertThat(reservedCash()).isEqualByComparingTo("0.00");
+        assertThat(cash()).isEqualByComparingTo("999600.00");
+        assertThat(reservations.findById(order).orElseThrow().getStatus()).isEqualTo(Reservation.Status.RELEASED);
+        assertThat(holdings.findByUserIdAndSymbol(user, "CUT").orElseThrow().getQuantity()).isEqualTo(40);
+        assertBooksAgree();
+
+        cancel(order, 40); // a repeated release changes nothing
+        assertThat(cash()).isEqualByComparingTo("999600.00");
+        assertBooksAgree();
+    }
+
+    @Test
+    void aCancelThatOvertakesItsTradeKeepsThatTradesFunds() {
+        // Different Kafka topics have no mutual ordering: the release can arrive first.
+        UUID order = placeAndReserve(OrderSide.BUY, "RACE", 100, "10.00");
+        Events.TradeExecuted inFlight = trade(order, OrderSide.BUY, "RACE", 30, "10.00");
+        cancel(order, 30);
+        assertThat(reservedCash()).isEqualByComparingTo("300.00");
+        assertThat(reservations.findById(order).orElseThrow().getStatus()).isEqualTo(Reservation.Status.ACTIVE);
+        assertBooksAgree();
+
+        settle(inFlight);
+        assertThat(reservedCash()).isEqualByComparingTo("0.00");
+        assertThat(cash()).isEqualByComparingTo("999700.00");
+        assertThat(reservations.findById(order).orElseThrow().getStatus()).isEqualTo(Reservation.Status.RELEASED);
+        assertBooksAgree();
+    }
+
+    @Test
+    void aPartiallyFilledSellReleasesOnlyItsUnsoldShares() {
+        settle(trade(placeAndReserve(OrderSide.BUY, "SEL", 50, "10.00"), OrderSide.BUY, "SEL", 50, "10.00"));
+        UUID sell = placeAndReserve(OrderSide.SELL, "SEL", 50, "10.00");
+        settle(trade(sell, OrderSide.SELL, "SEL", 20, "12.00"));
+        var holding = holdings.findByUserIdAndSymbol(user, "SEL").orElseThrow();
+        assertThat(holding.getQuantity()).isEqualTo(30);
+        assertThat(holding.getReservedQuantity()).isEqualTo(30);
+        assertBooksAgree();
+
+        cancel(sell, 20);
+        holding = holdings.findByUserIdAndSymbol(user, "SEL").orElseThrow();
+        assertThat(holding.getReservedQuantity()).isZero();
+        assertThat(holding.getQuantity()).isEqualTo(30);
+        assertThat(accounts.findById(user).orElseThrow().getRealizedPnl()).isEqualByComparingTo("40.00");
+        assertBooksAgree();
+    }
+
+    @Test
+    void aTradeLargerThanTheRemainderIsRefused() {
+        UUID order = placeAndReserve(OrderSide.BUY, "OVER", 10, "10.00");
+        settle(trade(order, OrderSide.BUY, "OVER", 6, "10.00"));
+        assertThatThrownBy(() -> settle(trade(order, OrderSide.BUY, "OVER", 5, "10.00")))
+                .isInstanceOf(InconsistentStateException.class);
+        assertThat(reservedCash()).isEqualByComparingTo("40.00");
+    }
+
     @Test
     void registrationOpensAccountOnceEvenWhenRedelivered() {
         String event = encode(Topics.USERS_REGISTERED, new Events.UserRegistered(user, "u@test.dev", "U"));

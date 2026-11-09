@@ -83,7 +83,7 @@ public class Account {
         updatedAt = now;
     }
 
-    /** Settles a BUY: frees the whole reservation and pays the actual cost (≤ reservation). */
+    /** Settles one BUY trade: frees its slice of the reservation and pays the actual cost (≤ slice). */
     public void settleBuy(BigDecimal cost, BigDecimal reservedAmount, Instant now) {
         if (cost.compareTo(reservedAmount) > 0) {
             throw new InconsistentStateException("Trade cost " + cost + " exceeds reservation " + reservedAmount

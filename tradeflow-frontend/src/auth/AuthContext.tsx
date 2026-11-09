@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { ApiError, refreshOnce, setRefreshHandler, setUnauthorizedListener } from '../api/client';
-import { authApi } from '../api/endpoints';
+import { authApi, passkeyApi } from '../api/endpoints';
+import { usePasskey } from '../lib/passkeys';
 import type { LoginRequest, RegisterRequest, TokenResponse, UserResponse } from '../api/types';
 import { clearLiveAcknowledgements, clearSession, sessionFromToken, setSession } from './session';
 
@@ -23,6 +24,9 @@ interface AuthState {
   completeMfa: (mfaToken: string, factor: { code?: string; recoveryCode?: string }) => Promise<void>;
   register: (body: RegisterRequest) => Promise<void>;
   logout: (reason?: LogoutReason) => Promise<void>;
+  loginWithPasskey: () => Promise<void>;
+  /** Shows the details the server returned after a profile edit. */
+  updateUser: (user: UserResponse) => void;
   /** Called after "sign out everywhere": the server already ended the session. */
   forgetSession: (reason?: LogoutReason) => void;
 }
@@ -114,6 +118,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     accept(await authApi.loginMfa(mfaToken, factor));
   }, [accept]);
 
+  const loginWithPasskey = useCallback(async () => {
+    const options = await passkeyApi.loginOptions();
+    const assertion = await usePasskey(options.publicKey);
+    accept(await passkeyApi.login({ challengeId: options.challengeId, ...assertion }));
+  }, [accept]);
+
   const register = useCallback(async (body: RegisterRequest) => accept(await authApi.register(body), true), [accept]);
 
   const logout = useCallback(async (reason: LogoutReason = 'manual') => {
@@ -124,8 +134,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo<AuthState>(() => ({
     status, user, isAdmin: user?.role === 'ADMIN', expiresAt, logoutReason, isNewUser,
-    login, completeMfa, register, logout, forgetSession,
-  }), [status, user, expiresAt, logoutReason, isNewUser, login, completeMfa, register, logout, forgetSession]);
+    login, completeMfa, loginWithPasskey, register, logout, forgetSession, updateUser: setUser,
+  }), [status, user, expiresAt, logoutReason, isNewUser, login, completeMfa, loginWithPasskey, register, logout, forgetSession]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

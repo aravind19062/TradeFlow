@@ -87,8 +87,9 @@ class SpreadAndStopOrderTest {
     @Test
     void marketBuyPaysTheAskAndMarketSellReceivesTheBid() throws Exception {
         UUID buy = place("{\"symbol\":\"SPRD\",\"side\":\"BUY\",\"type\":\"MARKET\",\"quantity\":10}");
-        assertThat(order(buy).getReservationPrice()).isEqualByComparingTo("250.25");
-        reserve(buy, "2502.50", 0);
+        assertThat(order(buy).getQuotedPrice()).isEqualByComparingTo("250.25");
+        assertThat(order(buy).getReservationPrice()).isEqualByComparingTo("252.76"); // the ask + 1% protection
+        reserve(buy, "2527.60", 0);
         assertThat(order(buy).getAverageFillPrice()).isEqualByComparingTo("250.25");
 
         UUID sell = place("{\"symbol\":\"SPRD\",\"side\":\"SELL\",\"type\":\"MARKET\",\"quantity\":10}");

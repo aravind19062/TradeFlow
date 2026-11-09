@@ -29,13 +29,14 @@ import java.util.stream.Collectors;
  * catching inconsistencies a single database cannot see. Reservations still ACTIVE
  * after {@code staleAfter} are classified:
  * <ul>
- *   <li>LEAKED_RESERVATION: the order ended without a fill (REJECTED/CANCELLED/EXPIRED).
- *       Released automatically: no trade can consume it, so releasing is safe.</li>
- *   <li>UNSETTLED_FILL: the order is FILLED but the trade was never booked. Not
- *       released (the trade is real); order-service's saga re-drives settlement.</li>
+ *   <li>LEAKED_RESERVATION: the order ended (REJECTED/CANCELLED/EXPIRED) and part of the
+ *       reservation is no longer needed. That part is released automatically; shares it has
+ *       already executed stay held for their trades.</li>
+ *   <li>UNSETTLED_FILL: executed shares were never booked. Not released (the trades are
+ *       real); order-service's saga re-drives settlement.</li>
  *   <li>ORPHAN_RESERVATION: order-service does not know the order. Needs an operator.</li>
  * </ul>
- * PENDING/OPEN orders are in progress and ignored.
+ * PENDING, OPEN and PARTIALLY_FILLED orders are in progress and ignored.
  */
 @Slf4j
 @Service
@@ -52,7 +53,7 @@ public class CrossServiceReconciliationService {
         }
     }
 
-    private static final Set<String> ENDED_WITHOUT_FILL = Set.of("REJECTED", "CANCELLED", "EXPIRED");
+    private static final Set<String> ENDED = Set.of("REJECTED", "CANCELLED", "EXPIRED");
 
     private final ReservationRepository reservationRepository;
     private final OrderServiceClient orderServiceClient;
@@ -105,9 +106,14 @@ public class CrossServiceReconciliationService {
             if (order == null) {
                 issues.add(new CrossServiceIssue(r.getOrderId(), r.getUserId(), "ORPHAN_RESERVATION", null,
                         "NEEDS_OPERATOR"));
-            } else if (ENDED_WITHOUT_FILL.contains(order.status())) {
+            } else if (ENDED.contains(order.status())
+                    && order.executedQuantity() - r.getSettledQuantity() >= r.remainingQuantity()) {
+                issues.add(new CrossServiceIssue(r.getOrderId(), r.getUserId(), "UNSETTLED_FILL", order.status(),
+                        "AWAITING_SETTLEMENT_REDRIVE"));
+            } else if (ENDED.contains(order.status())) {
                 transactionTemplate.executeWithoutResult(tx -> accountingService.release(new Events.OrderCancelled(
-                        r.getOrderId(), r.getUserId(), "reconciliation: order is " + order.status())));
+                        r.getOrderId(), r.getUserId(), "reconciliation: order is " + order.status(),
+                        order.executedQuantity())));
                 released++;
                 issues.add(new CrossServiceIssue(r.getOrderId(), r.getUserId(), "LEAKED_RESERVATION", order.status(),
                         "RELEASED_AUTOMATICALLY"));

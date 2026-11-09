@@ -10,7 +10,7 @@ import { dateTime, money, quantity, shortId } from '../lib/format';
 import { useApi } from '../lib/useApi';
 
 type Tab = 'open' | 'history' | 'trades';
-const STATUSES: OrderStatus[] = ['PENDING', 'OPEN', 'FILLED', 'REJECTED', 'CANCELLED', 'EXPIRED'];
+const STATUSES: OrderStatus[] = ['PENDING', 'OPEN', 'PARTIALLY_FILLED', 'FILLED', 'REJECTED', 'CANCELLED', 'EXPIRED'];
 const PAGE_SIZE = 20;
 
 export function OrdersPage() {
@@ -28,13 +28,14 @@ export function OrdersPage() {
     setParams(next, { replace: true });
   };
 
-  // "Open" = still working: OPEN (resting limit) and PENDING (reservation in flight).
+  // "Open" = still working: OPEN, PARTIALLY_FILLED and PENDING (reservation in flight).
   const openOrders = useApi(async () => {
-    const [o, p] = await Promise.all([
+    const [o, part, p] = await Promise.all([
       orderApi.list({ status: 'OPEN', symbol, size: 100 }),
+      orderApi.list({ status: 'PARTIALLY_FILLED', symbol, size: 100 }),
       orderApi.list({ status: 'PENDING', symbol, size: 100 }),
     ]);
-    return [...p.content, ...o.content].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+    return [...p.content, ...o.content, ...part.content].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
   }, [symbol], { topics: ['orders'], intervalMs: 5_000 });
   const history = useApi(() => orderApi.list({ status, side, symbol, page, size: PAGE_SIZE }),
     [status, side, symbol, page], { topics: ['orders'], enabled: tab === 'history', intervalMs: 15_000 });

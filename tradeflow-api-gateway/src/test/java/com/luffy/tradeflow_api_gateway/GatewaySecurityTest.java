@@ -85,6 +85,8 @@ class GatewaySecurityTest {
         // Reach the route (and its 503 fallback here, as no user-service runs in this test).
         mvc.perform(post("/api/auth/refresh")).andExpect(forwardedUrl("/fallback/user-service"));
         mvc.perform(post("/api/auth/login/mfa")).andExpect(forwardedUrl("/fallback/user-service"));
+        mvc.perform(post("/api/auth/passkeys/login")).andExpect(forwardedUrl("/fallback/user-service"));
+        mvc.perform(post("/api/auth/passkeys/login/options")).andExpect(forwardedUrl("/fallback/user-service"));
         mvc.perform(post("/api/auth/logout")).andExpect(forwardedUrl("/fallback/user-service"));
         mvc.perform(post("/api/auth/step-up")).andExpect(status().isUnauthorized());
         mvc.perform(post("/api/auth/mfa/totp/enroll")).andExpect(status().isUnauthorized());

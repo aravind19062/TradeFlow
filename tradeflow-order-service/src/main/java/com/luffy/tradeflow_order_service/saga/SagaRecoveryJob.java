@@ -1,7 +1,9 @@
 package com.luffy.tradeflow_order_service.saga;
 
+import com.luffy.tradeflow.common.events.Events.OrderType;
 import com.luffy.tradeflow_order_service.domain.Order;
 import com.luffy.tradeflow_order_service.domain.OrderStatus;
+import com.luffy.tradeflow_order_service.domain.Trade;
 import com.luffy.tradeflow_order_service.repository.OrderRepository;
 import com.luffy.tradeflow_order_service.repository.TradeRepository;
 import lombok.extern.slf4j.Slf4j;
@@ -22,10 +24,11 @@ import java.util.List;
  * <ul>
  *   <li>AWAITING_RESERVATION: portfolio never answered. Reject the order and request a
  *       release (covers a reservation that was made but whose reply was lost).</li>
- *   <li>RESTING: the LIMIT order outlived its time-to-live. Expire it and release.</li>
- *   <li>AWAITING_SETTLEMENT: the trade executed but was never confirmed settled. Re-send
- *       the same trade (portfolio de-duplicates by trade id). Funds are never released:
- *       the trade happened. After the re-drive budget, mark SETTLEMENT_FAILED.</li>
+ *   <li>RESTING: the working order outlived its time-to-live. Expire whatever is unfilled and
+ *       release it; trades that already happened stand.</li>
+ *   <li>AWAITING_SETTLEMENT: trades executed but were never confirmed settled. Re-send them
+ *       (portfolio de-duplicates by trade id). Their funds are never released: the trades
+ *       happened. After the re-drive budget, mark SETTLEMENT_FAILED.</li>
  *   <li>RELEASE_REQUESTED: no confirmation. Re-send the release, then mark RELEASE_FAILED.</li>
  * </ul>
  */
@@ -68,6 +71,18 @@ public class SagaRecoveryJob {
         }
     }
 
+    private void expire(Order order) {
+        String filled = order.getFilledQuantity() == 0 ? ""
+                : " with " + order.getFilledQuantity() + " of " + order.getQuantity() + " filled";
+        if (order.getType() == OrderType.MARKET) {
+            order.expireForLiquidity("Not enough liquidity inside the price protection within "
+                    + properties.marketOrderTtl() + filled + "; the unfilled part was released", clock.instant());
+        } else {
+            order.expire(order.getType() + " order expired after " + properties.limitOrderTtl() + filled,
+                    clock.instant());
+        }
+    }
+
     /** Package-visible so tests can drive a single recovery step deterministically. */
     void recover(java.util.UUID orderId) {
         OrderSaga saga = sagaRepository.findById(orderId).orElse(null);
@@ -90,10 +105,11 @@ public class SagaRecoveryJob {
                 log.warn("Order {} rejected after reservation timeout; release requested", orderId);
             }
             case RESTING -> {
-                if (order.getStatus() == OrderStatus.OPEN) {
-                    order.expire("LIMIT order expired after " + properties.limitOrderTtl(), clock.instant());
-                    sagaService.requestRelease(order, "limit order expired");
-                    log.info("LIMIT order {} expired; release requested", orderId);
+                if (order.getStatus().isWorking()) {
+                    expire(order);
+                    sagaService.requestRelease(order, order.getType() + " order expired");
+                    log.info("{} order {} expired with {} of {} filled; release requested", order.getType(), orderId,
+                            order.getFilledQuantity(), order.getQuantity());
                 }
             }
             case AWAITING_SETTLEMENT -> {
@@ -102,13 +118,17 @@ public class SagaRecoveryJob {
                             + saga.getRedriveCount() + " re-drives");
                     return;
                 }
-                tradeRepository.findByOrderIdOrderByExecutedAtAsc(orderId).stream().findFirst().ifPresentOrElse(
-                        trade -> {
-                            sagaService.redriveSettlement(saga, trade);
-                            log.warn("Re-driving settlement of trade {} (attempt {})", trade.getId(),
-                                    saga.getRedriveCount());
-                        },
-                        () -> sagaService.fail(saga, SagaState.SETTLEMENT_FAILED, "FILLED order has no trade"));
+                List<Trade> trades = tradeRepository.findByOrderIdOrderByExecutedAtAsc(orderId);
+                List<Trade> unconfirmed = trades.stream().filter(t -> t.getSettledAt() == null).toList();
+                if (trades.isEmpty()) {
+                    sagaService.fail(saga, SagaState.SETTLEMENT_FAILED, "FILLED order has no trade");
+                } else if (unconfirmed.isEmpty()) {
+                    sagaService.finishSettlement(saga);
+                } else {
+                    sagaService.redriveSettlement(saga, unconfirmed);
+                    log.warn("Re-driving settlement of {} trade(s) of order {} (attempt {})", unconfirmed.size(),
+                            orderId, saga.getRedriveCount());
+                }
             }
             case RELEASE_REQUESTED -> {
                 if (saga.getRedriveCount() >= properties.maxRedrives()) {

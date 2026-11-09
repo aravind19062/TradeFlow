@@ -18,7 +18,7 @@ export function InstrumentPage() {
   const { symbol = '' } = useParams();
   const toast = useToast();
   const [range, setRange] = useState<Range>('200');
-  const quote = useApi(() => marketApi.quote(symbol), [symbol], { topics: ['market'], intervalMs: 15_000 });
+  const quote = useApi(() => marketApi.quote(symbol), [symbol], { topics: ['market'], intervalMs: 60_000 });
   const history = useApi(() => marketApi.history(symbol, Number(range)), [symbol, range], { topics: ['market'], intervalMs: 30_000 });
   const summary = usePortfolioSummary();
   const watchlist = useApi(() => watchlistApi.list(), [], { topics: ['watchlist'] });

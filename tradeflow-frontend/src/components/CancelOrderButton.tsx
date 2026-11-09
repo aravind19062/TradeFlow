@@ -6,14 +6,14 @@ import { invalidate } from '../lib/useApi';
 import { money, quantity } from '../lib/format';
 import { Button, ConfirmDialog, useToast } from './ui';
 
-/** POST /api/orders/{id}/cancel. Only OPEN orders can be cancelled (PENDING ones are mid-reservation). */
+/** POST /api/orders/{id}/cancel. Working orders can be cancelled (PENDING ones are mid-reservation). */
 export function CancelOrderButton({ order, size = 'sm' }: { order: OrderResponse; size?: 'sm' | 'md' }) {
   const toast = useToast();
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  if (order.status !== 'OPEN') return null;
+  if (order.status !== 'OPEN' && order.status !== 'PARTIALLY_FILLED') return null;
 
   async function confirm() {
     setBusy(true);

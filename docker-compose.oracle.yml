@@ -1,0 +1,35 @@
+# Server overlay for the Oracle Cloud deployment. See docs/DEPLOY_ORACLE.md.
+#   docker compose -f docker-compose.yml -f docker-compose.oracle.yml --profile apps up -d --build
+# Nothing is reachable from the internet: the web app listens on the server's loopback address and
+# Tailscale publishes it to your own devices over HTTPS.
+services:
+  postgres:
+    ports: !reset []
+    restart: unless-stopped
+  kafka:
+    ports: !reset []
+    restart: unless-stopped
+  discovery-server:
+    ports: !reset []
+    restart: unless-stopped
+  api-gateway:
+    ports: !reset []
+    restart: unless-stopped
+  frontend:
+    ports: !override ["127.0.0.1:3000:8080"]
+    restart: unless-stopped
+  user-service:
+    restart: unless-stopped
+    environment:
+      # The site is HTTPS-only here, so the refresh cookie must be too.
+      TRADEFLOW_COOKIE_SECURE: "true"
+  market-data-service:
+    restart: unless-stopped
+  order-service:
+    restart: unless-stopped
+  portfolio-service:
+    restart: unless-stopped
+  learning-service:
+    restart: unless-stopped
+  live-trading-service:
+    restart: unless-stopped

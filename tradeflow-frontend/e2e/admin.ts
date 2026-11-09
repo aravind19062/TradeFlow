@@ -2,13 +2,22 @@ import { createHmac } from 'node:crypto';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
-import { expect, type Page } from '@playwright/test';
+import { expect, type APIRequestContext, type Page } from '@playwright/test';
 
 // The seeded admin (admin@tradeflow.dev) has two-factor authentication, enrolled through the normal
 // flow. Its seed comes from E2E_ADMIN_TOTP_SECRET or the git-ignored, owner-only
 // .secrets/admin-totp.properties; without it the admin tests fail (they are never skipped).
 
 export const DEMO_PASSWORD = process.env.TRADEFLOW_DEMO_PASSWORD ?? 'Demo@12345';
+
+/** A new ordinary account with no second factor; the seeded demo user may have one turned on. */
+export async function plainUser(request: APIRequestContext): Promise<{ email: string; password: string }> {
+  const email = `plain-${Date.now()}-${Math.floor(Math.random() * 1000)}@tradeflow.dev`;
+  const password = 'Plain-Passw0rd!';
+  const res = await request.post('/api/auth/register', { data: { name: 'Plain User', email, password } });
+  expect(res.status(), 'register a plain user').toBe(201);
+  return { email, password };
+}
 
 export function totpAt(base32Secret: string, step: number): string {
   const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
@@ -53,7 +62,7 @@ export async function signInAdmin(page: Page): Promise<boolean> {
   await page.goto('/login');
   await page.getByLabel('Email').fill('admin@tradeflow.dev');
   await page.getByLabel('Password').fill(DEMO_PASSWORD);
-  await page.getByRole('button', { name: 'Sign in' }).click();
+  await page.getByRole('button', { name: 'Sign in', exact: true }).click();
   const mfa = page.getByLabel('Verification code');
   await expect(mfa.or(page.getByTestId('current-user'))).toBeVisible();
   const enrolled = await mfa.isVisible();

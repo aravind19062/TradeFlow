@@ -283,17 +283,41 @@ export function Badge({ children, className }: { children: ReactNode; className?
 }
 
 // ---------------------------------------------------------------- dialogs
+const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
+/** Wraps Tab at the ends of a dialog so keyboard users can't reach the page behind it. */
+function keepTabInside(e: KeyboardEvent, dialog: HTMLElement) {
+  const items = [...dialog.querySelectorAll<HTMLElement>(FOCUSABLE)];
+  if (items.length === 0) { e.preventDefault(); return; }
+  const first = items[0];
+  const last = items[items.length - 1];
+  const active = document.activeElement;
+  if (e.shiftKey && (active === first || active === dialog)) { e.preventDefault(); last.focus(); }
+  else if (!e.shiftKey && active === last) { e.preventDefault(); first.focus(); }
+}
+
 export function Modal({ open, onClose, title, children, footer }: {
   open: boolean; onClose: () => void; title: string; children: ReactNode; footer?: ReactNode;
 }) {
   const ref = useRef<HTMLDivElement>(null);
+  // Callers pass a new onClose on each render. Keeping it out of the effect's dependencies means
+  // focus moves only when the dialog opens, not on every keystroke in a field inside it.
+  const latestOnClose = useRef(onClose);
+  useEffect(() => { latestOnClose.current = onClose; });
   useEffect(() => {
     if (!open) return;
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    const previous = document.activeElement as HTMLElement | null;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') latestOnClose.current();
+      if (e.key === 'Tab' && ref.current) keepTabInside(e, ref.current);
+    };
     document.addEventListener('keydown', onKey);
-    ref.current?.focus();
-    return () => document.removeEventListener('keydown', onKey);
-  }, [open, onClose]);
+    (ref.current?.querySelector<HTMLElement>('[data-autofocus]') ?? ref.current)?.focus();
+    return () => {
+      document.removeEventListener('keydown', onKey);
+      previous?.focus?.();
+    };
+  }, [open]);
   if (!open) return null;
   // Portalled to <body> so no transformed ancestor (page entrance animation) can clip the overlay.
   return createPortal(

@@ -46,7 +46,8 @@ class OrderServiceTest {
     void setUp() {
         OrderProperties props = new OrderProperties(1_000L, new BigDecimal("100000"), null);
         service = new OrderService(orders, mock(TradeRepository.class), marketData, outbox, props, tx,
-                mock(com.luffy.tradeflow_order_service.saga.OrderSagaService.class), Clock.fixed(Instant.parse("2026-01-01T00:00:00Z"), ZoneOffset.UTC));
+                mock(com.luffy.tradeflow_order_service.saga.OrderSagaService.class),
+                new com.luffy.tradeflow_order_service.matching.MatchingProperties(null, null, null, null, null), Clock.fixed(Instant.parse("2026-01-01T00:00:00Z"), ZoneOffset.UTC));
         when(tx.execute(any())).thenAnswer(inv -> inv.<TransactionCallback<?>>getArgument(0).doInTransaction(null));
         when(marketData.quote(anyString())).thenReturn(
                 new MarketDataClient.Quote("TCS", new BigDecimal("100.00"), 5, Instant.now(), "SIMULATED"));
@@ -58,11 +59,11 @@ class OrderServiceTest {
     }
 
     @Test
-    void marketOrderReservesAtQuoteAndWritesOutboxEvent() {
+    void marketOrderReservesAtProtectedPriceAndWritesOutboxEvent() {
         var result = service.place(user, request(OrderType.MARKET, 10, null, null));
         assertThat(result.created()).isTrue();
         assertThat(result.order().symbol()).isEqualTo("TCS");
-        assertThat(result.order().reservationPrice()).isEqualByComparingTo("100.00");
+        assertThat(result.order().reservationPrice()).isEqualByComparingTo("101.00"); // quote + 1% price protection
         verify(orders).save(any(Order.class));
         verify(outbox).append(eq("orders.placed"), eq("7"), any());
     }

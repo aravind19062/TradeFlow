@@ -33,9 +33,9 @@ class OrderTest {
     @Test
     void transitionTableMatchesLifecycle() {
         assertThat(OrderStatus.PENDING.allowedNext()).containsExactlyInAnyOrder(
-                OrderStatus.OPEN, OrderStatus.FILLED, OrderStatus.REJECTED);
-        assertThat(OrderStatus.OPEN.allowedNext()).containsExactlyInAnyOrder(OrderStatus.FILLED, OrderStatus.CANCELLED,
-                OrderStatus.EXPIRED);
+                OrderStatus.OPEN, OrderStatus.PARTIALLY_FILLED, OrderStatus.FILLED, OrderStatus.REJECTED);
+        assertThat(OrderStatus.OPEN.allowedNext()).containsExactlyInAnyOrder(OrderStatus.PARTIALLY_FILLED,
+                OrderStatus.FILLED, OrderStatus.CANCELLED, OrderStatus.EXPIRED);
         assertThat(OrderStatus.EXPIRED.isTerminal()).isTrue();
         assertThat(OrderStatus.FILLED.isTerminal()).isTrue();
         assertThat(OrderStatus.REJECTED.isTerminal()).isTrue();
@@ -91,5 +91,49 @@ class OrderTest {
                 .isInstanceOfSatisfying(ApiException.class,
                         e -> assertThat(e.getCode()).isEqualTo("INVALID_STATE_TRANSITION"));
         assertThatThrownBy(() -> order.reject("X", "late", NOW)).isInstanceOf(ApiException.class);
+    }
+
+    @Test
+    void partialFillsTrackQuantityAndWeightedAverage() {
+        Order order = Order.place(1, null, "TCS", OrderSide.BUY, OrderType.LIMIT, 100, new BigDecimal("100.00"),
+                new BigDecimal("100.00"), NOW);
+        order.open("reserved", NOW);
+        order.fill(30, new BigDecimal("98.00"), NOW);
+        assertThat(order.getStatus()).isEqualTo(OrderStatus.PARTIALLY_FILLED);
+        assertThat(order.remainingQuantity()).isEqualTo(70);
+        order.fill(20, new BigDecimal("100.00"), NOW);
+        assertThat(order.getStatus()).isEqualTo(OrderStatus.PARTIALLY_FILLED);
+        assertThat(order.getAverageFillPrice()).isEqualByComparingTo("98.80");
+        order.fill(50, new BigDecimal("100.00"), NOW);
+        assertThat(order.getStatus()).isEqualTo(OrderStatus.FILLED);
+        assertThat(order.getFilledQuantity()).isEqualTo(100);
+    }
+
+    @Test
+    void aFillCannotExceedTheRemainderOrTheLimit() {
+        Order order = Order.place(1, null, "TCS", OrderSide.BUY, OrderType.LIMIT, 10, new BigDecimal("100.00"),
+                new BigDecimal("100.00"), NOW);
+        order.open("reserved", NOW);
+        order.fill(6, new BigDecimal("100.00"), NOW);
+        assertThatThrownBy(() -> order.fill(5, new BigDecimal("100.00"), NOW)).isInstanceOf(IllegalStateException.class);
+        assertThatThrownBy(() -> order.fill(1, new BigDecimal("100.05"), NOW)).isInstanceOf(IllegalStateException.class);
+        assertThat(order.getFilledQuantity()).isEqualTo(6);
+    }
+
+    @Test
+    void aMarketOrderCannotTradeBeyondItsProtection() {
+        Order buy = Order.place(1, null, "TCS", OrderSide.BUY, OrderType.MARKET, 10, null, new BigDecimal("101.00"), NOW);
+        assertThat(buy.isMarketableAt(new BigDecimal("101.00"))).isTrue();
+        assertThat(buy.isMarketableAt(new BigDecimal("101.05"))).isFalse();
+        Order sell = Order.place(1, null, "TCS", OrderSide.SELL, OrderType.MARKET, 10, null, new BigDecimal("99.00"), NOW);
+        assertThat(sell.isMarketableAt(new BigDecimal("99.00"))).isTrue();
+        assertThat(sell.isMarketableAt(new BigDecimal("98.95"))).isFalse();
+    }
+
+    @Test
+    void aPartiallyFilledOrderCanBeCancelledOrExpiredButNotRejected() {
+        assertThat(OrderStatus.PARTIALLY_FILLED.allowedNext()).containsExactlyInAnyOrder(OrderStatus.PARTIALLY_FILLED,
+                OrderStatus.FILLED, OrderStatus.CANCELLED, OrderStatus.EXPIRED);
+        assertThat(OrderStatus.PARTIALLY_FILLED.isTerminal()).isFalse();
     }
 }

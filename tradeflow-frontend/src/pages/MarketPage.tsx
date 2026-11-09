@@ -13,7 +13,7 @@ import { invalidate, useApi } from '../lib/useApi';
 export function MarketPage() {
   const toast = useToast();
   const navigate = useNavigate();
-  const quotes = useApi(() => marketApi.quotes(), [], { topics: ['market'], intervalMs: 15_000 });
+  const quotes = useApi(() => marketApi.quotes(), [], { topics: ['market'], intervalMs: 60_000 });
   const watchlist = useApi(() => watchlistApi.list(), [], { topics: ['watchlist'] });
   const symbols = quotes.data?.map((q) => q.symbol).join(',') ?? '';
   // GET /api/demo/market/history?symbols=A,B&limit=N (MarketDataController.histories)

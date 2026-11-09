@@ -129,7 +129,7 @@ transaction. Details: [docs/EVENTS.md](docs/EVENTS.md).
 | **Transactional outbox** (`outbox_events`, claimed with `FOR UPDATE SKIP LOCKED`) | An event exists if and only if its database change committed. Safe with several replicas. Kafka outages create a visible backlog, never silent loss. |
 | **Idempotent consumers** (`processed_events`) + `UNIQUE(trade_id)` + row locks for settlement | Kafka is at-least-once. Duplicates, including concurrent ones, are skipped, so trades are never double-booked. This is not exactly-once. |
 | **Optimistic locking** (`@Version`) on orders, accounts, holdings, reservations | A concurrent fill and cancel cannot both win. Conflicting event handlers are retried. |
-| **Simulated execution, not a matching engine** | MARKET orders fill in full at the quote accepted at placement. LIMIT orders fill in full on a marketable simulated tick. No order book, no partial fills. |
+| **A simulated matching engine (DEMO only)** | With no other traders, each tick offers limited shares at five price levels per side. Large orders fill in parts and the rest works on later ticks. Live orders never touch it. |
 | **Gateway + per-service JWT validation** | Defence in depth: the edge rejects bad tokens, and services validate again and derive the user id only from the token. Other users' resources return 404. |
 | **Secure by default** | No JWT secret and no demo admin outside the explicit `local` profile. Services refuse to start with the public placeholder secret elsewhere. |
 
@@ -464,14 +464,14 @@ make psql DB=tradeflow_order | make topics | make dlt T=trades.executed
 * Docker Compose with health checks and memory limits; CI.
 
 **Known limitations (deliberate scope):**
-* **Execution:** no matching engine, order book or partial fills.
+* **Execution:** the demo order book is simulated liquidity. Demo orders never trade with each other.
 * **Simplified trading:** no fees or taxes, long-only, single currency.
 * **Not production-ready:** in-memory login throttling is per instance; single-node Kafka and
   PostgreSQL; no TLS in local Compose (the refresh cookie is sent without `Secure` only under the `local` profile).
 * **Not verified:** the real Anthropic API (see the procedure above); no load or performance testing.
 
 **Future work:** distributed rate limiting, OpenTelemetry tracing,
-notifications for alerts and failed sagas, partial fills and an order book.
+notifications for alerts and failed sagas.
 
 ## Repository layout
 

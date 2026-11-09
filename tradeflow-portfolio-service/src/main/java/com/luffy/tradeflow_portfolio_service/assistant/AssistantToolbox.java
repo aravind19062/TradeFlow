@@ -48,7 +48,7 @@ public class AssistantToolbox {
             new ToolSpec("list_recent_orders",
                     "The caller's most recent orders, newest first.",
                     Map.of("status", Map.of("type", "string",
-                                    "enum", List.of("PENDING", "OPEN", "FILLED", "REJECTED", "CANCELLED", "EXPIRED"),
+                                    "enum", List.of("PENDING", "OPEN", "PARTIALLY_FILLED", "FILLED", "REJECTED", "CANCELLED", "EXPIRED"),
                                     "description", "Optional status filter, e.g. OPEN for resting orders"),
                             "limit", Map.of("type", "integer", "minimum", 1, "maximum", 20)),
                     List.of()),
@@ -62,7 +62,7 @@ public class AssistantToolbox {
                     Map.of("metric", Map.of("type", "string", "enum", List.copyOf(MetricDefinitions.DEFINITIONS.keySet()))),
                     List.of("metric")));
 
-    private static final Set<String> STATUSES = Set.of("PENDING", "OPEN", "FILLED", "REJECTED", "CANCELLED", "EXPIRED");
+    private static final Set<String> STATUSES = Set.of("PENDING", "OPEN", "PARTIALLY_FILLED", "FILLED", "REJECTED", "CANCELLED", "EXPIRED");
     private static final Set<String> ALERT_STATUSES = Set.of("ACTIVE", "TRIGGERED", "CANCELLED");
     private static final Map<String, ToolSpec> BY_NAME = TOOLS.stream()
             .collect(java.util.stream.Collectors.toMap(ToolSpec::name, t -> t));

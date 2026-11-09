@@ -26,9 +26,22 @@ import java.util.Map;
 public class MarketDataController {
 
     private final QuoteService quoteService;
+    private final QuoteStream stream;
 
-    public MarketDataController(QuoteService quoteService) {
+    public MarketDataController(QuoteService quoteService, QuoteStream stream) {
         this.quoteService = quoteService;
+        this.stream = stream;
+    }
+
+    @GetMapping(value = "/stream", produces = org.springframework.http.MediaType.TEXT_EVENT_STREAM_VALUE)
+    @Operation(summary = "Server-sent events: a 'tick' event each time new simulated prices exist")
+    public org.springframework.web.servlet.mvc.method.annotation.SseEmitter stream() {
+        var emitter = stream.connect();
+        if (emitter == null) {
+            throw new org.springframework.web.server.ResponseStatusException(
+                    org.springframework.http.HttpStatus.SERVICE_UNAVAILABLE, "Too many live connections");
+        }
+        return emitter;
     }
 
     @GetMapping("/instruments")

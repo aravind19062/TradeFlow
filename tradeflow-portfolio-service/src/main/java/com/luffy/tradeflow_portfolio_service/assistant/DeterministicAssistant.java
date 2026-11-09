@@ -116,9 +116,18 @@ public class DeterministicAssistant {
                 yield alerts(f);
             }
             case OPEN_ORDERS -> {
-                Fact f = toolbox.execute(user, "list_recent_orders", Map.of("status", "OPEN", "limit", 20));
-                facts.add(f);
-                yield recentOrders(f).replace("Your most recent orders", "Your open (resting) orders");
+                Fact open = toolbox.execute(user, "list_recent_orders", Map.of("status", "OPEN", "limit", 20));
+                Fact partial = toolbox.execute(user, "list_recent_orders",
+                        Map.of("status", "PARTIALLY_FILLED", "limit", 20));
+                facts.add(open);
+                facts.add(partial);
+                String resting = recentOrders(open).replace("Your most recent orders", "Your open (resting) orders");
+                if (isError(partial) || ((JsonNode) partial.data()).path("content").isEmpty()) {
+                    yield resting;
+                }
+                String working = recentOrders(partial).replace("Your most recent orders", "Your partially filled orders");
+                yield !isError(open) && ((JsonNode) open.data()).path("content").isEmpty()
+                        ? working : resting + "\n\n" + working;
             }
             case RISK -> risk(run.apply("get_risk_report"));
             case PERFORMANCE -> performance(run.apply("get_performance"));

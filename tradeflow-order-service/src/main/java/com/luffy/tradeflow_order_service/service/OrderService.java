@@ -11,6 +11,7 @@ import com.luffy.tradeflow.common.web.ApiException;
 import com.luffy.tradeflow_order_service.client.MarketDataClient;
 import com.luffy.tradeflow_order_service.config.OrderProperties;
 import com.luffy.tradeflow_order_service.domain.Order;
+import com.luffy.tradeflow_order_service.matching.MatchingProperties;
 import com.luffy.tradeflow_order_service.domain.OrderStatus;
 import com.luffy.tradeflow_order_service.domain.Trade;
 import com.luffy.tradeflow_order_service.repository.OrderRepository;
@@ -56,11 +57,13 @@ public class OrderService {
     private final OrderProperties properties;
     private final TransactionTemplate transactionTemplate;
     private final OrderSagaService sagaService;
+    private final MatchingProperties matching;
     private final Clock clock;
 
     public OrderService(OrderRepository orderRepository, TradeRepository tradeRepository,
                         MarketDataClient marketDataClient, OutboxWriter outboxWriter, OrderProperties properties,
-                        TransactionTemplate transactionTemplate, OrderSagaService sagaService, Clock clock) {
+                        TransactionTemplate transactionTemplate, OrderSagaService sagaService,
+                        MatchingProperties matching, Clock clock) {
         this.orderRepository = orderRepository;
         this.tradeRepository = tradeRepository;
         this.marketDataClient = marketDataClient;
@@ -68,6 +71,7 @@ public class OrderService {
         this.properties = properties;
         this.transactionTemplate = transactionTemplate;
         this.sagaService = sagaService;
+        this.matching = matching;
         this.clock = clock;
     }
 
@@ -85,9 +89,12 @@ public class OrderService {
         }
         // Network call deliberately outside the transaction: no DB connection is held while waiting.
         MarketDataClient.Quote quote = marketDataClient.quote(symbol);
+        // A market buy trades against the ask, a market sell against the bid.
+        BigDecimal touch = Money.price(request.side() == OrderSide.BUY ? quote.askOrMid() : quote.bidOrMid());
         BigDecimal reservationPrice = switch (request.type()) {
-            // A market buy pays the ask, a market sell receives the bid.
-            case MARKET -> Money.price(request.side() == OrderSide.BUY ? quote.askOrMid() : quote.bidOrMid());
+            // The worst price a market order may reach while walking the book. Reserving at this price
+            // is what guarantees a buy can always pay; unused funds are returned when it settles.
+            case MARKET -> matching.protectedPrice(request.side(), touch);
             case LIMIT, STOP_LIMIT -> Money.price(request.limitPrice());
             case STOP -> Money.price(request.triggerPrice());
         };
@@ -109,7 +116,7 @@ public class OrderService {
                 Order order = Order.place(user.id(), request.clientOrderId(), symbol, request.side(), request.type(),
                         request.quantity(), request.limitPrice() == null ? null : Money.price(request.limitPrice()),
                         request.triggerPrice() == null ? null : Money.price(request.triggerPrice()),
-                        reservationPrice, clock.instant());
+                        reservationPrice, request.type() == OrderType.MARKET ? touch : null, clock.instant());
                 orderRepository.save(order);
                 sagaService.start(order);
                 outboxWriter.append(Topics.ORDERS_PLACED, String.valueOf(user.id()),
@@ -170,12 +177,14 @@ public class OrderService {
                 : tradeRepository.findByUserIdAndSymbol(user.id(), symbol.trim().toUpperCase(Locale.ROOT), pageable);
     }
 
-    /** Cancels an OPEN order and asks portfolio-service to release its reservation. */
+    /** Cancels a working order. Trades that already happened stand; only the unfilled part is released. */
     @Transactional
     public OrderResponse cancel(AuthenticatedUser user, UUID orderId) {
         Order order = findOwned(user, orderId);
-        order.cancel("Cancelled by user", clock.instant());
-        sagaService.requestRelease(order, "Cancelled by user");
+        String reason = order.getFilledQuantity() == 0 ? "Cancelled by user"
+                : "Cancelled by user with " + order.getFilledQuantity() + " of " + order.getQuantity() + " filled";
+        order.cancel(reason, clock.instant());
+        sagaService.requestRelease(order, reason);
         log.info("Order {} cancelled by user {}", orderId, user.id());
         return OrderResponse.from(order);
     }

@@ -59,7 +59,7 @@ export function refreshOnce(): Promise<boolean> {
 
 // A 401 from these means wrong credentials (or no session yet), not an expired access token, so it is
 // never answered with a refresh-and-retry. Step-up re-checks the password and a TOTP code.
-const AUTH_PATHS = ['/auth/login', '/auth/register', '/auth/refresh', '/auth/logout', '/auth/login/mfa', '/auth/step-up'];
+const AUTH_PATHS = ['/auth/passkeys/login', '/auth/passkeys/login/options', '/auth/login', '/auth/register', '/auth/refresh', '/auth/logout', '/auth/login/mfa', '/auth/step-up'];
 const isAuthPath = (url?: string) => !!url && AUTH_PATHS.some((p) => url.startsWith(p));
 
 type RetriableConfig = InternalAxiosRequestConfig & { _retried?: boolean };

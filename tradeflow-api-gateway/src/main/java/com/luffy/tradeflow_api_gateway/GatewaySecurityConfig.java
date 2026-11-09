@@ -66,10 +66,11 @@ public class GatewaySecurityConfig {
                 .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/internal/**").denyAll()
-                        .requestMatchers("/actuator/health/**", "/actuator/info", "/fallback/**", "/error",
+                        .requestMatchers("/actuator/health/**", "/actuator/info", "/actuator/prometheus", "/fallback/**", "/error",
                                 "/swagger-ui/**", "/swagger-ui.html", "/v3/api-docs/**").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/auth/register", "/api/auth/login",
-                                "/api/auth/login/mfa", "/api/auth/refresh", "/api/auth/logout").permitAll()
+                                "/api/auth/login/mfa", "/api/auth/refresh", "/api/auth/logout",
+                                "/api/auth/passkeys/login", "/api/auth/passkeys/login/options").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/market/**", "/api/demo/market/**").permitAll()
                         // Live actions that place orders or link/unlink a broker need a step-up token
                         // (live-trading-service checks it again, plus its age, readiness and limits).
