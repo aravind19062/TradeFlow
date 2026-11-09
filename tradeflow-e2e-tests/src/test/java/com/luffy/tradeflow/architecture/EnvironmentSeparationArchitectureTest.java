@@ -53,11 +53,12 @@ class EnvironmentSeparationArchitectureTest {
 
     @Test
     void onlyApprovedBrokerAdaptersExist() {
-        // DisabledBrokerAdapter (no broker) and FyersBrokerAdapter (approved 2026-11-01) are the only
-        // production implementations; any other broker needs a new approval and a change here.
+        // DisabledBrokerAdapter (no broker) and AngelOneBrokerAdapter (approved 2026-11-08, replacing
+        // Fyers) are the only production implementations; any other broker needs a new approval and a
+        // change here.
         noClasses().that().implement(com.luffy.tradeflow_live_trading_service.broker.BrokerAdapter.class)
                 .and().doNotHaveFullyQualifiedName("com.luffy.tradeflow_live_trading_service.broker.DisabledBrokerAdapter")
-                .and().doNotHaveFullyQualifiedName("com.luffy.tradeflow_live_trading_service.broker.fyers.FyersBrokerAdapter")
+                .and().doNotHaveFullyQualifiedName("com.luffy.tradeflow_live_trading_service.broker.angelone.AngelOneBrokerAdapter")
                 .should().bePublic().orShould().notBePublic()
                 .because("only approved brokers may be integrated")
                 .allowEmptyShould(true)
@@ -65,11 +66,11 @@ class EnvironmentSeparationArchitectureTest {
     }
 
     @Test
-    void fyersSpecificCodeStaysBehindTheBrokerAdapter() {
-        // Everything else uses the BrokerAdapter interface; only the configuration chooses Fyers.
-        noClasses().that().resideOutsideOfPackages("com.luffy.tradeflow_live_trading_service.broker.fyers..",
+    void angelOneSpecificCodeStaysBehindTheBrokerAdapter() {
+        // Everything else uses the BrokerAdapter interface; only the configuration chooses Angel One.
+        noClasses().that().resideOutsideOfPackages("com.luffy.tradeflow_live_trading_service.broker.angelone..",
                         "com.luffy.tradeflow_live_trading_service.config..")
-                .should().dependOnClassesThat().resideInAPackage("com.luffy.tradeflow_live_trading_service.broker.fyers..")
+                .should().dependOnClassesThat().resideInAPackage("com.luffy.tradeflow_live_trading_service.broker.angelone..")
                 .check(CLASSES);
     }
 

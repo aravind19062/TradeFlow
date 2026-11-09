@@ -61,14 +61,19 @@ class NoBrokerConfiguredTest {
     @Test
     void refusesToStartWithAnUnapprovedBroker() {
         LiveProperties props = new LiveProperties("somebroker", null, null, null, null, null, null, null);
-        var fyers = new com.luffy.tradeflow_live_trading_service.broker.fyers.FyersProperties(null, null, null, null, null, null, null);
+        var angelOne = new com.luffy.tradeflow_live_trading_service.broker.angelone.AngelOneProperties(
+                null, null, null, null, null, null, null, null);
         var json = tools.jackson.databind.json.JsonMapper.builder().build();
-        assertThatThrownBy(() -> new LiveConfig().brokerAdapter(props, fyers, json, java.time.Clock.systemUTC()))
+        assertThatThrownBy(() -> new LiveConfig().brokerAdapter(props, angelOne, json, java.time.Clock.systemUTC()))
                 .hasMessageContaining("not integrated");
-        // Fyers is approved, but never starts without its app credentials.
+        // Fyers was replaced by Angel One on 2026-11-08: "fyers" is no longer accepted.
         LiveProperties fyersSelected = new LiveProperties("fyers", null, null, null, null, null, null, null);
-        assertThatThrownBy(() -> new LiveConfig().brokerAdapter(fyersSelected, fyers, json, java.time.Clock.systemUTC()))
-                .hasMessageContaining("TRADEFLOW_FYERS_APP_ID");
+        assertThatThrownBy(() -> new LiveConfig().brokerAdapter(fyersSelected, angelOne, json, java.time.Clock.systemUTC()))
+                .hasMessageContaining("not integrated");
+        // Angel One is approved, but never starts without its API key.
+        LiveProperties angelOneSelected = new LiveProperties("angelone", null, null, null, null, null, null, null);
+        assertThatThrownBy(() -> new LiveConfig().brokerAdapter(angelOneSelected, angelOne, json, java.time.Clock.systemUTC()))
+                .hasMessageContaining("TRADEFLOW_ANGELONE_API_KEY");
         assertThatThrownBy(() -> new LiveProperties(null, null, null, null, null, java.time.Duration.ofMinutes(30), null, null))
                 .hasMessageContaining("at most 15 minutes");
     }

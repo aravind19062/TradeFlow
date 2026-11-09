@@ -20,7 +20,7 @@ public class DisabledBrokerAdapter implements BrokerAdapter {
     @Override public boolean enabled() { return false; }
     @Override public String authorizationUrl(String state, String codeChallenge) { throw refused(); }
     @Override public BrokerSession exchangeCode(String code, String codeVerifier) { throw refused(); }
-    @Override public void revoke(String accessToken) { throw refused(); }
+    @Override public void revoke(String accessToken, String accountRef) { throw refused(); }
     @Override public Funds funds(String accessToken) { throw refused(); }
     @Override public List<Holding> holdings(String accessToken) { throw refused(); }
     @Override public List<Position> positions(String accessToken) { throw refused(); }

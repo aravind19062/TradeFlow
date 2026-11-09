@@ -384,8 +384,9 @@ services:
     healthcheck: *app-health
 
   # LIVE trading (real money). Own database and own encryption keys. Broker: "none" by default;
-  # "fyers" (read-only, phase 6) when TRADEFLOW_LIVE_BROKER=fyers and the Fyers app credentials are
-  # set in the git-ignored .env (see docs/FYERS_SETUP.md). Without them the service refuses to start.
+  # "angelone" (Angel One SmartAPI, read-only, phase 6) when TRADEFLOW_LIVE_BROKER=angelone and the
+  # SmartAPI key is set in the git-ignored .env (see docs/ANGELONE_SETUP.md). Without it the service
+  # refuses to start. After changing .env, recreate the service: docker compose up -d live-trading-service
   live-trading-service:
     profiles: ["apps"]
     # Come back after a Docker Desktop restart, and give Spring time to finish in-flight
@@ -409,9 +410,10 @@ services:
       TRADEFLOW_LIVE_DATA_KEYRING: file:/run/tradeflow/data-keys/data-keys.properties
       TRADEFLOW_SERVICE_SECRET_LIVE: ${TRADEFLOW_SERVICE_SECRET_LIVE:-local-dev-only-live-trading-client-secret}
       TRADEFLOW_LIVE_BROKER: ${TRADEFLOW_LIVE_BROKER:-none}
-      TRADEFLOW_FYERS_APP_ID: ${TRADEFLOW_FYERS_APP_ID:-}
-      TRADEFLOW_FYERS_SECRET_KEY: ${TRADEFLOW_FYERS_SECRET_KEY:-}
-      TRADEFLOW_FYERS_REDIRECT_URI: ${TRADEFLOW_FYERS_REDIRECT_URI:-http://localhost:3000/live/broker/callback}
+      TRADEFLOW_ANGELONE_API_KEY: ${TRADEFLOW_ANGELONE_API_KEY:-}
+      TRADEFLOW_ANGELONE_CLIENT_LOCAL_IP: ${TRADEFLOW_ANGELONE_CLIENT_LOCAL_IP:-}
+      TRADEFLOW_ANGELONE_CLIENT_PUBLIC_IP: ${TRADEFLOW_ANGELONE_CLIENT_PUBLIC_IP:-}
+      TRADEFLOW_ANGELONE_MAC_ADDRESS: ${TRADEFLOW_ANGELONE_MAC_ADDRESS:-}
     healthcheck: *app-health
 
 volumes:

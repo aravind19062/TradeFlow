@@ -12,7 +12,7 @@ const td = 'px-3 py-2.5';
 
 /**
  * The linked broker account, read-only: funds, holdings, positions and the broker's order book.
- * No polling: brokers rate-limit their APIs (Fyers blocks for the day after repeated overruns), so
+ * No polling: brokers rate-limit their APIs and may block an app that keeps exceeding them, so
  * data is fetched when a tab opens and on Refresh.
  */
 export function BrokerAccountCard() {
@@ -88,13 +88,14 @@ function Positions({ version }: { version: number }) {
     <div className="overflow-x-auto pb-2">
       <table className="w-full text-sm" data-testid="broker-positions">
         <thead className="text-left text-xs uppercase tracking-wide text-slate-500">
-          <tr><th className={`${th} pl-5`}>Instrument</th><th className={`${th} text-right`}>Net qty</th>
+          <tr><th className={`${th} pl-5`}>Instrument</th><th className={th}>Product</th><th className={`${th} text-right`}>Net qty</th>
             <th className={`${th} text-right`}>Avg price</th><th className={`${th} pr-5 text-right`}>P&amp;L</th></tr>
         </thead>
         <tbody className="divide-y divide-slate-100">
           {q.data.map((p) => (
-            <tr key={`${p.exchange}:${p.symbol}`} className="transition-colors hover:bg-slate-50">
+            <tr key={`${p.exchange}:${p.symbol}:${p.product ?? ''}`} className="transition-colors hover:bg-slate-50">
               <td className={`${td} pl-5 font-semibold`}>{p.symbol} <span className="text-xs font-normal text-slate-400">{p.exchange}</span></td>
+              <td className={td}>{p.product ? <Badge className={p.product === 'INTRADAY' ? 'bg-amber-50 text-amber-800 ring-1 ring-amber-200' : 'bg-slate-100 text-slate-600'}>{p.product}</Badge> : '—'}</td>
               <td className={`${td} text-right`}>{p.quantity}</td>
               <td className={`${td} text-right`}>{money(p.averagePrice)}</td>
               <td className={`${td} pr-5 text-right ${trendClass(p.pnl)}`}>{p.pnl == null ? '—' : signedMoney(p.pnl)}</td>

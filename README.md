@@ -287,8 +287,9 @@ Errors use RFC 9457 `ProblemDetail` with a stable `code`, e.g. `VALIDATION_FAILE
 | `KAFKA_BOOTSTRAP_SERVERS` | `localhost:9094` | `kafka:29092` inside Compose |
 | `EUREKA_URL` | `http://localhost:8761/eureka` | |
 | `TRADEFLOW_AI_PROVIDER`, `ANTHROPIC_API_KEY`, `TRADEFLOW_AI_MODEL` | `none`, unset, `claude-opus-5-5` | see the AI section |
-| `TRADEFLOW_LIVE_BROKER` | `none` | `fyers` = read-only Fyers link (phase 6; no real orders). Needs the three values below; see [docs/FYERS_SETUP.md](docs/FYERS_SETUP.md) |
-| `TRADEFLOW_FYERS_APP_ID`, `TRADEFLOW_FYERS_SECRET_KEY`, `TRADEFLOW_FYERS_REDIRECT_URI` | unset, unset, `http://localhost:3000/live/broker/callback` | From your Fyers API app (created without order permission). The secret belongs in `.env` only |
+| `TRADEFLOW_LIVE_BROKER` | `none` | `angelone` = read-only Angel One SmartAPI link (phase 6; no real orders). Needs the API key below; see [docs/ANGELONE_SETUP.md](docs/ANGELONE_SETUP.md) |
+| `TRADEFLOW_ANGELONE_API_KEY` | unset | API key of your SmartAPI app (redirect URL `http://localhost:3000/live/broker/callback`). In `.env` only. Your Angel One PIN and TOTP are never configured |
+| `TRADEFLOW_ANGELONE_CLIENT_LOCAL_IP`, `..._CLIENT_PUBLIC_IP`, `..._MAC_ADDRESS` | `127.0.0.1`, local IP, `00:00:00:00:00:00` | Optional SmartAPI client headers: the real values of the machine running TradeFlow |
 
 **Security model**
 
