@@ -43,7 +43,7 @@ public class FakeBrokerAdapter implements BrokerAdapter {
                 Instant.now().plusSeconds(3600), "ACC-1");
     }
 
-    @Override public void revoke(String accessToken, String accountRef) { tokensSeen.add(accessToken); }
+    @Override public void revoke(String accessToken) { tokensSeen.add(accessToken); }
     @Override public Funds funds(String t) { tokensSeen.add(t); return new Funds(new BigDecimal("50000"), BigDecimal.ZERO, "INR", Instant.now()); }
     @Override public List<Holding> holdings(String t) { tokensSeen.add(t); return List.of(); }
     @Override public List<Position> positions(String t) { tokensSeen.add(t); return List.of(); }

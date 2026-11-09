@@ -78,11 +78,8 @@ public class BrokerConnectionService {
 
     @Transactional(readOnly = true)
     public Optional<BrokerConnection> active(long userId) {
-        // A link made through a different broker (e.g. before the broker was changed) is never used:
-        // its token belongs to that broker, not to the configured one.
         return connections.findFirstByUserIdAndStatusOrderByConnectedAtDesc(userId, BrokerConnection.Status.ACTIVE)
-                .filter(c -> c.usable(clock.instant()))
-                .filter(c -> broker.code().equals(c.getBrokerCode()));
+                .filter(c -> c.usable(clock.instant()));
     }
 
     /** A connection that is usable now, or 409. */
@@ -99,7 +96,6 @@ public class BrokerConnectionService {
             throw ApiException.conflict("ALREADY_CONNECTED", "A broker account is already connected; disconnect it first");
         }
         Instant now = clock.instant();
-        retireOtherBrokers(userId, now);
         BrokerConnection c = connections.save(new BrokerConnection(userId, broker.code(), now));
         String state = randomToken(32);
         String verifier = randomToken(48);
@@ -120,8 +116,7 @@ public class BrokerConnectionService {
         }
         String hash = sha256Hex(state);
         Instant now = clock.instant();
-        OAuthState s = states.lock(hash).filter(x -> x.usableBy(userId, now))
-                .filter(x -> broker.code().equals(x.getBrokerCode())).orElseThrow(() ->
+        OAuthState s = states.lock(hash).filter(x -> x.usableBy(userId, now)).orElseThrow(() ->
                 ApiException.badRequest("INVALID_STATE", "This authorisation link is invalid or expired; start again"));
         s.consume(now); // one use, even if the exchange below fails
         String verifier = encryptor.decrypt(s.getVerifierCiphertext(), "oauth:" + hash);
@@ -135,22 +130,6 @@ public class BrokerConnectionService {
     }
 
     /**
-     * Links still marked ACTIVE for another broker (left over from before the configured broker was
-     * changed) are closed locally: their stored tokens are erased and the change is audited. The other
-     * broker is not contacted (TradeFlow no longer has an adapter for it), and nothing is cancelled there.
-     */
-    private void retireOtherBrokers(long userId, Instant now) {
-        for (BrokerConnection old : connections.findByUserIdOrderByCreatedAtDesc(userId)) {
-            if (old.getStatus() == BrokerConnection.Status.ACTIVE && !broker.code().equals(old.getBrokerCode())) {
-                vault.erase(old.getId());
-                old.disconnect(now);
-                audit.record(userId, "RETIRE_OTHER_BROKER_LINK", LiveAuditService.Outcome.INFO,
-                        "connection " + old.getId() + " (" + old.getBrokerCode() + ") closed; broker is now " + broker.code(), userId);
-            }
-        }
-    }
-
-    /**
      * Disconnects TradeFlow from the broker account: revokes and erases the stored tokens. Orders
      * already at the broker are NOT cancelled; the user can still manage them at the broker.
      */
@@ -158,7 +137,7 @@ public class BrokerConnectionService {
     public void disconnect(long userId) {
         BrokerConnection c = requireActive(userId);
         try {
-            broker.revoke(vault.accessToken(c.getId()), c.getBrokerAccountRef());
+            broker.revoke(vault.accessToken(c.getId()));
         } catch (RuntimeException e) {
             log.warn("Broker token revocation failed for connection {} ({}); erasing locally", c.getId(),
                     e.getClass().getSimpleName());

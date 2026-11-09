@@ -599,8 +599,6 @@ export interface BrokerHolding {
 export interface BrokerPosition {
   exchange: string;
   symbol: string;
-  /** The broker's product type, e.g. INTRADAY or DELIVERY; null if the broker has none. */
-  product: string | null;
   quantity: number;
   averagePrice: number | null;
   pnl: number | null;

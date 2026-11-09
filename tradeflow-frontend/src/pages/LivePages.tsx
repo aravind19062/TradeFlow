@@ -396,9 +396,8 @@ const UNRESOLVED = ['SUBMITTING', 'UNKNOWN', 'NEEDS_REVIEW'];
 
 /**
  * The broker redirects here after the user signs in on its page; finishing the link needs a fresh
- * step-up. Angel One appends `auth_token` (its login token) and the `state` TradeFlow issued. The
- * values are read once and the query string is removed at once, so the token does not stay in the
- * address bar or browser history.
+ * step-up. The values are read once and the query string is removed at once, so the one-time code
+ * does not stay in the address bar or browser history.
  */
 export function BrokerCallbackPage() {
   const [params] = useSearchParams();
@@ -406,10 +405,11 @@ export function BrokerCallbackPage() {
   const navigate = useNavigate();
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  // Fyers returns the one-time code as `auth_code` (and `s=error` when the user declines).
   const [{ state, code, declined, declineMessage }] = useState(() => ({
     state: params.get('state') ?? '',
-    code: params.get('auth_token') ?? params.get('code') ?? '',
-    declined: params.get('status') === 'false' || params.get('s') === 'error',
+    code: params.get('auth_code') ?? params.get('code') ?? '',
+    declined: params.get('s') === 'error',
     declineMessage: params.get('message'),
   }));
   useEffect(() => {
@@ -432,8 +432,7 @@ export function BrokerCallbackPage() {
       <PageHeader title="Finish linking your broker" />
       <Card>
         {declined ? <Alert tone="error">The broker did not authorise the link{declineMessage ? `: ${declineMessage}` : ''}. Start again from Live trading.</Alert>
-          : !code ? <Alert tone="error">This page was opened without a broker authorisation. Start again from Live trading.</Alert>
-          : !state ? <Alert tone="error" title="Linking stopped for your safety">Your broker signed you in but did not return TradeFlow's security check (the state value), so the link cannot be verified as yours. Nothing was linked. Start again from Live trading; if this keeps happening, the broker's redirect is not passing the state back.</Alert> : (
+          : !state || !code ? <Alert tone="error">This page was opened without a broker authorisation. Start again from Live trading.</Alert> : (
           <div className="space-y-3 text-sm">
             <p>Your broker sent you back to TradeFlow. Confirm to finish linking the account.</p>
             {error && <Alert tone="error">{error}</Alert>}

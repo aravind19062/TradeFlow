@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import { createMemoryRouter, RouterProvider } from 'react-router';
 
 vi.mock('../components/StepUp', () => ({
@@ -15,22 +15,33 @@ function renderAt(url: string) {
   return router;
 }
 
-describe('BrokerCallbackPage (Angel One redirect)', () => {
-  afterEach(cleanup);
+describe('BrokerCallbackPage (Fyers redirect)', () => {
+  afterEach(() => {
+    cleanup();
+    window.history.replaceState(null, '', '/');
+  });
 
-  it('accepts auth_token with the state TradeFlow issued and offers to finish linking', () => {
-    renderAt('/live/broker/callback?auth_token=aaa.bbb.ccc&state=s-123');
+  it('accepts auth_code with the state TradeFlow issued and offers to finish linking', () => {
+    renderAt('/live/broker/callback?auth_code=aaa.bbb.ccc&state=s-123');
     expect(screen.getByRole('button', { name: 'Confirm and link' })).toBeInTheDocument();
   });
 
-  it('stops for safety when the broker does not return the state', () => {
-    renderAt('/live/broker/callback?auth_token=aaa.bbb.ccc');
-    expect(screen.getByText('Linking stopped for your safety')).toBeInTheDocument();
+  it('removes the one-time code from the address and can still finish linking', async () => {
+    const url = '/live/broker/callback?auth_code=aaa.bbb.ccc&state=s-123';
+    window.history.replaceState(null, '', url);
+    const router = renderAt(url);
+    await waitFor(() => expect(router.state.location.search).toBe(''));
+    expect(screen.getByRole('button', { name: 'Confirm and link' })).toBeInTheDocument();
+  });
+
+  it('does not offer linking when the broker does not return the state', () => {
+    renderAt('/live/broker/callback?auth_code=aaa.bbb.ccc');
+    expect(screen.getByText(/opened without a broker authorisation/)).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Confirm and link' })).not.toBeInTheDocument();
   });
 
-  it('explains a page opened without any broker authorisation', () => {
-    renderAt('/live/broker/callback');
-    expect(screen.getByText(/opened without a broker authorisation/)).toBeInTheDocument();
+  it('shows the broker message when the user declines', () => {
+    renderAt('/live/broker/callback?s=error&message=Cancelled&state=s-123');
+    expect(screen.getByText(/did not authorise the link: Cancelled/)).toBeInTheDocument();
   });
 });

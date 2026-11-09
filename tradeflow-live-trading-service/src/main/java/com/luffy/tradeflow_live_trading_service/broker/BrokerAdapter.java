@@ -6,8 +6,8 @@ import java.util.List;
 
 /**
  * The only way live-trading-service talks to a broker. One implementation per approved broker,
- * using the broker's OFFICIAL authorisation flow (a redirect to the broker's own login page; TradeFlow
- * never sees the user's broker password, PIN or one-time codes). Until a broker is approved, only {@link DisabledBrokerAdapter}
+ * using the broker's OFFICIAL authorisation flow (redirect + code; TradeFlow never sees the user's
+ * broker password or one-time codes). Until a broker is approved, only {@link DisabledBrokerAdapter}
  * exists in production code.
  */
 public interface BrokerAdapter {
@@ -31,8 +31,7 @@ public interface BrokerAdapter {
 
     BrokerSession exchangeCode(String code, String codeVerifier);
 
-    /** Ends the broker session. {@code accountRef} is the broker account the token belongs to (some brokers' logout needs it). */
-    void revoke(String accessToken, String accountRef);
+    void revoke(String accessToken);
 
     Funds funds(String accessToken);
 
@@ -66,8 +65,7 @@ public interface BrokerAdapter {
     record Holding(String exchange, String symbol, long quantity, BigDecimal averagePrice, BigDecimal lastPrice) {
     }
 
-    /** {@code product} is the broker's product type (e.g. INTRADAY, DELIVERY), or null when the broker has none. */
-    record Position(String exchange, String symbol, String product, long quantity, BigDecimal averagePrice, BigDecimal pnl) {
+    record Position(String exchange, String symbol, long quantity, BigDecimal averagePrice, BigDecimal pnl) {
     }
 
     /** {@code updatedAt} is the broker's own timestamp for this state (used to discard stale snapshots). */

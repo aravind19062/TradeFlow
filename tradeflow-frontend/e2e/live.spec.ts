@@ -32,7 +32,7 @@ test('the LIVE area is clearly marked, says no broker is configured, and cannot 
   await page.getByTestId('live-continue').click();
   const res = await status;
   expect(res.headers()['x-tradeflow-environment']).toBe('LIVE');
-  // The stack may run with no broker (default) or with a read-only broker (TRADEFLOW_LIVE_BROKER=angelone).
+  // The stack may run with no broker (default) or with a read-only broker (TRADEFLOW_LIVE_BROKER=fyers).
   const brokerConfigured: boolean = (await res.json()).brokerConfigured;
 
   await expect(page.getByTestId('live-banner')).toContainText('real money');
