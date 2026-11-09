@@ -1,13 +1,30 @@
 # TradeFlow
 
 An event-driven, simulated stock-trading platform built with **Java 17, Spring Boot 4.1, Spring Cloud
-2025.1, Kafka and PostgreSQL**. It has four business microservices behind an API gateway with Eureka
+2025.1, Kafka and PostgreSQL**. It has six business microservices behind an API gateway with Eureka
 service discovery, a reservation-based order saga with timeouts and compensation, portfolio
-analytics, and a read-only **AI portfolio assistant**.
+analytics, a learning and readiness track, a read-only link to a real Fyers account, and a read-only
+**AI portfolio assistant**.
 
-> **All market prices are simulated.** They come from a seeded random walk over a fixed set of NSE
+> **All demo market prices are simulated.** They come from a seeded random walk over a fixed set of NSE
 > ticker symbols and are not live market data. Nothing here is investment advice, there is no stock-price
-> prediction, and no real money or real orders are involved.
+> prediction, and TradeFlow cannot place real orders.
+
+## What is real and what is simulated
+
+| Area | Status |
+|---|---|
+| Accounts and security: sign-in, 2FA, passkeys, sessions, encrypted bank details | **Real and working.** Bank details are stored encrypted; no money ever moves to or from a bank. |
+| Service architecture: sagas, outbox, Kafka, reconciliation | **Real and working**, tested with embedded Kafka and PostgreSQL. |
+| Demo cash, prices, orders and portfolio | **Simulated.** Virtual money and generated prices. |
+| Demo order book | **Simulated liquidity.** There are no other traders, so each tick offers limited shares at five price levels. Partial fills, settlement and release of funds are real logic running on virtual money. |
+| Fyers account link | **Real and read-only.** It uses Fyers' own login to read funds, holdings, positions and orders. The field mapping is tested against Fyers' documented formats and has not yet been compared with real account data. |
+| Real-money orders | **Not built.** The Fyers adapter refuses to place or cancel orders without contacting Fyers. The order flow, risk limits and kill switches exist and are tested against a fake broker only. |
+| Deployment | **Local Docker Compose only.** The Oracle and Tailscale files in `deploy/` have been checked but never run on a server. |
+
+At the last full run (2026-11-09), 347 backend tests (including PostgreSQL and architecture tests), 61
+frontend tests and 31 browser tests passed. Live orders would need a whitelisted static IP, Fyers order
+permission and a security review before they could be enabled.
 
 ---
 
@@ -468,10 +485,12 @@ make psql DB=tradeflow_order | make topics | make dlt T=trades.executed
 * **Simplified trading:** no fees or taxes, long-only, single currency.
 * **Not production-ready:** in-memory login throttling is per instance; single-node Kafka and
   PostgreSQL; no TLS in local Compose (the refresh cookie is sent without `Secure` only under the `local` profile).
+* **Database access:** all services share one PostgreSQL superuser login. Each should have its own
+  limited role, which would also make the live audit log's append-only rule impossible for a service to remove.
 * **Not verified:** the real Anthropic API (see the procedure above); no load or performance testing.
 
-**Future work:** distributed rate limiting, OpenTelemetry tracing,
-notifications for alerts and failed sagas.
+**Future work:** real-money order execution through Fyers (behind an explicit activation step), per-service
+database roles, distributed rate limiting, OpenTelemetry tracing, notifications for alerts and failed sagas.
 
 ## Repository layout
 
