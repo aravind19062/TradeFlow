@@ -12,14 +12,25 @@ import { invalidate, useApi } from '../lib/useApi';
 
 const message = (e: unknown) => (e instanceof ApiError ? e.message : String(e));
 
+/** Plain-language text for the readiness service's reason codes (e.g. NOT_QUALIFIED:IN_PROGRESS). */
+function readinessReason(code: string): string {
+  if (code === 'QUALIFICATION_EXPIRED') return 'Your qualification has expired.';
+  if (code === 'SELF_EXCLUDED') return 'You have paused live trading for yourself.';
+  if (code.startsWith('NOT_QUALIFIED')) {
+    const state = code.split(':')[1]?.toLowerCase().replace(/_/g, ' ');
+    return state ? `Not qualified yet (${state}).` : 'Not qualified yet.';
+  }
+  return code;
+}
+
 function Check({ ok, title, children }: { ok: boolean; title: string; children?: ReactNode }) {
   return (
-    <li className="flex gap-3" data-testid={`live-check-${ok ? 'ok' : 'missing'}`}>
-      {ok ? <CheckCircle2 className="mt-0.5 size-5 shrink-0 text-emerald-600" aria-label="Done" />
-        : <Circle className="mt-0.5 size-5 shrink-0 text-slate-300" aria-label="Not done" />}
+    <li className="flex gap-2.5 p-4" data-testid={`live-check-${ok ? 'ok' : 'missing'}`}>
+      {ok ? <CheckCircle2 className="mt-0.5 size-4.5 shrink-0 text-emerald-600" aria-label="Done" />
+        : <Circle className="mt-0.5 size-4.5 shrink-0 text-slate-300" aria-label="Not done" />}
       <div className="min-w-0 flex-1">
         <p className="text-sm font-medium text-slate-900">{title}</p>
-        {children && <div className="mt-0.5 text-sm text-slate-600">{children}</div>}
+        {children && <div className="mt-0.5 text-xs leading-5 text-slate-500">{children}</div>}
       </div>
     </li>
   );
@@ -35,7 +46,7 @@ export function LiveDashboardPage() {
   const canTrade = s.brokerConfigured && s.ordersEnabled && s.eligibility.eligible && !!s.connection && !s.halted && !!mfa.data?.enabled;
   return (
     <>
-      <PageHeader title="Live trading" subtitle="Your real broker account. TradeFlow does not give investment advice." />
+      <PageHeader icon={<Radio className="size-5" />} tone="rose" title="Live trading" subtitle="Your real broker account. TradeFlow does not give investment advice." />
       {!s.brokerConfigured && (
         <div className="mb-6" data-testid="no-broker">
           <Alert tone="warning" title="No broker configured">
@@ -52,36 +63,42 @@ export function LiveDashboardPage() {
         </div>
       )}
       {s.halted && <div className="mb-6"><Alert tone="error" title="New live orders are halted">{s.haltReason} You can still view and cancel existing orders.</Alert></div>}
+      <section className="mb-6 rounded-xl border border-slate-200 bg-surface shadow-soft" aria-label="Before you can trade live">
+        <ul className="grid divide-y divide-slate-100 sm:grid-cols-2 sm:divide-y-0 lg:grid-cols-5 lg:divide-x">
+          <Check ok={s.eligibility.eligible} title="Trading readiness">
+            {!s.eligibility.available ? 'Could not be checked right now; live actions are refused until it can.'
+              : s.eligibility.eligible ? <>Qualified{s.eligibility.expiresAt && <> until {dateTime(s.eligibility.expiresAt)}</>}.</>
+              : <>{s.eligibility.reasons.map(readinessReason).join(' ') || 'Not qualified yet.'} <Link className="font-medium text-indigo-600 hover:underline" to="/readiness">Go to readiness</Link></>}
+          </Check>
+          <Check ok={!!mfa.data?.enabled} title="Two-factor authentication">
+            {mfa.data?.enabled ? 'Enabled.' : <><Link className="font-medium text-indigo-600 hover:underline" to="/settings/security">Set up an authenticator app</Link>; every live action asks for a code.</>}
+          </Check>
+          <Check ok={s.brokerConfigured} title="Broker integration">
+            {s.brokerConfigured ? `${s.broker}${s.ordersEnabled ? '' : ' (read-only)'}` : 'Not available yet.'}
+          </Check>
+          <Check ok={!!s.connection} title="Broker account linked">
+            {s.connection ? `${s.connection.accountRef ?? 'Account'} · ${dateTime(s.connection.connectedAt)}` : 'Not linked.'}
+          </Check>
+          <Check ok={!s.halted} title="Live trading open">{s.halted ? s.haltReason : 'No halt in force.'}</Check>
+        </ul>
+      </section>
       <div className="grid gap-6 lg:grid-cols-3">
-        <Card title="Before you can trade live" className="lg:col-span-2">
-          <ul className="space-y-3">
-            <Check ok={s.eligibility.eligible} title="Trading readiness">
-              {!s.eligibility.available ? 'Readiness could not be checked right now; live actions are refused until it can.'
-                : s.eligibility.eligible ? <>Qualified{s.eligibility.expiresAt && <> until {dateTime(s.eligibility.expiresAt)}</>}.</>
-                : <>{s.eligibility.reasons.join('; ') || 'Not qualified yet.'} <Link className="font-medium underline" to="/readiness">Go to readiness</Link></>}
-            </Check>
-            <Check ok={!!mfa.data?.enabled} title="Two-factor authentication">
-              {mfa.data?.enabled ? 'Enabled.' : <><Link className="font-medium underline" to="/settings/security">Set up an authenticator app</Link>; every live action asks for a code.</>}
-            </Check>
-            <Check ok={s.brokerConfigured} title="Broker integration">
-              {s.brokerConfigured ? `Broker: ${s.broker}${s.ordersEnabled ? '' : ' (read-only)'}` : 'Not available yet.'}
-            </Check>
-            <Check ok={!!s.connection} title="Your broker account linked">
-              {s.connection ? `Account ${s.connection.accountRef ?? ''} linked ${dateTime(s.connection.connectedAt)}.` : 'Not linked.'}
-            </Check>
-            <Check ok={!s.halted} title="Live trading open">{s.halted ? s.haltReason : 'No halt in force.'}</Check>
-          </ul>
-          <p className="mt-4 text-xs text-slate-500">Passing the Academy is not financial advice, a suitability assessment or a guarantee of trading competence. Your broker applies its own checks.</p>
-        </Card>
-        <BrokerConnectionCard status={s} />
+        <div className="min-w-0 space-y-6 lg:col-span-2">
+          {s.connection ? <BrokerAccountCard /> : (
+            <Card title="Your broker account">
+              <EmptyState title="No broker account linked">Link your broker account to see funds, holdings, positions and orders here.</EmptyState>
+            </Card>
+          )}
+          {canTrade && <LiveOrderTicket />}
+          <LiveOrdersCard />
+        </div>
+        <div className="min-w-0 space-y-6">
+          <BrokerConnectionCard status={s} />
+          <LimitsCard />
+          <NotificationsCard />
+        </div>
       </div>
-      {s.connection && <BrokerAccountCard />}
-      {canTrade && <LiveOrderTicket />}
-      <div className="mt-6 grid gap-6 lg:grid-cols-2">
-        <LimitsCard />
-        <NotificationsCard />
-      </div>
-      <LiveOrdersCard />
+      <p className="mt-6 text-xs text-slate-500">Passing the Academy is not financial advice, a suitability assessment or a guarantee of trading competence. Your broker applies its own checks.</p>
     </>
   );
 }
@@ -119,7 +136,7 @@ function BrokerConnectionCard({ status: s }: { status: LiveStatus }) {
       ) : (
         <div className="space-y-3 text-sm">
           <p className="text-slate-600">You sign in on your broker's own page. TradeFlow never sees your broker password or one-time codes.</p>
-          <Button variant="danger" onClick={() => act('connect')} loading={busy} disabled={!s.brokerConfigured || !s.eligibility.eligible || s.halted}
+          <Button onClick={() => act('connect')} loading={busy} disabled={!s.brokerConfigured || !s.eligibility.eligible || s.halted}
             data-testid="connect-broker"><PlugZap className="size-4" /> Connect broker</Button>
         </div>
       )}
@@ -377,17 +394,27 @@ function LiveOrdersCard() {
 
 const UNRESOLVED = ['SUBMITTING', 'UNKNOWN', 'NEEDS_REVIEW'];
 
-/** The broker redirects here after the user signs in on its page; finishing the link needs a fresh step-up. */
+/**
+ * The broker redirects here after the user signs in on its page; finishing the link needs a fresh
+ * step-up. Angel One appends `auth_token` (its login token) and the `state` TradeFlow issued. The
+ * values are read once and the query string is removed at once, so the token does not stay in the
+ * address bar or browser history.
+ */
 export function BrokerCallbackPage() {
   const [params] = useSearchParams();
   const stepUp = useStepUp();
   const navigate = useNavigate();
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const state = params.get('state') ?? '';
-  // Fyers returns the one-time code as `auth_code` (and `s=error` when the user declines).
-  const code = params.get('auth_code') ?? params.get('code') ?? '';
-  const declined = params.get('s') === 'error';
+  const [{ state, code, declined, declineMessage }] = useState(() => ({
+    state: params.get('state') ?? '',
+    code: params.get('auth_token') ?? params.get('code') ?? '',
+    declined: params.get('status') === 'false' || params.get('s') === 'error',
+    declineMessage: params.get('message'),
+  }));
+  useEffect(() => {
+    if (window.location.search) navigate('/live/broker/callback', { replace: true });
+  }, [navigate]);
   async function finish() {
     setBusy(true); setError(null);
     try {
@@ -404,12 +431,13 @@ export function BrokerCallbackPage() {
     <>
       <PageHeader title="Finish linking your broker" />
       <Card>
-        {declined ? <Alert tone="error">The broker did not authorise the link{params.get('message') ? `: ${params.get('message')}` : ''}. Start again from Live trading.</Alert>
-          : !state || !code ? <Alert tone="error">This page was opened without a broker authorisation. Start again from Live trading.</Alert> : (
+        {declined ? <Alert tone="error">The broker did not authorise the link{declineMessage ? `: ${declineMessage}` : ''}. Start again from Live trading.</Alert>
+          : !code ? <Alert tone="error">This page was opened without a broker authorisation. Start again from Live trading.</Alert>
+          : !state ? <Alert tone="error" title="Linking stopped for your safety">Your broker signed you in but did not return TradeFlow's security check (the state value), so the link cannot be verified as yours. Nothing was linked. Start again from Live trading; if this keeps happening, the broker's redirect is not passing the state back.</Alert> : (
           <div className="space-y-3 text-sm">
             <p>Your broker sent you back to TradeFlow. Confirm to finish linking the account.</p>
             {error && <Alert tone="error">{error}</Alert>}
-            <Button variant="danger" onClick={finish} loading={busy}>Confirm and link</Button>
+            <Button onClick={finish} loading={busy}>Confirm and link</Button>
           </div>
         )}
       </Card>

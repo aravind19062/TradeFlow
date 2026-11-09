@@ -22,7 +22,7 @@ async function registerFresh(page: Page, prefix: string) {
 
 test('read a module, pass its quiz and see explanations; answers are not sent before submission', async ({ page }) => {
   await registerFresh(page, 'Academy');
-  await page.getByRole('navigation', { name: 'Main' }).getByRole('link', { name: 'Trading Academy' }).click();
+  await page.getByRole('navigation', { name: 'Main' }).getByRole('link', { name: 'Academy' }).click();
   await expect(page.getByTestId('academy-modules').locator('a')).toHaveCount(10);
   await page.getByRole('link', { name: /Bid, ask and the spread/ }).click();
 

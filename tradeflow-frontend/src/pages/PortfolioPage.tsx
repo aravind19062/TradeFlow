@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router';
-import { ChevronLeft, ChevronRight, ShieldCheck, TriangleAlert } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ShieldCheck, TriangleAlert, Wallet } from 'lucide-react';
 import { portfolioApi } from '../api/endpoints';
 import type { LedgerType } from '../api/types';
 import { AllocationChart, PerformanceChart } from '../components/charts';
@@ -21,7 +21,7 @@ export function PortfolioPage() {
 
   return (
     <>
-      <PageHeader title="Portfolio" subtitle="Holdings valued at the latest simulated prices; P&L derived from your ledger." />
+      <PageHeader icon={<Wallet className="size-5" />} tone="teal" title="Portfolio" subtitle="Holdings valued at the latest simulated prices; P&L derived from your ledger." />
       {summary.opening && <div className="mb-6"><Alert tone="info">Your trading account is being opened…</Alert></div>}
       {summary.error && <Card className="mb-6"><ErrorState error={summary.error} onRetry={summary.reload} /></Card>}
 
@@ -55,7 +55,7 @@ export function PortfolioPage() {
 function HoldingsTab({ summary }: { summary: ReturnType<typeof usePortfolioSummary>['data'] }) {
   if (!summary) return <Spinner />;
   if (summary.holdings.length === 0) {
-    return <Card><EmptyState title="No holdings yet"><Link to="/demo/market" className="text-sky-700 hover:underline">Buy your first instrument</Link> from Market watch.</EmptyState></Card>;
+    return <Card><EmptyState title="No holdings yet"><Link to="/demo/market" className="text-indigo-600 hover:underline">Buy your first instrument</Link> from Market watch.</EmptyState></Card>;
   }
   return (
     <Card bodyClassName="p-0">
@@ -161,7 +161,7 @@ function RiskTab() {
 }
 
 const LEDGER_STYLE: Record<LedgerType, string> = {
-  DEPOSIT: 'bg-sky-50 text-sky-700', BUY: 'bg-emerald-50 text-emerald-700', SELL: 'bg-rose-50 text-rose-700',
+  DEPOSIT: 'bg-indigo-50 text-indigo-700', BUY: 'bg-emerald-50 text-emerald-700', SELL: 'bg-rose-50 text-rose-700',
 };
 
 function TransactionsTab() {
@@ -172,7 +172,7 @@ function TransactionsTab() {
     <Card bodyClassName="p-0">
       <div className="flex items-center gap-2 border-b border-slate-100 p-4">
         <select aria-label="Transaction type" value={type} onChange={(e) => { setType(e.target.value as LedgerType | ''); setPage(0); }}
-          className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm">
+          className="rounded-lg border border-slate-300 bg-surface px-3 py-1.5 text-sm">
           <option value="">All types</option><option>DEPOSIT</option><option>BUY</option><option>SELL</option>
         </select>
       </div>

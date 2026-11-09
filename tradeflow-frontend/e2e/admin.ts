@@ -64,3 +64,15 @@ export async function signInAdmin(page: Page): Promise<boolean> {
   await expect(page.getByTestId('current-user')).toBeVisible();
   return enrolled;
 }
+
+/** Opens the account menu (top right) and returns its navigation: Security, reviews, Admin. */
+export async function accountMenu(page: Page) {
+  await page.getByTestId('account-menu').click();
+  return page.getByRole('navigation', { name: 'Account' });
+}
+
+/** Signs out through the account menu. */
+export async function signOut(page: Page) {
+  await page.getByTestId('account-menu').click();
+  await page.getByTestId('account-menu-panel').getByRole('button', { name: 'Sign out' }).click();
+}

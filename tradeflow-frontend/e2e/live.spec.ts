@@ -1,8 +1,8 @@
 import { expect, test, type Page } from '@playwright/test';
-import { adminCode, signInAdmin, totpAt } from './admin';
+import { accountMenu, adminCode, signInAdmin, totpAt } from './admin';
 
-// Phase 5: the LIVE area against the running stack. No broker is integrated, so these tests
-// prove the safe default (nothing can reach a broker) and the real step-up flow.
+// The LIVE area against the running stack, with no broker or a read-only one: these tests prove
+// that nothing can place a real order, and the real step-up flow.
 
 const DEMO_PASSWORD = process.env.TRADEFLOW_DEMO_PASSWORD ?? 'Demo@12345';
 
@@ -24,18 +24,26 @@ async function registerFresh(page: Page, prefix: string, password: string): Prom
 test('the LIVE area is clearly marked, says no broker is configured, and cannot reach a broker', async ({ page }) => {
   await registerFresh(page, 'Live', 'Live-Passw0rd!');
   const nav = page.getByRole('navigation', { name: 'Main' });
-  await expect(nav.getByTestId('env-badge-LIVE')).toBeVisible();
+  await expect(nav.getByRole('link', { name: 'Live trading' }).getByTestId('live-nav-dot')).toBeVisible();
+  await nav.getByRole('link', { name: 'Live trading' }).click();
+  // A one-time warning comes first; nothing from the live service is shown until it is accepted.
+  await expect(page.getByTestId('live-warning')).toContainText('real money');
   const status = page.waitForResponse((r) => r.url().endsWith('/api/live/status'));
-  await nav.getByRole('link', { name: 'Live dashboard' }).click();
+  await page.getByTestId('live-continue').click();
   const res = await status;
   expect(res.headers()['x-tradeflow-environment']).toBe('LIVE');
-  expect((await res.json()).brokerConfigured).toBe(false);
+  // The stack may run with no broker (default) or with a read-only broker (TRADEFLOW_LIVE_BROKER=angelone).
+  const brokerConfigured: boolean = (await res.json()).brokerConfigured;
 
   await expect(page.getByTestId('live-banner')).toContainText('real money');
   await expect(page.getByTestId('demo-banner')).toHaveCount(0);
-  await expect(page.getByTestId('no-broker')).toContainText('No broker configured');
-  // Readiness, MFA, broker, link: all missing for a new user; only "no halt" is satisfied.
-  await expect(page.getByTestId('live-check-missing')).toHaveCount(4);
+  if (brokerConfigured) {
+    await expect(page.getByTestId('read-only-broker')).toContainText('Read-only broker link');
+  } else {
+    await expect(page.getByTestId('no-broker')).toContainText('No broker configured');
+  }
+  // Readiness, MFA, link (and the broker, when none is configured) are missing for a new user.
+  await expect(page.getByTestId('live-check-missing')).toHaveCount(brokerConfigured ? 3 : 4);
   await expect(page.getByTestId('connect-broker')).toBeDisabled();
   await expect(page.getByTestId('live-order-ticket')).toHaveCount(0);
 
@@ -54,7 +62,7 @@ test('tightening a limit needs nothing more; raising it needs password + authent
   const pass = 'Limit-Passw0rd!';
   await registerFresh(page, 'Limits', pass);
   // Two-factor authentication first (step-up is impossible without it).
-  await page.getByRole('navigation', { name: 'Main' }).getByRole('link', { name: 'Security' }).click();
+  await (await accountMenu(page)).getByRole('link', { name: 'Security' }).click();
   await page.getByLabel('Confirm your password').fill(pass);
   await page.getByRole('button', { name: 'Set up authenticator' }).click();
   const secret = (await page.getByTestId('totp-secret').textContent())!.replace(/\s/g, '');
@@ -63,8 +71,12 @@ test('tightening a limit needs nothing more; raising it needs password + authent
   await page.getByLabel('I have stored these codes somewhere safe').check();
   await page.getByRole('button', { name: 'Done' }).click();
 
+  const status = page.waitForResponse((r) => r.url().endsWith('/api/live/status'));
   await page.goto('/live');
-  await expect(page.getByTestId('live-check-ok')).toHaveCount(2); // MFA on, no halt
+  await page.getByTestId('live-continue').click();
+  const brokerConfigured: boolean = (await (await status).json()).brokerConfigured;
+  // MFA on, no halt (and the broker integration, when one is configured).
+  await expect(page.getByTestId('live-check-ok')).toHaveCount(brokerConfigured ? 3 : 2);
   const perDay = page.getByLabel(/Max orders per day/);
   await expect(perDay).toHaveValue('10');
   await perDay.fill('3');
@@ -93,7 +105,7 @@ test('tightening a limit needs nothing more; raising it needs password + authent
 test('administrators see the live trading controls and the global halt state', async ({ page }) => {
   test.setTimeout(120_000);
   await signInAdmin(page);
-  await page.getByRole('navigation', { name: 'Main' }).getByRole('link', { name: 'Admin' }).click();
+  await (await accountMenu(page)).getByRole('link', { name: 'Admin' }).click();
   await expect(page.getByText('Live trading controls')).toBeVisible();
   await expect(page.getByTestId('global-halt')).toHaveText('open');
   await expect(page.getByRole('button', { name: 'Halt all live orders' })).toBeDisabled(); // reason required
@@ -102,7 +114,7 @@ test('administrators see the live trading controls and the global halt state', a
 test('changing a live halt needs the administrator\'s own password + authenticator code, and is audited', async ({ page }) => {
   test.setTimeout(150_000);
   expect(await signInAdmin(page), 'the seeded admin must have an authenticator enrolled').toBe(true);
-  await page.getByRole('navigation', { name: 'Main' }).getByRole('link', { name: 'Admin' }).click();
+  await (await accountMenu(page)).getByRole('link', { name: 'Admin' }).click();
   await expect(page.getByTestId('global-halt')).toHaveText('open');
   const reason = page.getByLabel(/Reason \(min. 10 characters, recorded\)/).last();
   await reason.fill('Playwright step-up check');

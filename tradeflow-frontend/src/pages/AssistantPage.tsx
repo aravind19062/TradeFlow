@@ -14,7 +14,7 @@ interface Turn {
 }
 
 const MODE_STYLE = {
-  LLM: { cls: 'bg-violet-50 text-violet-700 ring-1 ring-violet-200', label: 'AI-generated' },
+  LLM: { cls: 'bg-amber-50 text-amber-800 ring-1 ring-amber-200', label: 'AI-generated' },
   DETERMINISTIC: { cls: 'bg-slate-100 text-slate-700 ring-1 ring-slate-200', label: 'Calculated from your data' },
   REFUSED: { cls: 'bg-amber-50 text-amber-800 ring-1 ring-amber-200', label: 'Declined' },
 } as const;
@@ -55,11 +55,11 @@ export function AssistantPage() {
 
   return (
     <>
-      <PageHeader title="AI portfolio assistant"
+      <PageHeader icon={<Bot className="size-5" />} tone="violet" title="AI portfolio assistant"
         subtitle="Ask about your own portfolio, risk, performance, watchlist, alerts or orders. Read-only: it cannot trade." />
       {caps.data && (
         <div className="mb-4 flex flex-wrap items-center gap-2 text-xs text-slate-500">
-          <Badge className={caps.data.llmEnabled ? 'bg-violet-50 text-violet-700' : 'bg-slate-100 text-slate-600'}>
+          <Badge className={caps.data.llmEnabled ? 'bg-indigo-50 text-indigo-700' : 'bg-slate-100 text-slate-600'}>
             {caps.data.llmEnabled ? <><Sparkles className="size-3" /> {caps.data.provider} · {caps.data.model}</> : 'No AI provider configured'}
           </Badge>
           {!caps.data.llmEnabled && <span>Answers are built deterministically from your TradeFlow data (TRADEFLOW_AI_PROVIDER=none).</span>}
@@ -76,7 +76,7 @@ export function AssistantPage() {
               <div className="mx-auto mt-4 flex max-w-2xl flex-wrap justify-center gap-2">
                 {examples.map((e) => (
                   <button key={e} onClick={() => ask(e)}
-                    className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-700 hover:border-slate-300 hover:bg-slate-50">
+                    className="rounded-full border border-slate-200 bg-surface px-3 py-1.5 text-sm text-slate-700 hover:border-slate-300 hover:bg-slate-50">
                     {e}
                   </button>
                 ))}
@@ -86,11 +86,11 @@ export function AssistantPage() {
           {turns.map((t) => (
             <div key={t.id} className="space-y-3">
               <div className="flex justify-end gap-3">
-                <div className="max-w-[85%] rounded-2xl rounded-tr-sm bg-slate-900 px-4 py-2.5 text-sm text-white">{t.question}</div>
+                <div className="max-w-[85%] rounded-xl rounded-tr-sm bg-indigo-600 px-4 py-2.5 text-sm text-white">{t.question}</div>
                 <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-slate-200"><User className="size-4 text-slate-600" /></div>
               </div>
               <div className="flex gap-3">
-                <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-emerald-600"><Bot className="size-4 text-white" /></div>
+                <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-indigo-600"><Bot className="size-4 text-white" /></div>
                 <div className="min-w-0 max-w-[85%] flex-1">
                   {!t.response && !t.error && <div className="flex items-center gap-2 py-2 text-sm text-slate-500"><Spinner label="Thinking…" /></div>}
                   {t.error && <Alert tone="error">{t.error.message}</Alert>}
@@ -121,7 +121,7 @@ function Answer({ r }: { r: AskResponse }) {
   const [showFacts, setShowFacts] = useState(false);
   const style = MODE_STYLE[r.mode];
   return (
-    <div className="rounded-2xl rounded-tl-sm border border-slate-200 bg-white px-4 py-3" data-testid="assistant-answer" data-mode={r.mode}>
+    <div className="rounded-xl rounded-tl-sm border border-slate-200 bg-surface px-4 py-3" data-testid="assistant-answer" data-mode={r.mode}>
       <div className="mb-2 flex flex-wrap items-center gap-2">
         <Badge className={style.cls}>{r.mode === 'REFUSED' && <ShieldAlert className="size-3" />}{style.label}</Badge>
         {r.mode === 'LLM' && r.model && <span className="text-xs text-slate-400">{r.provider} · {r.model}</span>}

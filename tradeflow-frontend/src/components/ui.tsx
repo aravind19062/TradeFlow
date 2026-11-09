@@ -1,7 +1,8 @@
 import {
   createContext, useCallback, useContext, useEffect, useId, useRef, useState,
-  type ButtonHTMLAttributes, type InputHTMLAttributes, type MouseEvent, type ReactNode, type SelectHTMLAttributes,
+  type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes,
 } from 'react';
+import { createPortal } from 'react-dom';
 import { CircleCheck, Inbox, Info, LoaderCircle, RefreshCw, TriangleAlert, X } from 'lucide-react';
 import type { ApiError } from '../api/client';
 
@@ -10,13 +11,6 @@ export function cx(...classes: (string | false | null | undefined)[]): string {
 }
 
 // ---------------------------------------------------------------- motion
-/** Pointer-following highlight for a `.spotlight` surface. */
-export function spotlight(e: MouseEvent<HTMLElement>) {
-  const r = e.currentTarget.getBoundingClientRect();
-  e.currentTarget.style.setProperty('--mx', `${e.clientX - r.left}px`);
-  e.currentTarget.style.setProperty('--my', `${e.clientY - r.top}px`);
-}
-
 /**
  * Briefly highlights its content when `value` changes: green when a number rises, red when it falls,
  * blue for any other change. Nothing happens on first render.
@@ -36,29 +30,47 @@ export function Flash({ value, children, className }: { value: unknown; children
 }
 
 // ---------------------------------------------------------------- layout
-export function PageHeader({ title, subtitle, actions }: { title: string; subtitle?: ReactNode; actions?: ReactNode }) {
+export function PageHeader({ title, subtitle, actions, icon, tone = 'indigo' }: {
+  title: string; subtitle?: ReactNode; actions?: ReactNode; icon?: ReactNode; tone?: Tone;
+}) {
   return (
-    <div className="mb-7 flex animate-enter flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-      <div>
-        <h1 className="text-[26px] font-semibold tracking-tight text-slate-900">{title}</h1>
-        {subtitle && <p className="mt-1 text-sm text-slate-500">{subtitle}</p>}
+    <div className="mb-7 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+      <div className="flex items-center gap-3.5">
+        {icon && <span className={cx('flex size-11 shrink-0 items-center justify-center rounded-2xl', TONES[tone].chip)} aria-hidden>{icon}</span>}
+        <div>
+          <h1 className="text-[26px] font-bold tracking-tight text-slate-900">{title}</h1>
+          {subtitle && <p className="mt-0.5 text-sm text-slate-500">{subtitle}</p>}
+        </div>
       </div>
       {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
     </div>
   );
 }
 
-const surface = 'rounded-2xl border border-slate-200/80 bg-white/90 shadow-soft backdrop-blur-sm';
+/** Soft colour families used for icon chips, stat cards and empty states. Literal classes so Tailwind keeps them. */
+export type Tone = 'indigo' | 'violet' | 'sky' | 'teal' | 'emerald' | 'amber' | 'rose';
+export const TONES: Record<Tone, { chip: string; tint: string; text: string }> = {
+  indigo: { chip: 'bg-indigo-100 text-indigo-700', tint: 'from-indigo-50', text: 'text-indigo-700' },
+  violet: { chip: 'bg-violet-100 text-violet-700', tint: 'from-violet-50', text: 'text-violet-700' },
+  sky: { chip: 'bg-sky-100 text-sky-700', tint: 'from-sky-50', text: 'text-sky-700' },
+  teal: { chip: 'bg-teal-100 text-teal-700', tint: 'from-teal-50', text: 'text-teal-700' },
+  emerald: { chip: 'bg-emerald-100 text-emerald-700', tint: 'from-emerald-50', text: 'text-emerald-700' },
+  amber: { chip: 'bg-amber-100 text-amber-700', tint: 'from-amber-50', text: 'text-amber-700' },
+  rose: { chip: 'bg-rose-100 text-rose-700', tint: 'from-rose-50', text: 'text-rose-700' },
+};
 
-export function Card({ title, action, children, className, bodyClassName }: {
+const surface = 'rounded-2xl border border-slate-200/80 bg-surface shadow-soft';
+
+export function Card({ title, action, children, className, bodyClassName, icon, tone = 'indigo' }: {
   title?: ReactNode; action?: ReactNode; children: ReactNode; className?: string; bodyClassName?: string;
+  icon?: ReactNode; tone?: Tone;
 }) {
   return (
-    <section className={cx(surface, 'transition-shadow duration-300 hover:shadow-lift', className)}>
+    <section className={cx(surface, className)}>
       {(title || action) && (
-        <header className="flex items-center justify-between gap-3 border-b border-slate-100 px-5 py-3.5">
-          <h2 className="flex items-center gap-2 text-sm font-semibold text-slate-800">
-            <span className="h-3.5 w-1 rounded-full bg-gradient-to-b from-emerald-400 to-cyan-500" aria-hidden />
+        <header className="flex items-center justify-between gap-3 px-5 pb-1 pt-4">
+          <h2 className="flex items-center gap-2.5 text-[15px] font-semibold text-slate-900">
+            {icon && <span className={cx('flex size-7 items-center justify-center rounded-lg', TONES[tone].chip)} aria-hidden>{icon}</span>}
             {title}
           </h2>
           {action}
@@ -69,19 +81,18 @@ export function Card({ title, action, children, className, bodyClassName }: {
   );
 }
 
-export function Stat({ label, value, sub, valueClass, testId, icon, flashValue }: {
+export function Stat({ label, value, sub, valueClass, testId, icon, flashValue, tone = 'indigo' }: {
   label: string; value: ReactNode; sub?: ReactNode; valueClass?: string; testId?: string;
-  icon?: ReactNode; flashValue?: number;
+  icon?: ReactNode; flashValue?: number; tone?: Tone;
 }) {
   return (
-    <div onMouseMove={spotlight} data-testid={testId}
-      className={cx(surface, 'spotlight group overflow-hidden p-5 transition duration-300 hover:-translate-y-0.5 hover:shadow-lift')}>
-      <span className="absolute inset-x-0 top-0 h-0.5 origin-left scale-x-0 bg-gradient-to-r from-emerald-400 via-cyan-400 to-indigo-400 transition-transform duration-500 group-hover:scale-x-100" aria-hidden />
-      <div className="flex items-start justify-between gap-3">
-        <p className="text-xs font-medium uppercase tracking-wider text-slate-500">{label}</p>
-        {icon && <span className="rounded-lg bg-slate-100 p-1.5 text-slate-500 transition-colors group-hover:bg-emerald-50 group-hover:text-emerald-600" aria-hidden>{icon}</span>}
+    <div data-testid={testId}
+      className={cx(surface, 'group bg-gradient-to-br to-transparent to-60% p-5 transition duration-200 hover:-translate-y-0.5 hover:shadow-lift', TONES[tone].tint)}>
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-sm font-medium text-slate-500">{label}</p>
+        {icon && <span className={cx('flex size-9 items-center justify-center rounded-xl transition-transform duration-300 group-hover:rotate-6 group-hover:scale-110', TONES[tone].chip)} aria-hidden>{icon}</span>}
       </div>
-      <p className={cx('mt-2 text-2xl font-semibold tabular-nums tracking-tight', valueClass ?? 'text-slate-900')}>
+      <p className={cx('mt-2 font-display text-[26px] font-bold tabular-nums tracking-tight', valueClass ?? 'text-slate-900')}>
         <Flash value={flashValue}>{value}</Flash>
       </p>
       {sub && <div className="mt-1 text-sm tabular-nums text-slate-500">{sub}</div>}
@@ -93,12 +104,12 @@ export function Stat({ label, value, sub, valueClass, testId, icon, flashValue }
 type Variant = 'primary' | 'secondary' | 'danger' | 'ghost' | 'buy' | 'sell';
 
 const variants: Record<Variant, string> = {
-  primary: 'bg-gradient-to-b from-slate-800 to-slate-950 text-white shadow-sm shadow-slate-900/20 hover:from-slate-700 hover:to-slate-900 hover:shadow-md focus-visible:outline-slate-900',
-  secondary: 'border border-slate-200 bg-white text-slate-700 shadow-sm hover:border-slate-300 hover:bg-slate-50 focus-visible:outline-slate-400',
-  danger: 'bg-gradient-to-b from-rose-500 to-rose-600 text-white shadow-sm shadow-rose-600/25 hover:from-rose-600 hover:to-rose-700 hover:shadow-md hover:shadow-rose-600/30 focus-visible:outline-rose-600',
-  ghost: 'text-slate-600 hover:bg-slate-100 focus-visible:outline-slate-400',
-  buy: 'bg-gradient-to-b from-emerald-500 to-emerald-600 text-white shadow-sm shadow-emerald-600/25 hover:from-emerald-600 hover:to-emerald-700 hover:shadow-glow focus-visible:outline-emerald-600',
-  sell: 'bg-gradient-to-b from-rose-500 to-rose-600 text-white shadow-sm shadow-rose-600/25 hover:from-rose-600 hover:to-rose-700 hover:shadow-md hover:shadow-rose-600/30 focus-visible:outline-rose-600',
+  primary: 'bg-indigo-600 text-white shadow-sm shadow-indigo-600/25 hover:brightness-110 focus-visible:outline-indigo-600',
+  secondary: 'border border-slate-200 bg-surface text-slate-700 shadow-sm hover:border-slate-300 hover:bg-slate-50 focus-visible:outline-indigo-600',
+  danger: 'bg-red-600 text-white shadow-sm shadow-red-600/20 hover:brightness-110 focus-visible:outline-red-600',
+  ghost: 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-indigo-600',
+  buy: 'bg-emerald-600 text-white shadow-sm shadow-emerald-600/25 hover:brightness-110 focus-visible:outline-emerald-600',
+  sell: 'bg-red-600 text-white shadow-sm shadow-red-600/20 hover:brightness-110 focus-visible:outline-red-600',
 };
 
 export function Button({ variant = 'primary', size = 'md', loading, className, children, disabled, ...rest }:
@@ -108,7 +119,7 @@ export function Button({ variant = 'primary', size = 'md', loading, className, c
       {...rest}
       disabled={disabled || loading}
       className={cx(
-        'inline-flex items-center justify-center gap-2 rounded-lg font-medium transition-all duration-150 active:scale-[0.97] disabled:active:scale-100',
+        'inline-flex items-center justify-center gap-2 rounded-xl font-semibold transition duration-150 active:scale-[0.97] disabled:active:scale-100',
         'focus-visible:outline-2 focus-visible:outline-offset-2 disabled:cursor-not-allowed disabled:opacity-50',
         size === 'sm' ? 'px-2.5 py-1.5 text-xs' : 'px-4 py-2 text-sm',
         variants[variant], className,
@@ -120,8 +131,8 @@ export function Button({ variant = 'primary', size = 'md', loading, className, c
   );
 }
 
-const inputClass = 'block w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm transition '
-  + 'placeholder:text-slate-400 hover:border-slate-300 focus:border-emerald-500 focus:outline-none focus:ring-4 focus:ring-emerald-500/15 '
+const inputClass = 'block w-full rounded-xl border border-slate-200 bg-surface px-3 py-2 text-sm text-slate-900 shadow-sm transition '
+  + 'placeholder:text-slate-400 hover:border-slate-300 focus:border-indigo-500 focus:outline-none focus:ring-3 focus:ring-indigo-500/15 '
   + 'disabled:bg-slate-50 aria-[invalid=true]:border-rose-400 aria-[invalid=true]:ring-rose-100';
 
 export function Field({ label, error, hint, children, htmlFor }: {
@@ -166,10 +177,10 @@ export function Segmented<T extends string>({ value, options, onChange, label }:
   const index = Math.max(0, options.findIndex((o) => o.value === value));
   const active = options[index];
   return (
-    <div role="radiogroup" aria-label={label} className="relative grid auto-cols-fr grid-flow-col gap-1 rounded-lg bg-slate-100 p-1">
+    <div role="radiogroup" aria-label={label} className="relative grid auto-cols-fr grid-flow-col gap-1 rounded-xl bg-slate-100 p-1">
       <span aria-hidden
         className={cx('absolute inset-y-1 left-1 rounded-md transition-all duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]',
-          active?.activeClass ?? 'bg-white shadow-sm')}
+          active?.activeClass ?? 'bg-surface shadow-sm')}
         style={{
           width: `calc((100% - 0.5rem - ${options.length - 1} * 0.25rem) / ${options.length})`,
           transform: `translateX(calc(${index} * (100% + 0.25rem)))`,
@@ -197,11 +208,11 @@ export function Tabs<T extends string>({ value, tabs, onChange }: {
         <button
           key={t.value} role="tab" aria-selected={value === t.value} onClick={() => onChange(t.value)}
           className={cx('-mb-px whitespace-nowrap border-b-2 px-4 py-2.5 text-sm font-medium transition-colors',
-            value === t.value ? 'border-emerald-500 text-slate-900' : 'border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-800')}
+            value === t.value ? 'border-indigo-600 text-slate-900' : 'border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-800')}
         >
           {t.label}
           {t.count != null && <span className={cx('ml-2 rounded-full px-2 py-0.5 text-xs transition-colors',
-            value === t.value ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-600')}>{t.count}</span>}
+            value === t.value ? 'bg-indigo-50 text-indigo-700' : 'bg-slate-100 text-slate-600')}>{t.count}</span>}
         </button>
       ))}
     </div>
@@ -224,7 +235,7 @@ export function Skeleton({ className }: { className?: string }) {
 export function ErrorState({ error, onRetry, compact }: { error: ApiError | Error; onRetry?: () => void; compact?: boolean }) {
   return (
     <div className={cx('flex flex-col items-center justify-center gap-3 text-center', compact ? 'py-4' : 'py-10')} role="alert">
-      <TriangleAlert className="size-6 text-rose-500" aria-hidden />
+      <TriangleAlert className="size-6 text-red-500" aria-hidden />
       <div>
         <p className="text-sm font-medium text-slate-800">Couldn't load this data</p>
         <p className="mt-0.5 text-sm text-slate-500">{error.message}</p>
@@ -234,11 +245,16 @@ export function ErrorState({ error, onRetry, compact }: { error: ApiError | Erro
   );
 }
 
-export function EmptyState({ title, children, icon }: { title: string; children?: ReactNode; icon?: ReactNode }) {
+export function EmptyState({ title, children, icon, tone = 'indigo' }: { title: string; children?: ReactNode; icon?: ReactNode; tone?: Tone }) {
   return (
     <div className="flex flex-col items-center justify-center gap-2 py-10 text-center">
-      <div className="mb-1 rounded-2xl bg-gradient-to-br from-slate-50 to-slate-100 p-3 text-slate-400 ring-1 ring-slate-200/70">
-        {icon ?? <Inbox className="size-7" aria-hidden />}
+      {/* A small friendly illustration: the icon in a soft blob with two orbiting dots. */}
+      <div className="relative mb-2" aria-hidden>
+        <span className={cx('absolute -right-2 -top-1 size-2.5 rounded-full opacity-70', TONES[tone].chip)} />
+        <span className={cx('absolute -bottom-1 -left-3 size-2 rounded-full opacity-50', TONES[tone].chip)} />
+        <div className={cx('flex size-16 items-center justify-center rounded-[1.4rem] rotate-3', TONES[tone].chip)}>
+          <span className="-rotate-3">{icon ?? <Inbox className="size-7" />}</span>
+        </div>
       </div>
       <p className="text-sm font-medium text-slate-700">{title}</p>
       {children && <div className="max-w-sm text-sm text-slate-500">{children}</div>}
@@ -248,14 +264,14 @@ export function EmptyState({ title, children, icon }: { title: string; children?
 
 export function Alert({ tone = 'info', children, title }: { tone?: 'info' | 'error' | 'success' | 'warning'; children: ReactNode; title?: string }) {
   const tones = {
-    info: 'border-sky-200 bg-sky-50 text-sky-900',
-    error: 'border-rose-200 bg-rose-50 text-rose-900',
+    info: 'border-indigo-100 bg-indigo-50 text-indigo-900',
+    error: 'border-red-200 bg-red-50 text-red-900',
     success: 'border-emerald-200 bg-emerald-50 text-emerald-900',
     warning: 'border-amber-200 bg-amber-50 text-amber-900',
   };
   const Icon = tone === 'success' ? CircleCheck : tone === 'info' ? Info : TriangleAlert;
   return (
-    <div className={cx('flex animate-enter gap-3 rounded-xl border px-4 py-3 text-sm', tones[tone])} role={tone === 'error' ? 'alert' : 'status'}>
+    <div className={cx('flex gap-3 rounded-xl border px-4 py-3 text-sm', tones[tone])} role={tone === 'error' ? 'alert' : 'status'}>
       <Icon className="mt-0.5 size-4 shrink-0" aria-hidden />
       <div>{title && <p className="font-medium">{title}</p>}{children}</div>
     </div>
@@ -279,11 +295,12 @@ export function Modal({ open, onClose, title, children, footer }: {
     return () => document.removeEventListener('keydown', onKey);
   }, [open, onClose]);
   if (!open) return null;
-  return (
-    <div className="fixed inset-0 z-50 flex animate-fade items-end justify-center bg-slate-950/40 p-4 backdrop-blur-sm sm:items-center" onMouseDown={onClose}>
+  // Portalled to <body> so no transformed ancestor (page entrance animation) can clip the overlay.
+  return createPortal(
+    <div className="fixed inset-0 z-50 flex animate-fade items-end justify-center bg-slate-900/50 p-4 sm:items-center" onMouseDown={onClose}>
       <div
         ref={ref} tabIndex={-1} role="dialog" aria-modal="true" aria-label={title}
-        className="w-full max-w-md animate-pop rounded-2xl bg-white shadow-2xl ring-1 ring-slate-900/5 outline-none"
+        className="w-full max-w-md animate-pop rounded-2xl bg-surface shadow-2xl ring-1 ring-slate-900/10 outline-none"
         onMouseDown={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
@@ -295,7 +312,8 @@ export function Modal({ open, onClose, title, children, footer }: {
         <div className="px-5 py-4 text-sm text-slate-700">{children}</div>
         {footer && <div className="flex justify-end gap-2 border-t border-slate-100 px-5 py-3">{footer}</div>}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 
@@ -333,8 +351,8 @@ export function ToastProvider({ children }: { children: ReactNode }) {
       {children}
       <div className="pointer-events-none fixed bottom-4 right-4 z-[60] flex w-80 max-w-[calc(100vw-2rem)] flex-col gap-2" aria-live="polite">
         {toasts.map((t) => (
-          <div key={t.id} className={cx('pointer-events-auto flex animate-toast items-start gap-2 rounded-xl px-4 py-3 text-sm text-white shadow-xl ring-1 ring-white/10 backdrop-blur',
-            t.tone === 'success' ? 'bg-emerald-700/95' : t.tone === 'error' ? 'bg-rose-700/95' : 'bg-slate-800/95')}>
+          <div key={t.id} className={cx('pointer-events-auto flex animate-toast items-start gap-2 rounded-lg px-4 py-3 text-sm text-white shadow-lg',
+            t.tone === 'success' ? 'bg-emerald-700' : t.tone === 'error' ? 'bg-red-700' : 'bg-slate-800')}>
             {t.tone === 'success' ? <CircleCheck className="mt-0.5 size-4 shrink-0" /> : t.tone === 'error'
               ? <TriangleAlert className="mt-0.5 size-4 shrink-0" /> : <Info className="mt-0.5 size-4 shrink-0" />}
             <span>{t.message}</span>

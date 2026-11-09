@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { ClipboardCheck } from 'lucide-react';
 import { ApiError } from '../api/client';
 import { academyApi, reviewApi } from '../api/endpoints';
 import type { ReviewCase } from '../api/types';
@@ -11,7 +12,7 @@ export function ReviewPage() {
   const queue = useApi(() => reviewApi.queue(), [], { topics: ['readiness'] });
   return (
     <>
-      <PageHeader title="Readiness reviews" subtitle="Users whose final assessment failed the maximum number of times. You cannot review your own case." />
+      <PageHeader icon={<ClipboardCheck className="size-5" />} tone="amber" title="Readiness reviews" subtitle="Users whose final assessment failed the maximum number of times. You cannot review your own case." />
       {queue.error ? <Card><ErrorState error={queue.error} onRetry={queue.reload} /></Card>
         : !queue.data ? <Spinner />
           : queue.data.length === 0 ? <Card><EmptyState title="No cases waiting" /></Card>

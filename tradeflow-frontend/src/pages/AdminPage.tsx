@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { FastForward, ShieldCheck } from 'lucide-react';
+import { FastForward, Shield, ShieldCheck } from 'lucide-react';
 import { ApiError } from '../api/client';
 import { adminApi, adminLiveApi, adminReadinessApi, marketApi } from '../api/endpoints';
 import type { AdminUserLive, AdminUserReadiness, ReconciliationReport } from '../api/types';
@@ -49,7 +49,7 @@ export function AdminPage() {
 
   return (
     <>
-      <PageHeader title="Admin" subtitle="Operator tools. Every call is authorised again by the gateway and the service (ROLE_ADMIN)." />
+      <PageHeader icon={<Shield className="size-5" />} tone="indigo" title="Admin" subtitle="Operator tools. Every call is authorised again by the gateway and the service (ROLE_ADMIN)." />
       {error && <div className="mb-4"><Alert tone="error">{error}</Alert></div>}
       <div className="grid gap-6 lg:grid-cols-2">
         <Card title="Market simulation">

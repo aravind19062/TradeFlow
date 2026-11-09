@@ -2,7 +2,7 @@ import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router';
 import Markdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { CheckCircle2, ChevronLeft, Circle, Clock, FileSignature, ShieldAlert, ShieldCheck, Target } from 'lucide-react';
+import { CheckCircle2, ChevronLeft, Circle, ClipboardCheck, Clock, FileSignature, ShieldAlert, ShieldCheck, Target } from 'lucide-react';
 import { ApiError } from '../api/client';
 import { academyApi, readinessApi } from '../api/endpoints';
 import type { ExerciseView, QuizAttemptView, QuizResultView, ReadinessState, SizingScenario } from '../api/types';
@@ -13,9 +13,9 @@ import { AcademyDisclaimer, QuizForm, QuizResult } from './AcademyPages';
 
 const STATE_LABEL: Record<ReadinessState, { label: string; cls: string }> = {
   NOT_STARTED: { label: 'Not started', cls: 'bg-slate-100 text-slate-700 ring-1 ring-slate-200' },
-  IN_PROGRESS: { label: 'In progress', cls: 'bg-sky-50 text-sky-700 ring-1 ring-sky-200' },
+  IN_PROGRESS: { label: 'In progress', cls: 'bg-indigo-50 text-indigo-700 ring-1 ring-indigo-200' },
   ASSESSMENT_PENDING: { label: 'Assessment open', cls: 'bg-amber-50 text-amber-800 ring-1 ring-amber-200' },
-  REVIEW_REQUIRED: { label: 'Under review', cls: 'bg-violet-50 text-violet-700 ring-1 ring-violet-200' },
+  REVIEW_REQUIRED: { label: 'Under review', cls: 'bg-amber-50 text-amber-800 ring-1 ring-amber-200' },
   ACKNOWLEDGEMENT_PENDING: { label: 'Acknowledgement due', cls: 'bg-amber-50 text-amber-800 ring-1 ring-amber-200' },
   QUALIFIED: { label: 'Qualified', cls: 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200' },
   ACCESS_REVOKED: { label: 'Access revoked', cls: 'bg-rose-50 text-rose-700 ring-1 ring-rose-200' },
@@ -66,7 +66,7 @@ export function ReadinessPage() {
 
   return (
     <>
-      <PageHeader title="Trading readiness" subtitle="What TradeFlow requires before you can request live-trading access."
+      <PageHeader icon={<ClipboardCheck className="size-5" />} tone="amber" title="Trading readiness" subtitle="What TradeFlow requires before you can request live-trading access."
         actions={<ReadinessBadge state={s.state} />} />
       <div className="mb-6" data-testid="readiness-next-step">
         <Alert tone={s.state === 'QUALIFIED' ? 'success' : s.state === 'ACCESS_REVOKED' ? 'error' : 'info'} title="Next step">
@@ -84,7 +84,7 @@ export function ReadinessPage() {
           <ol className="space-y-5" data-testid="readiness-checklist">
             <Step done={c.modulesDone} title={`Complete all Academy modules (${c.modulesCompleted}/${c.moduleCount})`}>
               Read every lesson and pass each module quiz ({s.policy.modulePassMarkPct}%).{' '}
-              <Link to="/academy" className="font-medium text-sky-700 hover:underline">Go to the Academy</Link>
+              <Link to="/academy" className="font-medium text-indigo-600 hover:underline">Go to the Academy</Link>
               {c.remediationModules.length > 0 && <p className="mt-1 text-amber-700">A reviewer asked you to redo: {c.remediationModules.join(', ')}.</p>}
             </Step>
             <Step done={c.exercisesDone} title="Complete the practical exercises in the demo">
@@ -102,7 +102,7 @@ export function ReadinessPage() {
             </Step>
             <Step done={s.state === 'QUALIFIED'} title="Sign the risk acknowledgement">
               {s.state === 'ACKNOWLEDGEMENT_PENDING'
-                ? <Link to="/readiness/acknowledgement" className="inline-flex items-center gap-1 font-medium text-sky-700 hover:underline"><FileSignature className="size-4" /> Read and sign</Link>
+                ? <Link to="/readiness/acknowledgement" className="inline-flex items-center gap-1 font-medium text-indigo-600 hover:underline"><FileSignature className="size-4" /> Read and sign</Link>
                 : 'Available after passing the final assessment.'}
             </Step>
           </ol>
@@ -158,12 +158,12 @@ function ExerciseRow({ exercise: e, onChange }: { exercise: ExerciseView; onChan
           {done ? <CheckCircle2 className="size-4 text-emerald-600" /> : <Target className="size-4 text-slate-400" />}{e.title}
         </p>
         {done ? <Badge className="bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200">Verified</Badge>
-          : e.startedAt ? <Badge className="bg-sky-50 text-sky-700 ring-1 ring-sky-200">Started</Badge>
+          : e.startedAt ? <Badge className="bg-indigo-50 text-indigo-700 ring-1 ring-indigo-200">Started</Badge>
             : e.slug !== 'position-sizing' && <Button size="sm" variant="secondary" onClick={start} loading={busy}>Start</Button>}
       </div>
       <p className="mt-1 text-xs text-slate-500">{e.description}</p>
       {e.startedAt && !done && e.slug !== 'position-sizing' && (
-        <p className="mt-1 text-xs text-slate-500">Do it in <Link to="/demo/market" className="text-sky-700 hover:underline">demo trading</Link>; it is verified automatically from your demo orders.</p>
+        <p className="mt-1 text-xs text-slate-500">Do it in <Link to="/demo/market" className="text-indigo-600 hover:underline">demo trading</Link>; it is verified automatically from your demo orders.</p>
       )}
       {e.slug === 'position-sizing' && !done && <SizingExercise />}
     </li>
@@ -258,7 +258,7 @@ export function AssessmentPage() {
     } catch (e) { setError(message(e)); } finally { setBusy(false); }
   }
   if (result) return <QuizResult result={result} backTo="/readiness" />;
-  if (!attempt) return error ? <Card><Alert tone="error">{error}</Alert><Link to="/readiness" className="mt-3 inline-block text-sm text-sky-700">Back</Link></Card> : <Spinner />;
+  if (!attempt) return error ? <Card><Alert tone="error">{error}</Alert><Link to="/readiness" className="mt-3 inline-block text-sm text-indigo-600">Back</Link></Card> : <Spinner />;
   const answered = attempt.questions.filter((q) => (answers[q.key] ?? []).length > 0).length;
   return <QuizForm attempt={attempt} answers={answers} setAnswers={setAnswers} answered={answered} busy={busy} error={error}
     onSubmit={submit} backTo="/readiness" title="Final readiness assessment" />;
@@ -285,7 +285,7 @@ export function AcknowledgementPage() {
   return (
     <>
       <Link to="/readiness" className="mb-4 inline-flex items-center gap-1 text-sm text-slate-500 hover:text-slate-800"><ChevronLeft className="size-4" /> Readiness</Link>
-      <article className="prose-lesson mx-auto max-w-3xl rounded-xl border border-slate-200 bg-white px-6 py-8 shadow-sm sm:px-10" data-testid="acknowledgement">
+      <article className="prose-lesson mx-auto max-w-3xl rounded-xl border border-slate-200 bg-surface px-6 py-8 shadow-sm sm:px-10" data-testid="acknowledgement">
         <Markdown remarkPlugins={[remarkGfm]}>{t.text}</Markdown>
         <form onSubmit={sign} className="not-prose mt-6 space-y-3 border-t border-slate-100 pt-6">
           <p className="text-sm">Type: <code className="rounded bg-slate-100 px-2 py-1 font-mono">{t.phrase}</code></p>

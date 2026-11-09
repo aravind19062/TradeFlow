@@ -42,7 +42,7 @@ export function OrderDetailPage() {
       <div className="grid gap-6 lg:grid-cols-3">
         <Card title="Order" className="lg:col-span-1">
           <dl className="space-y-2.5 text-sm">
-            <Row label="Instrument" value={<Link to={`/demo/market/${o.symbol}`} className="text-sky-700 hover:underline">{o.symbol}</Link>} />
+            <Row label="Instrument" value={<Link to={`/demo/market/${o.symbol}`} className="text-indigo-600 hover:underline">{o.symbol}</Link>} />
             <Row label="Side" value={<SideBadge side={o.side} />} />
             <Row label="Type" value={o.type} />
             <Row label="Quantity" value={quantity(o.quantity)} />

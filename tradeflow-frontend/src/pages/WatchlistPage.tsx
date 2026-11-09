@@ -54,13 +54,13 @@ export function WatchlistPage() {
 
   return (
     <>
-      <PageHeader title="Watchlist & alerts" subtitle="Alerts are evaluated by the market-data service on every simulated price tick." />
+      <PageHeader icon={<Star className="size-5" />} tone="amber" title="Watchlist & alerts" subtitle="Alerts are evaluated by the market-data service on every simulated price tick." />
       <div className="grid gap-6 lg:grid-cols-3">
         <Card className="lg:col-span-2" title="Watchlist" bodyClassName="p-0">
           {watchlist.error ? <ErrorState error={watchlist.error} onRetry={watchlist.reload} />
             : !watchlist.data ? <Spinner />
               : watchlist.data.length === 0
-                ? <EmptyState title="Nothing on your watchlist" icon={<Star className="size-8" />}>Use the star in <Link to="/demo/market" className="text-sky-700 hover:underline">Market watch</Link> to follow instruments.</EmptyState>
+                ? <EmptyState title="Nothing on your watchlist" icon={<Star className="size-8" />}>Use the star in <Link to="/demo/market" className="text-indigo-600 hover:underline">Market watch</Link> to follow instruments.</EmptyState>
                 : <table className="w-full text-sm" data-testid="watchlist-table">
                   <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
                     <tr><th className="px-5 py-2.5 font-medium">Instrument</th><th className="px-3 py-2.5 text-right font-medium">Price</th><th className="px-3 py-2.5 text-right font-medium">Change</th><th className="px-5 py-2.5"><span className="sr-only">Remove</span></th></tr>
@@ -111,7 +111,7 @@ export function WatchlistPage() {
                     <tbody className="divide-y divide-slate-100">
                       {alerts.data.map((a) => (
                         <tr key={a.id} className="hover:bg-slate-50">
-                          <td className="px-5 py-3"><Link to={`/demo/market/${a.symbol}`} className="font-semibold hover:text-sky-700">{a.symbol}</Link></td>
+                          <td className="px-5 py-3"><Link to={`/demo/market/${a.symbol}`} className="font-semibold hover:text-indigo-600">{a.symbol}</Link></td>
                           <td className="whitespace-nowrap px-3 py-3 tabular-nums">{a.direction === 'ABOVE' ? 'Rises to ≥' : 'Falls to ≤'} {money(a.threshold)}</td>
                           <td className="px-3 py-3"><AlertStatusBadge status={a.status} /></td>
                           <td className="max-w-48 truncate px-3 py-3 text-slate-500">{a.note ?? '—'}</td>

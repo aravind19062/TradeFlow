@@ -5,7 +5,7 @@ export function NotFoundPage() {
   return (
     <Card>
       <EmptyState title="Page not found">
-        <Link to="/" className="text-sky-700 hover:underline">Back to the dashboard</Link>
+        <Link to="/" className="text-indigo-600 hover:underline">Back to the dashboard</Link>
       </EmptyState>
     </Card>
   );

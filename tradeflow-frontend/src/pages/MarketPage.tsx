@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router';
-import { RefreshCw, Search, Star } from 'lucide-react';
+import { ChartCandlestick, RefreshCw, Search, Star } from 'lucide-react';
 import { get } from '../api/client';
 import { marketApi, watchlistApi } from '../api/endpoints';
 import type { HistoryResponse } from '../api/types';
@@ -50,7 +50,7 @@ export function MarketPage() {
 
   return (
     <>
-      <PageHeader title="Market watch"
+      <PageHeader icon={<ChartCandlestick className="size-5" />} tone="indigo" title="Market watch"
         subtitle={asOf ? <>{quotes.data?.length} instruments · simulated prices as of {time(asOf)} (tick {quotes.data?.[0]?.tick})</> : 'Simulated NSE-style instruments'}
         actions={<Button variant="secondary" size="sm" onClick={() => invalidate('market')} loading={quotes.refreshing}><RefreshCw className="size-3.5" /> Refresh</Button>}
       />
@@ -59,10 +59,10 @@ export function MarketPage() {
           <label className="relative flex-1">
             <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
             <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search symbol or company"
-              className="w-full rounded-lg border border-slate-200 py-2 pl-9 pr-3 text-sm shadow-sm transition hover:border-slate-300 focus:border-emerald-500 focus:outline-none focus:ring-4 focus:ring-emerald-500/15" />
+              className="w-full rounded-lg border border-slate-200 py-2 pl-9 pr-3 text-sm shadow-sm transition hover:border-slate-300 focus:border-indigo-500 focus:outline-none focus:ring-3 focus:ring-indigo-500/15" />
           </label>
           <select value={sector} onChange={(e) => setSector(e.target.value)} aria-label="Sector"
-            className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm shadow-sm transition hover:border-slate-300 focus:border-emerald-500 focus:outline-none focus:ring-4 focus:ring-emerald-500/15">
+            className="rounded-lg border border-slate-200 bg-surface px-3 py-2 text-sm shadow-sm transition hover:border-slate-300 focus:border-indigo-500 focus:outline-none focus:ring-3 focus:ring-indigo-500/15">
             <option value="">All sectors</option>
             {sectors.map((s) => <option key={s}>{s}</option>)}
           </select>
@@ -85,7 +85,7 @@ export function MarketPage() {
                   </thead>
                   <tbody className="divide-y divide-slate-100">
                     {rows.map((q) => (
-                      <tr key={q.symbol} className="group cursor-pointer transition-colors hover:bg-emerald-50/40" onClick={() => navigate(`/demo/market/${q.symbol}`)}>
+                      <tr key={q.symbol} className="group cursor-pointer transition-colors hover:bg-slate-50" onClick={() => navigate(`/demo/market/${q.symbol}`)}>
                         <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
                           <button onClick={() => toggleWatch(q.symbol)} disabled={busy === q.symbol}
                             aria-label={watched.has(q.symbol) ? `Remove ${q.symbol} from watchlist` : `Add ${q.symbol} to watchlist`}

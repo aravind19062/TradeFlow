@@ -1,5 +1,5 @@
 import { createHmac } from 'node:crypto';
-import { signInAdmin } from './admin';
+import { accountMenu, signInAdmin, signOut } from './admin';
 import { expect, test, type APIRequestContext, type Page } from '@playwright/test';
 
 // Full user journey against the real backend. Every figure the UI shows is checked
@@ -79,7 +79,7 @@ test.describe.serial('TradeFlow user journey', () => {
   });
 
   test('3. market watch lists every instrument with live simulated quotes', async ({ request }) => {
-    await page.getByRole('navigation', { name: 'Main' }).getByRole('link', { name: 'Market watch' }).click();
+    await page.getByRole('navigation', { name: 'Main' }).getByRole('link', { name: 'Market' }).click();
     const instruments = await api<unknown[]>(request, null, '/market/instruments');
     await expect(page.getByTestId('market-table').locator('tbody tr')).toHaveCount(instruments.body.length);
     const quote = await api<{ price: number }>(request, null, '/market/quotes/INFY');
@@ -154,7 +154,7 @@ test.describe.serial('TradeFlow user journey', () => {
   });
 
   test('8. AI assistant answers from the user\'s own portfolio', async () => {
-    await page.getByRole('navigation', { name: 'Main' }).getByRole('link', { name: 'AI assistant' }).click();
+    await page.getByRole('navigation', { name: 'Main' }).getByRole('link', { name: 'Assistant' }).click();
     await page.getByLabel('Your question').fill('What are my holdings and their average cost?');
     await page.getByRole('button', { name: 'Ask' }).click();
     const answer = page.getByTestId('assistant-answer').last();
@@ -205,7 +205,7 @@ test.describe.serial('TradeFlow user journey', () => {
 
   test('10. sign out revokes the session on the server', async () => {
     const cookie = (await page.context().cookies()).find((c) => c.name === 'tf_refresh')!.value;
-    await page.getByRole('button', { name: 'Sign out' }).first().click();
+    await signOut(page);
     await expect(page).toHaveURL(/\/login$/);
     await page.goto('/demo/portfolio');
     await expect(page).toHaveURL(/\/login$/);
@@ -229,7 +229,7 @@ test.describe('two-factor authentication', () => {
     await page.getByRole('button', { name: 'Create account' }).click();
     await expect(page.getByTestId('current-user')).toBeVisible();
 
-    await page.getByRole('navigation', { name: 'Main' }).getByRole('link', { name: 'Security' }).click();
+    await (await accountMenu(page)).getByRole('link', { name: 'Security' }).click();
     await page.getByLabel('Confirm your password').fill(pass);
     await page.getByRole('button', { name: 'Set up authenticator' }).click();
     const secret = (await page.getByTestId('totp-secret').textContent())!.replace(/\s/g, '');
@@ -244,7 +244,7 @@ test.describe('two-factor authentication', () => {
     await expect(page.getByText(/unused recovery codes left/)).toBeVisible();
 
     // Sign out, sign in: the password alone is not enough.
-    await page.getByRole('button', { name: 'Sign out' }).first().click();
+    await signOut(page);
     await expect(page).toHaveURL(/\/login$/); // logout has completed (session revoked server-side)
     await signIn(page, mail, pass);
     await expect(page.getByRole('heading', { name: 'Two-factor verification' })).toBeVisible();
@@ -256,14 +256,14 @@ test.describe('two-factor authentication', () => {
     await expect(page.getByTestId('current-user')).toHaveText('MFA Tester');
 
     // Recovery code path, then the code is used up.
-    await page.getByRole('button', { name: 'Sign out' }).first().click();
+    await signOut(page);
     await expect(page).toHaveURL(/\/login$/); // logout has completed (session revoked server-side)
     await signIn(page, mail, pass);
     await page.getByRole('button', { name: 'Use a recovery code' }).click();
     await page.getByLabel('Recovery code').fill(codes[0]);
     await page.getByRole('button', { name: 'Verify and sign in' }).click();
     await expect(page.getByTestId('current-user')).toHaveText('MFA Tester');
-    await page.getByRole('navigation', { name: 'Main' }).getByRole('link', { name: 'Security' }).click();
+    await (await accountMenu(page)).getByRole('link', { name: 'Security' }).click();
     await expect(page.getByText('9 unused recovery codes left')).toBeVisible();
     await expect(page.getByTestId('security-activity')).toContainText('Recovery code used');
   });
@@ -304,7 +304,8 @@ test.describe('authentication and authorization', () => {
   test('USER role cannot reach admin pages or admin APIs', async ({ page, request }) => {
     await signIn(page, 'demo@tradeflow.dev', DEMO_PASSWORD);
     await expect(page.getByTestId('current-user')).toBeVisible();
-    await expect(page.getByRole('link', { name: 'Admin' })).toHaveCount(0);
+    await expect((await accountMenu(page)).getByRole('link', { name: 'Admin' })).toHaveCount(0);
+    await page.keyboard.press('Escape');
     await page.goto('/admin');
     await expect(page).toHaveURL(/\/demo$/);
     const token = await apiToken(request, 'demo@tradeflow.dev', DEMO_PASSWORD);
@@ -314,7 +315,7 @@ test.describe('authentication and authorization', () => {
 
   test('ADMIN role sees the admin tools', async ({ page, request }) => {
     await signInAdmin(page);
-    await page.getByRole('navigation', { name: 'Main' }).getByRole('link', { name: 'Admin' }).click();
+    await (await accountMenu(page)).getByRole('link', { name: 'Admin' }).click();
     const sim = await api<{ currentTick: number }>(request, null, '/market/simulation');
     await expect(page.getByTestId('admin-tick')).toHaveText(/^\d+$/);
     expect(Number(await page.getByTestId('admin-tick').textContent())).toBeGreaterThanOrEqual(sim.body.currentTick - 1);

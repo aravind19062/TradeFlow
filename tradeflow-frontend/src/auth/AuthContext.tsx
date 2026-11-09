@@ -2,7 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { ApiError, refreshOnce, setRefreshHandler, setUnauthorizedListener } from '../api/client';
 import { authApi } from '../api/endpoints';
 import type { LoginRequest, RegisterRequest, TokenResponse, UserResponse } from '../api/types';
-import { clearSession, sessionFromToken, setSession } from './session';
+import { clearLiveAcknowledgements, clearSession, sessionFromToken, setSession } from './session';
 
 export type AuthStatus = 'loading' | 'authenticated' | 'anonymous';
 export type LogoutReason = 'manual' | 'expired';
@@ -39,6 +39,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const forgetSession = useCallback((reason: LogoutReason = 'manual') => {
     clearSession();
+    clearLiveAcknowledgements();
     window.clearTimeout(refreshTimer.current);
     setUser(null);
     setExpiresAt(null);

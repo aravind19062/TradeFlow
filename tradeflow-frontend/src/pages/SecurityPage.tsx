@@ -28,7 +28,7 @@ export function SecurityPage() {
 
   return (
     <>
-      <PageHeader title="Security" subtitle="Two-factor authentication is required before live trading can be enabled." />
+      <PageHeader icon={<KeyRound className="size-5" />} tone="violet" title="Security" subtitle="Two-factor authentication is required before live trading can be enabled." />
       <div className="grid gap-6 lg:grid-cols-2">
         <Card title={<span className="flex items-center gap-2"><Smartphone className="size-4" /> Two-factor authentication</span>}
           action={status.data && (status.data.enabled
@@ -101,10 +101,10 @@ function EnrollMfa({ onDone }: { onDone: () => void }) {
           <li>Enter the 6-digit code it shows.</li>
         </ol>
         <div className="flex flex-col items-center gap-3 rounded-lg bg-slate-50 p-4 sm:flex-row sm:items-start">
-          {qr ? <img src={qr} alt="QR code for your authenticator app" className="size-44 rounded bg-white p-1" /> : <Spinner />}
+          {qr ? <img src={qr} alt="QR code for your authenticator app" className="size-44 rounded bg-surface p-1" /> : <Spinner />}
           <div className="text-xs text-slate-500">
             <p>Can't scan? Enter this key manually:</p>
-            <code className="mt-1 block break-all rounded bg-white px-2 py-1 font-mono text-sm text-slate-800" data-testid="totp-secret">
+            <code className="mt-1 block break-all rounded bg-surface px-2 py-1 font-mono text-sm text-slate-800" data-testid="totp-secret">
               {enrollment.secret.match(/.{1,4}/g)?.join(' ')}
             </code>
             <p className="mt-2">This key is shown only now. Never share it.</p>

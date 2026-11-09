@@ -18,7 +18,7 @@ const tooltipStyle = {
 const cursor = { stroke: '#94a3b8', strokeWidth: 1, strokeDasharray: '4 4' };
 
 const UP = '#059669';
-const DOWN = '#e11d48';
+const DOWN = '#dc2626';
 
 function trendColor(first?: number, last?: number) {
   return first == null || last == null || last >= first ? UP : DOWN;
@@ -87,7 +87,7 @@ export function PriceChart({ points, height = 280 }: { points: PricePoint[]; hei
   );
 }
 
-const PALETTE = ['#0f172a', '#0ea5e9', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899', '#06b6d4', '#84cc16', '#94a3b8'];
+const PALETTE = ['#4f46e5', '#0ea5e9', '#14b8a6', '#f59e0b', '#a855f7', '#f43f5e', '#64748b', '#84cc16', '#cbd5e1'];
 
 export function AllocationChart({ slices, height = 220 }: { slices: AllocationSlice[]; height?: number }) {
   const data = slices.filter((s) => s.value > 0);

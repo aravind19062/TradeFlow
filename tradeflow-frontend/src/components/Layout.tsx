@@ -1,134 +1,143 @@
-import { Suspense, useState } from 'react';
+import { Suspense, useEffect, useRef, useState } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router';
-import {
-  Bell, Bot, ChartCandlestick, Radio, ClipboardCheck, GraduationCap, KeyRound, LayoutDashboard, ListOrdered, LogOut, Menu, Shield, Wallet, X,
-} from 'lucide-react';
+import { Bell, ChevronDown, ClipboardCheck, KeyRound, LogOut, Menu, Moon, Shield, Sun, X } from 'lucide-react';
 import { useAuth } from '../auth/AuthContext';
 import { liveApi, marketApi } from '../api/endpoints';
 import { useApi } from '../lib/useApi';
-import { cx, Flash, Spinner } from './ui';
-import { EnvironmentBadge } from './environment';
+import { useTheme } from '../lib/theme';
+import { cx, Spinner } from './ui';
 
-interface NavItem { to: string; label: string; icon: typeof LayoutDashboard; end?: boolean }
-interface NavSection { title: string; env?: 'DEMO' | 'LIVE'; items: NavItem[] }
+type Section = 'demo' | 'learn' | 'live';
+interface NavItem { to: string; label: string; end?: boolean; live?: boolean }
 
-const LEARN_NAV: NavSection = {
-  title: 'Learn', items: [
-    { to: '/academy', label: 'Trading Academy', icon: GraduationCap },
-    { to: '/readiness', label: 'Readiness', icon: ClipboardCheck },
-  ],
+/** Primary navigation, in three groups: demo trading, learning, live trading. */
+/** Each area has its own colour, so you always know where you are: Demo indigo, Learn amber, Live rose. */
+const SECTION_STYLE: Record<Section, { active: string; wash: string }> = {
+  demo: { active: 'bg-indigo-100 text-indigo-700', wash: 'from-indigo-100/70 via-sky-50/40' },
+  learn: { active: 'bg-amber-100 text-amber-800', wash: 'from-amber-100/70 via-orange-50/40' },
+  live: { active: 'bg-rose-100 text-rose-700', wash: 'from-rose-100/70 via-pink-50/40' },
 };
+const SECTIONS: Section[] = ['demo', 'learn', 'live'];
 
-const DEMO_NAV: NavSection = {
-  title: 'Demo trading', env: 'DEMO', items: [
-    { to: '/demo', label: 'Dashboard', icon: LayoutDashboard, end: true },
-    { to: '/demo/market', label: 'Market watch', icon: ChartCandlestick },
-    { to: '/demo/orders', label: 'Orders', icon: ListOrdered },
-    { to: '/demo/portfolio', label: 'Portfolio', icon: Wallet },
-    { to: '/demo/watchlist', label: 'Watchlist & alerts', icon: Bell },
-    { to: '/demo/assistant', label: 'AI assistant', icon: Bot },
+function sectionOf(path: string): Section | null {
+  if (path.startsWith('/live')) return 'live';
+  if (path.startsWith('/academy') || path.startsWith('/readiness')) return 'learn';
+  if (path.startsWith('/demo')) return 'demo';
+  return null;
+}
+
+const NAV_GROUPS: NavItem[][] = [
+  [
+    { to: '/demo', label: 'Dashboard', end: true },
+    { to: '/demo/market', label: 'Market' },
+    { to: '/demo/orders', label: 'Orders' },
+    { to: '/demo/portfolio', label: 'Portfolio' },
+    { to: '/demo/watchlist', label: 'Watchlist' },
+    { to: '/demo/assistant', label: 'Assistant' },
   ],
-};
-
-const LIVE_NAV: NavSection = {
-  title: 'Live trading', env: 'LIVE', items: [
-    { to: '/live', label: 'Live dashboard', icon: Radio },
+  [
+    { to: '/academy', label: 'Academy' },
+    { to: '/readiness', label: 'Readiness' },
   ],
-};
+  [{ to: '/live', label: 'Live trading', live: true }],
+];
 
-export function Logo({ dark = true }: { dark?: boolean }) {
+export function Logo() {
   return (
-    <div className="group flex items-center gap-2.5">
-      <svg viewBox="0 0 32 32" className="size-8 drop-shadow-[0_0_12px_rgba(52,211,153,0.35)] transition-transform duration-500 group-hover:rotate-[-6deg] group-hover:scale-105" aria-hidden>
+    <div className="group flex items-center gap-2">
+      <svg viewBox="0 0 32 32" className="size-8 transition-transform duration-300 group-hover:-rotate-6" aria-hidden>
         <defs>
-          <linearGradient id="logoBg" x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0%" stopColor={dark ? '#1e293b' : '#0f172a'} />
-            <stop offset="100%" stopColor="#020617" />
-          </linearGradient>
-          <linearGradient id="logoLine" x1="0" y1="1" x2="1" y2="0">
-            <stop offset="0%" stopColor="#34d399" />
-            <stop offset="100%" stopColor="#22d3ee" />
+          <linearGradient id="tfLogo" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stopColor="#6366f1" /><stop offset="100%" stopColor="#a855f7" />
           </linearGradient>
         </defs>
-        <rect width="32" height="32" rx="8" fill="url(#logoBg)" />
-        <path d="M6 21l6-6 4 4 9-9" stroke="url(#logoLine)" strokeWidth="3" fill="none" strokeLinecap="round" strokeLinejoin="round" />
-        <circle cx="25" cy="10" r="2" fill="#22d3ee" />
+        <rect width="32" height="32" rx="10" fill="url(#tfLogo)" />
+        <path d="M7 21l6-6 4 4 8-8" stroke="#fff" strokeWidth="2.75" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+        <circle cx="25" cy="11" r="2.2" fill="#fde68a" />
       </svg>
-      <span className={cx('text-lg font-semibold tracking-tight', dark ? 'text-white' : 'text-slate-900')}>TradeFlow</span>
+      <span className="font-display text-lg font-bold tracking-tight text-slate-900">TradeFlow</span>
     </div>
   );
 }
 
-function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
-  const { user, isAdmin, logout } = useAuth();
-  const sim = useApi(() => marketApi.simulation(), [], { intervalMs: 30_000, topics: ['market'] });
-  // Live notices (readiness lost, account halted) must be seen even by users who never open the
-  // Live dashboard. Best effort: if live-trading-service is not running the badge just stays hidden.
-  const liveNotes = useApi(() => liveApi.notifications(), [], { intervalMs: 60_000, topics: ['live'] });
-  const unreadLive = liveNotes.data?.filter((n) => !n.readAt).length ?? 0;
-  const sections: NavSection[] = [DEMO_NAV, LEARN_NAV, LIVE_NAV, { title: 'Account', items: [{ to: '/settings/security', label: 'Security', icon: KeyRound }] }];
-  const staff: NavItem[] = [];
-  if (isAdmin || user?.role === 'READINESS_REVIEWER') staff.push({ to: '/review', label: 'Readiness reviews', icon: ClipboardCheck });
-  if (isAdmin) staff.push({ to: '/admin', label: 'Admin', icon: Shield });
-  if (staff.length) sections.push({ title: 'Administration', items: staff });
+function LiveDot() {
+  return <span className="size-1.5 rounded-full bg-red-500" data-testid="live-nav-dot" aria-hidden />;
+}
+
+function TopLink({ item, section, onNavigate, block }: { item: NavItem; section: Section; onNavigate?: () => void; block?: boolean }) {
   return (
-    <div className="relative flex h-full flex-col overflow-hidden bg-gradient-to-b from-[#0b1324] via-[#080e1c] to-[#060a14] text-slate-300">
-      <div className="pointer-events-none absolute -left-24 -top-24 size-64 rounded-full bg-emerald-500/10 blur-3xl" aria-hidden />
-      <div className="pointer-events-none absolute -bottom-32 -right-24 size-72 rounded-full bg-indigo-500/10 blur-3xl" aria-hidden />
-      <div className="relative px-5 py-5"><Logo /></div>
-      <nav className="relative flex-1 space-y-5 overflow-y-auto px-3" aria-label="Main">
-        {sections.map((section) => (
-          <div key={section.title}>
-            <p className="mb-1.5 flex items-center gap-2 px-3 text-[11px] font-semibold uppercase tracking-wider text-slate-500">
-              {section.title} {section.env && <EnvironmentBadge env={section.env} size="xs" />}
-            </p>
-            <div className="space-y-0.5">
-              {section.items.map(({ to, label, icon: Icon, end }) => (
-                <NavLink
-                  key={to} to={to} end={end} onClick={onNavigate}
-                  className={({ isActive }) => cx('group relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all duration-200',
-                    isActive ? 'bg-gradient-to-r from-white/[0.09] to-white/[0.02] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]'
-                      : 'text-slate-400 hover:translate-x-0.5 hover:bg-white/[0.04] hover:text-slate-100')}
-                >
-                  {({ isActive }) => <>
-                    <span aria-hidden className={cx('absolute left-0 top-1/2 h-5 w-[3px] -translate-y-1/2 rounded-r-full bg-gradient-to-b from-emerald-400 to-cyan-400 transition-all duration-300',
-                      isActive ? 'opacity-100' : 'scale-y-0 opacity-0')} />
-                    <Icon className={cx('size-4.5 transition-colors', isActive ? 'text-emerald-400' : 'group-hover:text-slate-200')} aria-hidden /> {label}
-                  {to === '/live' && unreadLive > 0 && (
-                    <span data-testid="live-unread" aria-label={`${unreadLive} unread live-trading notices`}
-                      className="ml-auto rounded-full bg-rose-600 px-1.5 text-[10px] font-semibold leading-4 text-white shadow-[0_0_10px_rgba(225,29,72,0.6)]">{unreadLive}</span>
-                  )}
-                  </>}
-                </NavLink>
-              ))}
-            </div>
+    <NavLink
+      to={item.to} end={item.end} onClick={onNavigate}
+      className={({ isActive }) => cx(
+        'inline-flex items-center gap-1.5 whitespace-nowrap rounded-full text-sm font-medium transition-colors',
+        block ? 'w-full px-3.5 py-2' : 'px-3 py-1.5',
+        isActive ? SECTION_STYLE[section].active : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900',
+      )}
+    >
+      {item.label}
+      {item.live && <LiveDot />}
+    </NavLink>
+  );
+}
+
+function ThemeToggle() {
+  const { isDark, toggle } = useTheme();
+  return (
+    <button onClick={toggle} className="rounded-full p-2 text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-800"
+      aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'} title={isDark ? 'Light mode' : 'Dark mode'} data-testid="theme-toggle">
+      {isDark ? <Sun className="size-4.5" /> : <Moon className="size-4.5" />}
+    </button>
+  );
+}
+
+/** Account menu: profile, security, staff tools and sign out. */
+function AccountMenu() {
+  const { user, isAdmin, logout } = useAuth();
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  const location = useLocation();
+  useEffect(() => setOpen(false), [location.pathname]);
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e: MouseEvent) => { if (!ref.current?.contains(e.target as Node)) setOpen(false); };
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false); };
+    document.addEventListener('mousedown', onDown);
+    document.addEventListener('keydown', onKey);
+    return () => { document.removeEventListener('mousedown', onDown); document.removeEventListener('keydown', onKey); };
+  }, [open]);
+  const reviewer = isAdmin || user?.role === 'READINESS_REVIEWER';
+  const item = 'flex items-center gap-2.5 rounded-md px-3 py-2 text-sm text-slate-700 hover:bg-slate-100';
+  return (
+    <div className="relative" ref={ref}>
+      <button
+        onClick={() => setOpen((o) => !o)} aria-expanded={open} aria-haspopup="true" aria-label="Account menu"
+        data-testid="account-menu"
+        className="flex items-center gap-2 rounded-full py-1 pl-1 pr-2.5 text-sm text-slate-700 hover:bg-slate-100"
+      >
+        <span className="flex size-7 items-center justify-center rounded-full bg-gradient-to-br from-indigo-500 to-violet-500 text-xs font-semibold text-white">
+          {user?.name?.slice(0, 1).toUpperCase() ?? '?'}
+        </span>
+        <span className="hidden max-w-32 truncate font-medium md:inline" data-testid="current-user">{user?.name}</span>
+        <ChevronDown className="size-4 text-slate-400" aria-hidden />
+      </button>
+      {open && (
+        <div data-testid="account-menu-panel" className="absolute right-0 top-full z-40 mt-1 w-64 animate-pop rounded-lg border border-slate-200 bg-surface p-1.5 shadow-lg">
+          <div className="border-b border-slate-100 px-3 pb-2.5 pt-1.5">
+            <p className="truncate text-sm font-medium text-slate-900">{user?.name}</p>
+            <p className="truncate text-xs text-slate-500">{user?.email}{isAdmin && ' · Admin'}</p>
           </div>
-        ))}
-      </nav>
-      <div className="relative mx-3 mb-3 rounded-xl border border-white/5 bg-white/[0.03] px-3 py-2.5 text-xs text-slate-400">
-        <div className="flex items-center gap-2">
-          <span className="relative flex size-2">
-            <span className="absolute inline-flex size-full animate-ping rounded-full bg-emerald-400 opacity-60" />
-            <span className="relative inline-flex size-2 rounded-full bg-emerald-400" />
-          </span>
-          Simulated market
+          <nav aria-label="Account" className="py-1">
+            <NavLink to="/settings/security" className={item}><KeyRound className="size-4 text-slate-400" /> Security</NavLink>
+            {reviewer && <NavLink to="/review" className={item}><ClipboardCheck className="size-4 text-slate-400" /> Readiness reviews</NavLink>}
+            {isAdmin && <NavLink to="/admin" className={item}><Shield className="size-4 text-slate-400" /> Admin</NavLink>}
+          </nav>
+          <div className="border-t border-slate-100 pt-1">
+            <button onClick={() => logout('manual')} className={cx(item, 'w-full')}>
+              <LogOut className="size-4 text-slate-400" /> Sign out
+            </button>
+          </div>
         </div>
-        <p className="mt-1 tabular-nums">{sim.data ? <Flash value={sim.data.currentTick}>Tick {sim.data.currentTick}</Flash> : sim.error ? 'Market data unavailable' : '…'}</p>
-      </div>
-      <div className="relative border-t border-white/5 px-4 py-4">
-        <div className="flex items-center gap-3">
-          <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-emerald-400 to-cyan-600 text-sm font-semibold text-white ring-2 ring-white/10">
-            {user?.name?.slice(0, 1).toUpperCase() ?? '?'}
-          </div>
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-medium text-white" data-testid="current-user">{user?.name}</p>
-            <p className="truncate text-xs text-slate-400">{user?.email}{isAdmin && ' · Admin'}</p>
-          </div>
-          <button onClick={() => logout('manual')} className="rounded-md p-2 text-slate-400 transition-colors hover:bg-white/10 hover:text-white" aria-label="Sign out" title="Sign out">
-            <LogOut className="size-4" />
-          </button>
-        </div>
-      </div>
+      )}
     </div>
   );
 }
@@ -136,30 +145,71 @@ function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
 export function AppLayout() {
   const [open, setOpen] = useState(false);
   const location = useLocation();
+  const section = sectionOf(location.pathname);
+  const inLive = section === 'live';
+  useEffect(() => setOpen(false), [location.pathname]);
+  const sim = useApi(() => marketApi.simulation(), [], { intervalMs: 30_000, topics: ['market'] });
+  // Live notices (readiness lost, account halted) must be seen even by users who never open the
+  // Live dashboard. Best effort: if live-trading-service is not running the badge just stays hidden.
+  const liveNotes = useApi(() => liveApi.notifications(), [], { intervalMs: 60_000, topics: ['live'] });
+  const unreadLive = liveNotes.data?.filter((n) => !n.readAt).length ?? 0;
+
   return (
-    <div className="min-h-dvh lg:pl-64">
-      <aside className="fixed inset-y-0 left-0 hidden w-64 lg:block"><Sidebar /></aside>
+    <div className="relative isolate min-h-dvh">
+      <header className={cx('sticky top-0 z-30 border-b bg-surface/85 backdrop-blur-md', inLive ? 'border-b-rose-200' : 'border-slate-200/80')}>
+        {inLive && <div className="h-0.5 bg-red-500" aria-hidden />}
+        <div className="mx-auto flex h-14 max-w-7xl items-center gap-4 px-4 sm:px-6 lg:px-8">
+          <button onClick={() => setOpen((o) => !o)} className="-ml-1 rounded-md p-1.5 text-slate-600 hover:bg-slate-100 xl:hidden"
+            aria-label={open ? 'Close menu' : 'Open menu'} aria-expanded={open}>
+            {open ? <X className="size-5" /> : <Menu className="size-5" />}
+          </button>
+          <NavLink to="/demo" aria-label="TradeFlow home"><Logo /></NavLink>
 
-      {open && (
-        <div className="fixed inset-0 z-40 lg:hidden">
-          <div className="absolute inset-0 animate-fade bg-slate-950/60 backdrop-blur-sm" onClick={() => setOpen(false)} />
-          <aside className="absolute inset-y-0 left-0 w-72 animate-enter shadow-xl">
-            <button className="absolute right-3 top-5 rounded-md p-1 text-slate-400 hover:text-white" onClick={() => setOpen(false)} aria-label="Close menu">
-              <X className="size-5" />
-            </button>
-            <Sidebar onNavigate={() => setOpen(false)} />
-          </aside>
+          {!open && (
+            <nav aria-label="Main" className="ml-4 hidden items-center gap-0.5 xl:flex">
+              {NAV_GROUPS.map((group, i) => (
+                <div key={i} className={cx('flex items-center gap-0.5', i > 0 && 'ml-2 border-l border-slate-200 pl-2')}>
+                  {group.map((item) => <TopLink key={item.to} item={item} section={SECTIONS[i]} />)}
+                </div>
+              ))}
+            </nav>
+          )}
+
+          <div className="ml-auto flex items-center gap-1.5">
+            <span className="hidden items-center gap-1.5 whitespace-nowrap rounded-md px-2 py-1 text-xs text-slate-500 2xl:flex" title="Demo prices come from TradeFlow's market simulator">
+              <span className="size-1.5 rounded-full bg-emerald-500" aria-hidden />
+              {sim.data ? <>Sim tick <span className="tabular-nums">{sim.data.currentTick}</span></> : sim.error ? 'Market data unavailable' : '…'}
+            </span>
+            <NavLink to="/live" className="relative rounded-md p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-800"
+              aria-label={unreadLive > 0 ? `${unreadLive} unread live-trading notices` : 'Live-trading notices'}>
+              <Bell className="size-4.5" />
+              {unreadLive > 0 && (
+                <span data-testid="live-unread" className="absolute right-1 top-1 min-w-4 rounded-full bg-red-600 px-1 text-center text-[10px] font-semibold leading-4 text-white">{unreadLive}</span>
+              )}
+            </NavLink>
+            <ThemeToggle />
+            <AccountMenu />
+          </div>
         </div>
-      )}
 
-      <header className="sticky top-0 z-30 flex items-center justify-between border-b border-slate-200/70 bg-white/80 px-4 py-3 backdrop-blur-md lg:hidden">
-        <button onClick={() => setOpen(true)} className="rounded-md p-1.5 text-slate-600 hover:bg-slate-100" aria-label="Open menu">
-          <Menu className="size-5" />
-        </button>
-        <Logo dark={false} />
-        <span className="w-8" />
+        {open && (
+          <div className="border-t border-slate-200 bg-surface xl:hidden">
+            <nav aria-label="Main" className="mx-auto max-w-7xl space-y-3 px-4 py-3 sm:px-6">
+              {[['Demo trading', NAV_GROUPS[0]], ['Learn', NAV_GROUPS[1]], ['Real money', NAV_GROUPS[2]]].map(([title, items]) => (
+                <div key={title as string}>
+                  <p className="px-3 pb-1 text-xs font-medium text-slate-400">{title as string}</p>
+                  <div className="grid gap-0.5 sm:grid-cols-3">
+                    {(items as NavItem[]).map((item) => <TopLink key={item.to} item={item} section={SECTIONS[NAV_GROUPS.indexOf(items as NavItem[])]} block onNavigate={() => setOpen(false)} />)}
+                  </div>
+                </div>
+              ))}
+            </nav>
+          </div>
+        )}
       </header>
 
+      {/* A soft wash in the colour of the current area, behind the top of the page. */}
+      {section && <div aria-hidden className={cx('pointer-events-none absolute inset-x-0 top-0 -z-10 h-80 bg-gradient-to-b to-transparent', SECTION_STYLE[section].wash)} />}
       <main key={location.pathname} className="mx-auto max-w-7xl animate-enter px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
         <Suspense fallback={<Spinner />}><Outlet /></Suspense>
         <footer className="mt-12 border-t border-slate-200 pt-4 text-xs text-slate-400">

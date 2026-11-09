@@ -2,16 +2,16 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router';
 import Markdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { BookOpen, CheckCircle2, ChevronLeft, ChevronRight, Circle, ClipboardCheck, Timer, XCircle } from 'lucide-react';
+import { BookOpen, CheckCircle2, ChevronLeft, ChevronRight, Circle, ClipboardCheck, GraduationCap, Timer, XCircle } from 'lucide-react';
 import { ApiError } from '../api/client';
 import { academyApi } from '../api/endpoints';
 import type { ModuleStatus, QuizAttemptView, QuizResultView } from '../api/types';
-import { Alert, Badge, Button, Card, cx, ErrorState, PageHeader, Spinner, spotlight } from '../components/ui';
+import { Alert, Badge, Button, Card, cx, ErrorState, PageHeader, Spinner, TONES } from '../components/ui';
 import { invalidate, useApi } from '../lib/useApi';
 
 const STATUS: Record<ModuleStatus, { label: string; cls: string }> = {
   NOT_STARTED: { label: 'Not started', cls: 'bg-slate-100 text-slate-600 ring-1 ring-slate-200' },
-  IN_PROGRESS: { label: 'In progress', cls: 'bg-sky-50 text-sky-700 ring-1 ring-sky-200' },
+  IN_PROGRESS: { label: 'In progress', cls: 'bg-indigo-50 text-indigo-700 ring-1 ring-indigo-200' },
   QUIZ_AVAILABLE: { label: 'Quiz ready', cls: 'bg-amber-50 text-amber-800 ring-1 ring-amber-200' },
   COMPLETED: { label: 'Completed', cls: 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200' },
 };
@@ -25,28 +25,30 @@ export function AcademyDisclaimer() {
   );
 }
 
+const MODULE_TONES = [TONES.amber.chip, TONES.violet.chip, TONES.sky.chip, TONES.teal.chip, TONES.rose.chip, TONES.indigo.chip, TONES.emerald.chip];
+
 export function AcademyPage() {
   const overview = useApi(() => academyApi.overview(), [], { topics: ['academy'] });
   const o = overview.data;
   return (
     <>
-      <PageHeader title="Trading Academy"
+      <PageHeader icon={<GraduationCap className="size-5" />} tone="amber" title="Trading Academy"
         subtitle={o ? `${o.modulesCompleted} of ${o.moduleCount} modules completed · module quizzes need ${o.modulePassMarkPct}%` : 'Learn the essentials before trading with real money.'} />
       {overview.error ? <Card><ErrorState error={overview.error} onRetry={overview.reload} /></Card>
         : !o ? <Spinner />
           : <>
-            <div className="mb-6 h-2 overflow-hidden rounded-full bg-slate-200" role="progressbar" aria-valuenow={o.modulesCompleted} aria-valuemax={o.moduleCount}>
-              <div className="h-full rounded-full bg-gradient-to-r from-emerald-400 to-cyan-500 transition-all duration-1000" style={{ width: `${(100 * o.modulesCompleted) / o.moduleCount}%` }} />
+            <div className="mb-6 h-2.5 overflow-hidden rounded-full bg-slate-200" role="progressbar" aria-valuenow={o.modulesCompleted} aria-valuemax={o.moduleCount}>
+              <div className="h-full rounded-full bg-gradient-to-r from-amber-400 via-orange-400 to-rose-400 transition-all duration-700" style={{ width: `${(100 * o.modulesCompleted) / o.moduleCount}%` }} />
             </div>
             <div className="stagger grid gap-4 md:grid-cols-2 xl:grid-cols-3" data-testid="academy-modules">
               {o.modules.map((m) => (
-                <Link key={m.slug} to={`/academy/${m.slug}`} onMouseMove={spotlight}
-                  className="spotlight group flex flex-col overflow-hidden rounded-2xl border border-slate-200/80 bg-white/90 p-5 shadow-soft transition duration-300 hover:-translate-y-1 hover:border-emerald-200 hover:shadow-lift">
+                <Link key={m.slug} to={`/academy/${m.slug}`}
+                  className="group flex flex-col rounded-2xl border border-slate-200/80 bg-surface p-5 shadow-soft transition duration-200 hover:-translate-y-1 hover:shadow-lift">
                   <div className="flex items-start justify-between gap-3">
-                    <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-slate-800 to-slate-950 text-sm font-semibold text-white shadow-sm transition-all duration-300 group-hover:from-emerald-500 group-hover:to-cyan-600 group-hover:shadow-glow">{m.position}</span>
+                    <span className={cx('flex size-10 shrink-0 items-center justify-center rounded-2xl font-display text-base font-bold transition-transform duration-300 group-hover:-rotate-6 group-hover:scale-110', MODULE_TONES[(m.position - 1) % MODULE_TONES.length])}>{m.position}</span>
                     <Badge className={STATUS[m.status].cls}>{STATUS[m.status].label}</Badge>
                   </div>
-                  <h2 className="mt-3 font-semibold text-slate-900 transition-colors group-hover:text-emerald-700">{m.title}</h2>
+                  <h2 className="mt-3 font-semibold text-slate-900 transition-colors group-hover:text-indigo-600">{m.title}</h2>
                   <p className="mt-1 flex-1 text-sm text-slate-500">{m.summary}</p>
                   <div className="mt-4 flex items-center justify-between text-xs text-slate-500">
                     <span><BookOpen className="mr-1 inline size-3.5" />{m.lessonsCompleted}/{m.lessonCount} lessons</span>
@@ -141,7 +143,7 @@ export function LessonPage() {
   return (
     <>
       <Link to={`/academy/${slug}`} className="mb-4 inline-flex items-center gap-1 text-sm text-slate-500 hover:text-slate-800"><ChevronLeft className="size-4" /> {l.moduleTitle}</Link>
-      <article className="prose-lesson mx-auto max-w-3xl rounded-xl border border-slate-200 bg-white px-6 py-8 shadow-sm sm:px-10" data-testid="lesson">
+      <article className="prose-lesson mx-auto max-w-3xl rounded-xl border border-slate-200 bg-surface px-6 py-8 shadow-sm sm:px-10" data-testid="lesson">
         <Markdown remarkPlugins={[remarkGfm]}>{l.body}</Markdown>
       </article>
       <div className="mx-auto mt-6 flex max-w-3xl items-center justify-between">

@@ -31,7 +31,7 @@ export function InstrumentPage() {
       <>
         <BackLink />
         <Card>{quote.error.status === 404
-          ? <EmptyState title={`Unknown instrument "${symbol}"`}><Link to="/demo/market" className="text-sky-700 hover:underline">Back to market watch</Link></EmptyState>
+          ? <EmptyState title={`Unknown instrument "${symbol}"`}><Link to="/demo/market" className="text-indigo-600 hover:underline">Back to market watch</Link></EmptyState>
           : <ErrorState error={quote.error} onRetry={quote.reload} />}</Card>
       </>
     );
@@ -77,13 +77,12 @@ export function InstrumentPage() {
             {q ? (
               <div className="mb-4 flex flex-wrap items-end justify-between gap-4">
                 <div className="flex items-start gap-4">
-                <SymbolAvatar symbol={q.symbol} className="mt-1 size-12 rounded-2xl text-sm" />
+                <SymbolAvatar symbol={q.symbol} className="mt-1 size-12 rounded-xl text-sm" />
                 <div>
                   <p className="flex items-center gap-3 text-3xl font-semibold tabular-nums tracking-tight" data-testid="instrument-price">
                     <Flash value={q.price}>{money(q.price)}</Flash>
                     <span className="relative flex size-2" aria-hidden title="Refreshes with the simulator">
-                      <span className="absolute inline-flex size-full animate-ping rounded-full bg-emerald-400 opacity-60" />
-                      <span className="relative inline-flex size-2 rounded-full bg-emerald-500" />
+                                            <span className="relative inline-flex size-2 rounded-full bg-emerald-500" />
                     </span>
                   </p>
                   <p className="mt-1 text-sm"><Change change={q.change} ratio={q.changeRatio} /> <span className="text-slate-400">since previous tick · {time(q.asOf)} · tick {q.tick}</span></p>
@@ -124,7 +123,7 @@ export function InstrumentPage() {
           </Card>
 
           <Card title={`Your ${symbol.toUpperCase()} orders`} bodyClassName="p-0"
-            action={<Link to={`/demo/orders?symbol=${encodeURIComponent(symbol)}`} className="text-sm font-medium text-sky-700 hover:underline">All</Link>}>
+            action={<Link to={`/demo/orders?symbol=${encodeURIComponent(symbol)}`} className="text-sm font-medium text-indigo-600 hover:underline">All</Link>}>
             {orders.error ? <ErrorState error={orders.error} onRetry={orders.reload} />
               : !orders.data ? <Spinner />
                 : orders.data.content.length === 0 ? <EmptyState title="No orders for this instrument" />
@@ -158,7 +157,7 @@ export function InstrumentPage() {
                 ))}
               </ul>
             )}
-            <Link to="/demo/watchlist" className="mt-3 inline-block text-xs font-medium text-sky-700 hover:underline">Manage all alerts</Link>
+            <Link to="/demo/watchlist" className="mt-3 inline-block text-xs font-medium text-indigo-600 hover:underline">Manage all alerts</Link>
           </Card>
         </div>
       </div>

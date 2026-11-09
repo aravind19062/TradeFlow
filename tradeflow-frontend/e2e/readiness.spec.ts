@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { accountMenu, signOut } from './admin';
 
 // Phase 4: readiness against the running stack. Exercise verification crosses services for real:
 // a demo order (order-service → Kafka) is read by learning-service as evidence.
@@ -69,17 +70,18 @@ test('only reviewers and admins see the review queue', async ({ page }) => {
   await page.getByLabel('Email').fill('reviewer@tradeflow.dev');
   await page.getByLabel('Password').fill('Demo@12345');
   await page.getByRole('button', { name: 'Sign in' }).click();
-  await page.getByRole('navigation', { name: 'Main' }).getByRole('link', { name: 'Readiness reviews' }).click();
+  await (await accountMenu(page)).getByRole('link', { name: 'Readiness reviews' }).click();
   await expect(page.getByRole('heading', { name: 'Readiness reviews' })).toBeVisible();
-  await expect(page.getByRole('navigation', { name: 'Main' }).getByRole('link', { name: 'Admin' })).toHaveCount(0);
+  await expect((await accountMenu(page)).getByRole('link', { name: 'Admin' })).toHaveCount(0);
+  await page.keyboard.press('Escape');
 
-  await page.getByRole('button', { name: 'Sign out' }).first().click();
+  await signOut(page);
   await expect(page).toHaveURL(/\/login$/);
   await page.getByLabel('Email').fill('demo@tradeflow.dev');
   await page.getByLabel('Password').fill('Demo@12345');
   await page.getByRole('button', { name: 'Sign in' }).click();
   await expect(page.getByTestId('current-user')).toBeVisible();
-  await expect(page.getByRole('navigation', { name: 'Main' }).getByRole('link', { name: 'Readiness reviews' })).toHaveCount(0);
+  await expect((await accountMenu(page)).getByRole('link', { name: 'Readiness reviews' })).toHaveCount(0);
   const login = await page.request.post('/api/auth/login', { data: { email: 'demo@tradeflow.dev', password: 'Demo@12345' } });
   const token = (await login.json()).accessToken;
   expect((await page.request.get('/api/admin/readiness/reviews', { headers: { Authorization: `Bearer ${token}` } })).status()).toBe(403);

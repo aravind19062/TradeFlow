@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { Link, useSearchParams } from 'react-router';
-import { ChevronLeft, ChevronRight, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ListOrdered, X } from 'lucide-react';
 import { orderApi } from '../api/endpoints';
 import type { OrderResponse, OrderSide, OrderStatus, PageResponse } from '../api/types';
 import { CancelOrderButton } from '../components/CancelOrderButton';
@@ -49,7 +49,7 @@ export function OrdersPage() {
 
   return (
     <>
-      <PageHeader title="Orders" subtitle="Orders are settled asynchronously: PENDING → OPEN/FILLED/REJECTED." />
+      <PageHeader icon={<ListOrdered className="size-5" />} tone="sky" title="Orders" subtitle="Orders are settled asynchronously: PENDING → OPEN/FILLED/REJECTED." />
       <Tabs value={tab} tabs={tabs} onChange={(t) => update({ tab: t === 'open' ? undefined : t })} />
 
       <div className="mb-4 flex flex-wrap items-center gap-2">
@@ -61,12 +61,12 @@ export function OrdersPage() {
         )}
         {tab === 'history' && <>
           <select aria-label="Status filter" value={status ?? ''} onChange={(e) => update({ status: e.target.value || undefined })}
-            className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm">
+            className="rounded-lg border border-slate-300 bg-surface px-3 py-1.5 text-sm">
             <option value="">All statuses</option>
             {STATUSES.map((s) => <option key={s}>{s}</option>)}
           </select>
           <select aria-label="Side filter" value={side ?? ''} onChange={(e) => update({ side: e.target.value || undefined })}
-            className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm">
+            className="rounded-lg border border-slate-300 bg-surface px-3 py-1.5 text-sm">
             <option value="">Buy &amp; sell</option>
             <option>BUY</option><option>SELL</option>
           </select>
@@ -106,12 +106,12 @@ export function OrdersPage() {
                         {trades.data.content.map((t) => (
                           <tr key={t.id} className="hover:bg-slate-50">
                             <td className="whitespace-nowrap px-5 py-3 text-slate-500">{dateTime(t.executedAt)}</td>
-                            <td className="px-3 py-3"><Link to={`/demo/market/${t.symbol}`} className="font-semibold hover:text-sky-700">{t.symbol}</Link></td>
+                            <td className="px-3 py-3"><Link to={`/demo/market/${t.symbol}`} className="font-semibold hover:text-indigo-600">{t.symbol}</Link></td>
                             <td className="px-3 py-3"><SideBadge side={t.side} /></td>
                             <td className="px-3 py-3 text-right">{quantity(t.quantity)}</td>
                             <td className="px-3 py-3 text-right">{money(t.price)}</td>
                             <td className="px-3 py-3 text-right font-medium">{money(t.grossAmount)}</td>
-                            <td className="px-5 py-3"><Link to={`/demo/orders/${t.orderId}`} className="font-mono text-xs text-sky-700 hover:underline">{shortId(t.orderId)}</Link></td>
+                            <td className="px-5 py-3"><Link to={`/demo/orders/${t.orderId}`} className="font-mono text-xs text-indigo-600 hover:underline">{shortId(t.orderId)}</Link></td>
                           </tr>
                         ))}
                       </tbody>
@@ -144,8 +144,8 @@ function OrderTable({ orders, showCancel }: { orders: OrderResponse[]; showCance
         <tbody className="divide-y divide-slate-100">
           {orders.map((o) => (
             <tr key={o.id} className="hover:bg-slate-50" data-order-id={o.id}>
-              <td className="whitespace-nowrap px-5 py-3 text-slate-500"><Link to={`/demo/orders/${o.id}`} className="hover:text-sky-700">{dateTime(o.createdAt)}</Link></td>
-              <td className="px-3 py-3"><Link to={`/demo/market/${o.symbol}`} className="font-semibold hover:text-sky-700">{o.symbol}</Link></td>
+              <td className="whitespace-nowrap px-5 py-3 text-slate-500"><Link to={`/demo/orders/${o.id}`} className="hover:text-indigo-600">{dateTime(o.createdAt)}</Link></td>
+              <td className="px-3 py-3"><Link to={`/demo/market/${o.symbol}`} className="font-semibold hover:text-indigo-600">{o.symbol}</Link></td>
               <td className="whitespace-nowrap px-3 py-3"><SideBadge side={o.side} /> <span className="text-xs text-slate-500">{o.type}</span></td>
               <td className="px-3 py-3 text-right">{quantity(o.quantity)}</td>
               <td className="px-3 py-3 text-right">

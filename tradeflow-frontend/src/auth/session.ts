@@ -82,3 +82,13 @@ export function setStepUp(session: Session | null): void {
 export function currentStepUp(): Session | null {
   return stepUp && !isExpired(stepUp, Date.now()) ? stepUp : null;
 }
+
+/** sessionStorage key prefix for "I understand" on the Live warning (one per user, per sign-in). */
+export const LIVE_ACK_PREFIX = 'tf_live_ack_';
+
+/** Forgets every Live acknowledgement, so the warning shows again after the next sign-in. */
+export function clearLiveAcknowledgements(): void {
+  try {
+    Object.keys(sessionStorage).filter((k) => k.startsWith(LIVE_ACK_PREFIX)).forEach((k) => sessionStorage.removeItem(k));
+  } catch { /* storage unavailable: nothing to clear */ }
+}

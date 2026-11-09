@@ -5,7 +5,7 @@ import { ApiError } from '../api/client';
 import type { RegisterRequest } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
 import { Logo } from '../components/Layout';
-import { Alert, Button, SelectInput, TextInput } from '../components/ui';
+import { Alert, Button, SelectInput, TONES, TextInput } from '../components/ui';
 
 function AuthShell({ title, subtitle, children }: { title: string; subtitle: ReactNode; children: ReactNode }) {
   const features = [
@@ -15,27 +15,22 @@ function AuthShell({ title, subtitle, children }: { title: string; subtitle: Rea
   ];
   return (
     <div className="grid min-h-dvh lg:grid-cols-[1fr_minmax(0,560px)]">
-      <div className="relative hidden flex-col justify-between overflow-hidden bg-ink p-12 text-slate-300 lg:flex">
-        <div className="bg-grid pointer-events-none absolute inset-0" aria-hidden />
-        <div className="pointer-events-none absolute -left-32 top-1/4 size-[28rem] animate-float rounded-full bg-emerald-500/20 blur-[100px]" aria-hidden />
-        <div className="pointer-events-none absolute -right-20 bottom-0 size-[24rem] animate-float rounded-full bg-indigo-500/20 blur-[100px] [animation-delay:-7s]" aria-hidden />
-        <div className="pointer-events-none absolute right-1/4 top-0 size-64 animate-float rounded-full bg-cyan-400/10 blur-[80px] [animation-delay:-3s]" aria-hidden />
-
-        <div className="relative animate-enter"><Logo /></div>
+      <div className="relative hidden flex-col justify-between overflow-hidden bg-gradient-to-br from-indigo-100 via-violet-50 to-amber-50 p-12 lg:flex">
+        <div aria-hidden className="pointer-events-none absolute -right-24 top-1/3 size-80 rounded-full bg-violet-200/50" />
+        <div aria-hidden className="pointer-events-none absolute -bottom-16 left-1/4 size-56 rounded-full bg-amber-200/50" />
+        <div className="relative"><Logo /></div>
         <div className="relative max-w-lg">
-          <p className="mb-4 inline-flex animate-enter items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-medium text-slate-300 backdrop-blur">
-            <span className="size-1.5 rounded-full bg-emerald-400 shadow-[0_0_8px_#34d399]" /> Learn. Practice. Trade responsibly.
-          </p>
-          <h2 className="animate-enter text-5xl font-semibold leading-[1.08] tracking-tight text-white [animation-delay:80ms]">
-            Build skill before <span className="text-gradient">real money</span> is on the line.
+          <p className="mb-4 inline-flex rounded-full bg-surface/70 px-3 py-1 text-sm font-semibold text-indigo-700 shadow-sm">Learn. Practice. Trade responsibly.</p>
+          <h2 className="text-5xl font-extrabold leading-[1.1] tracking-tight text-slate-900">
+            Build skill before <span className="bg-gradient-to-r from-indigo-600 to-fuchsia-500 bg-clip-text text-transparent">real money</span> is on the line.
           </h2>
-          <ul className="stagger mt-10 space-y-3 text-sm">
-            {features.map(({ icon: Icon, title, text }) => (
-              <li key={title} className="group flex gap-4 rounded-2xl border border-white/5 bg-white/[0.03] p-4 backdrop-blur transition-all duration-300 hover:-translate-y-0.5 hover:border-emerald-400/20 hover:bg-white/[0.06]">
-                <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-400/20 to-cyan-500/20 text-emerald-300 ring-1 ring-emerald-400/20 transition-transform duration-300 group-hover:scale-110">
-                  <Icon className="size-5" />
+          <ul className="mt-10 space-y-5 text-sm text-slate-600">
+            {features.map(({ icon: Icon, title, text }, i) => (
+              <li key={title} className="flex gap-4 rounded-2xl bg-surface/70 p-4 shadow-sm backdrop-blur">
+                <span className={`flex size-10 shrink-0 items-center justify-center rounded-xl ${[TONES.amber.chip, TONES.indigo.chip, TONES.rose.chip][i]}`}>
+                  <Icon className="size-4.5" />
                 </span>
-                <span><span className="block font-semibold text-white">{title}</span>{text}</span>
+                <span><span className="block font-medium text-slate-900">{title}</span>{text}</span>
               </li>
             ))}
           </ul>
@@ -44,10 +39,10 @@ function AuthShell({ title, subtitle, children }: { title: string; subtitle: Rea
       </div>
       <div className="relative flex items-center justify-center px-4 py-12 sm:px-8">
         <div className="w-full max-w-sm animate-enter">
-          <div className="mb-8 lg:hidden"><Logo dark={false} /></div>
-          <h1 className="text-3xl font-semibold tracking-tight text-slate-900">{title}</h1>
+          <div className="mb-8 lg:hidden"><Logo /></div>
+          <h1 className="text-3xl font-bold tracking-tight text-slate-900">{title}</h1>
           <p className="mt-1.5 text-sm text-slate-500">{subtitle}</p>
-          <div className="mt-8 rounded-2xl border border-slate-200/80 bg-white/80 p-6 shadow-soft backdrop-blur">{children}</div>
+          <div className="mt-8 rounded-2xl border border-slate-200/80 bg-surface p-6 shadow-soft">{children}</div>
         </div>
       </div>
     </div>
@@ -124,7 +119,7 @@ export function LoginPage() {
           <Button type="submit" className="w-full" loading={busy}>Verify and sign in</Button>
         </form>
         <div className="mt-4 flex justify-between text-sm">
-          <button className="font-medium text-sky-700 hover:underline" onClick={() => { setUseRecovery((r) => !r); setCode(''); setError(null); }}>
+          <button className="font-medium text-indigo-600 hover:underline" onClick={() => { setUseRecovery((r) => !r); setCode(''); setError(null); }}>
             {useRecovery ? 'Use authenticator code' : 'Use a recovery code'}
           </button>
           <button className="text-slate-500 hover:underline" onClick={() => { setMfa(null); setCode(''); setError(null); }}>Start over</button>
@@ -138,7 +133,7 @@ export function LoginPage() {
   }
 
   return (
-    <AuthShell title="Sign in" subtitle={<>New to TradeFlow? <Link to="/register" className="font-medium text-sky-700 hover:underline">Create an account</Link></>}>
+    <AuthShell title="Sign in" subtitle={<>New to TradeFlow? <Link to="/register" className="font-medium text-indigo-600 hover:underline">Create an account</Link></>}>
       {logoutReason === 'expired' && !error && (
         <div className="mb-4"><Alert tone="warning">Your session has ended. Please sign in again.</Alert></div>
       )}
@@ -195,7 +190,7 @@ export function RegisterPage() {
   const fe = (f: string) => error?.fieldError(f);
 
   return (
-    <AuthShell title="Create your account" subtitle={<>Already registered? <Link to="/login" className="font-medium text-sky-700 hover:underline">Sign in</Link></>}>
+    <AuthShell title="Create your account" subtitle={<>Already registered? <Link to="/login" className="font-medium text-indigo-600 hover:underline">Sign in</Link></>}>
       {error && (
         <div className="mb-4">
           <Alert tone="error">{error.code === 'VALIDATION_FAILED' ? 'Please fix the highlighted fields.' : error.message}</Alert>
@@ -207,7 +202,7 @@ export function RegisterPage() {
         <TextInput label="Password" type="password" autoComplete="new-password" value={form.password} onChange={set('password')}
           maxLength={72} hint="8–72 characters" error={fe('password')} />
 
-        <button type="button" className="text-sm font-medium text-sky-700 hover:underline" onClick={() => setShowOptional((s) => !s)}>
+        <button type="button" className="text-sm font-medium text-indigo-600 hover:underline" onClick={() => setShowOptional((s) => !s)}>
           {showOptional ? 'Hide' : 'Add'} optional profile details
         </button>
         {showOptional && (
