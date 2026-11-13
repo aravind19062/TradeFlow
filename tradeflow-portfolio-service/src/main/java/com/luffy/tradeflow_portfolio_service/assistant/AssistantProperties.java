@@ -7,7 +7,7 @@ import java.time.Duration;
 /**
  * @param provider              {@code none} (deterministic answers only) or {@code anthropic}
  * @param apiKey                Anthropic API key; read from ANTHROPIC_API_KEY, never committed
- * @param model                 Claude model id
+ * @param model                 LLM model id
  * @param maxTokens             cap per model response (thinking + answer)
  * @param requestTimeout        HTTP timeout for one model call
  * @param overallDeadline       wall-clock budget for one question including tool rounds

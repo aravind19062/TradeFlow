@@ -83,7 +83,7 @@ flowchart LR
     K --> P & O
     DB[(PostgreSQL: one database per service)]
     U & M1 & M2 & O & P --- DB
-    P -. "optional tool-use loop" .-> LLM[[Claude API]]
+    P -. "optional tool-use loop" .-> LLM[[LLM API]]
 ```
 
 * **REST for queries, Kafka for state changes.** Synchronous calls go through **OpenFeign**, resolved by
@@ -303,7 +303,7 @@ Errors use RFC 9457 `ProblemDetail` with a stable `code`, e.g. `VALIDATION_FAILE
 | `SPRING_DATASOURCE_URL`, `TRADEFLOW_DB_USERNAME`, `TRADEFLOW_DB_PASSWORD` | local container values | |
 | `KAFKA_BOOTSTRAP_SERVERS` | `localhost:9094` | `kafka:29092` inside Compose |
 | `EUREKA_URL` | `http://localhost:8761/eureka` | |
-| `TRADEFLOW_AI_PROVIDER`, `ANTHROPIC_API_KEY`, `TRADEFLOW_AI_MODEL` | `none`, unset, `claude-opus-5-5` | see the AI section |
+| `TRADEFLOW_AI_PROVIDER`, `ANTHROPIC_API_KEY`, `TRADEFLOW_AI_MODEL` | `none`, unset, the default model in `application.properties` | see the AI section |
 | `TRADEFLOW_LIVE_BROKER` | `none` | `fyers` = read-only Fyers link (phase 6; no real orders). Needs the three values below; see [docs/FYERS_SETUP.md](docs/FYERS_SETUP.md) |
 | `TRADEFLOW_FYERS_APP_ID`, `TRADEFLOW_FYERS_SECRET_KEY`, `TRADEFLOW_FYERS_REDIRECT_URI` | unset, unset, `http://localhost:3000/live/broker/callback` | From your Fyers API app (created without order permission). The secret belongs in `.env` only |
 
@@ -395,7 +395,7 @@ Errors use RFC 9457 `ProblemDetail` with a stable `code`, e.g. `VALIDATION_FAILE
 
 | Mode | When | Answer |
 |---|---|---|
-| `LLM` | `TRADEFLOW_AI_PROVIDER=anthropic` + key | Claude (`claude-opus-5-5`, Anthropic Java SDK, low effort, server-side refusal fallback) writes the answer from tool data: `AI_GENERATED_EXPLANATION` |
+| `LLM` | `TRADEFLOW_AI_PROVIDER=anthropic` + key | The LLM (Anthropic Java SDK, model from `TRADEFLOW_AI_MODEL`, low effort, server-side refusal fallback) writes the answer from tool data: `AI_GENERATED_EXPLANATION` |
 | `DETERMINISTIC` | no provider, or any provider failure (bad key, 429, timeout, refusal, truncated output) | Templates filled with the same tool data: `DETERMINISTIC_TEMPLATE`, with a `notice` explaining why |
 | `REFUSED` | trading/money-moving requests | Fixed refusal |
 
@@ -413,7 +413,7 @@ The real provider has only been tested against a local fake of the Messages API.
    ANTHROPIC_API_KEY=<your key>
    ```
 3. `make up`. Then `docker compose logs portfolio-service | grep "AI assistant"` should print
-   `AI assistant: Anthropic model claude-opus-5-5`; the key itself is never logged.
+   `AI assistant: Anthropic model <model id>`; the key itself is never logged.
 4. Ask one question (costs a few cents at most; low effort and capped tokens):
    ```bash
    TOKEN=$(curl -s localhost:8000/api/auth/login -H 'Content-Type: application/json' \

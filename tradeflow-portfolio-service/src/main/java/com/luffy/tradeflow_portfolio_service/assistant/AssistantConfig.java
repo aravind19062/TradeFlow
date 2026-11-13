@@ -15,7 +15,7 @@ import java.time.Clock;
 public class AssistantConfig {
 
     /**
-     * Registers Claude only when explicitly enabled and a key is present. Otherwise no
+     * Registers the LLM provider only when explicitly enabled and a key is present. Otherwise no
      * LlmProvider bean exists and the assistant answers deterministically.
      */
     @Bean

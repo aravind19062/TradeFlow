@@ -15,7 +15,7 @@ public final class AssistantModels {
     }
 
     /**
-     * How the answer was produced. LLM: Claude wrote {@code answer} from the facts.
+     * How the answer was produced. LLM: the language model wrote {@code answer} from the facts.
      * DETERMINISTIC: a template filled with the facts; no AI involved.
      * REFUSED: the request asked for something the assistant must not do.
      */

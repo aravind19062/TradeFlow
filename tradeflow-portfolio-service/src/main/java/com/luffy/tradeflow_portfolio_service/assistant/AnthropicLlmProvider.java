@@ -28,7 +28,7 @@ import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 
 /**
- * Claude via the official Anthropic Java SDK, with a manual tool-use loop over the
+ * LLM provider backed by the official Anthropic Java SDK, with a manual tool-use loop over the
  * read-only {@link AssistantToolbox} tools. Usage is kept small: low effort, a
  * capped number of tool rounds, one SDK retry, per-call timeouts and an overall
  * deadline. Any failure surfaces as {@link LlmUnavailableException} so the
